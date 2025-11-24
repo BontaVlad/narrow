@@ -1,0 +1,58 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+
+env:
+  GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+jobs:
+  tests:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        version:
+          - binary:stable
+          - devel
+        os:
+          - ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    # Cache Nim compiler and packages
+    - name: Cache Nim
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.nimble
+          ~/.cache/nim
+        key: ${{ runner.os }}-nim-${{ matrix.version }}-${{ hashFiles('*.nimble') }}
+        restore-keys: |
+          ${{ runner.os }}-nim-${{ matrix.version }}-
+          ${{ runner.os }}-nim-
+
+    - uses: iffy/install-nim@v5
+      with:
+        version: ${{ matrix.version }}
+
+    - uses: extractions/setup-just@v2
+
+    # Cache apt packages (clang and libclang-dev)
+    - name: Cache apt packages
+      uses: actions/cache@v3
+      id: cache-apt
+      with:
+        path: /var/cache/apt/archives
+        key: ${{ runner.os }}-apt-${{ hashFiles('.github/apt-packages.txt') }}
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        # sudo apt-get install -y clang libclang-dev
+
+    - name: Test and Benchmark
+      run: |
+        nimble install -y
+        nimble test
+        # just benchmark
