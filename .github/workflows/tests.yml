@@ -18,9 +18,8 @@ jobs:
         os:
           - ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
 
-    # Cache Nim compiler and packages
     - name: Cache Nim
       uses: actions/cache@v3
       with:
@@ -38,21 +37,33 @@ jobs:
 
     - uses: extractions/setup-just@v2
 
-    # Cache apt packages (clang and libclang-dev)
-    - name: Cache apt packages
-      uses: actions/cache@v3
-      id: cache-apt
-      with:
-        path: /var/cache/apt/archives
-        key: ${{ runner.os }}-apt-${{ hashFiles('.github/apt-packages.txt') }}
-
-    - name: Install dependencies
+    - name: Install Apache Arrow repository
       run: |
+        wget https://apache.jfrog.io/artifactory/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
+        sudo apt-get install -y ./apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
         sudo apt-get update
-        sudo apt-get install -y clang libclang-dev
 
-    - name: Test and Benchmark
+    - name: Cache apt packages
+      uses: awalsh128/cache-apt-pkgs-action@latest
+      with:
+        packages: clang libclang-dev libarrow-dev libarrow-glib-dev libglib2.0-dev libgirepository1.0-dev pkg-config
+        version: 1.0
+
+    - name: Verify installations
       run: |
-        nimble install -y
-        nimble test
-        # just benchmark
+        echo "=== Arrow GLib ==="
+        pkg-config --modversion arrow-glib
+        echo "=== GObject ==="
+        pkg-config --modversion gobject-2.0
+        echo "=== GLib ==="
+        pkg-config --modversion glib-2.0
+        echo "=== Clang ==="
+        clang --version
+        echo "=== Include paths ==="
+        pkg-config --cflags-only-I arrow-glib gobject-2.0 glib-2.0
+
+    - name: Install Nim dependencies
+      run: nimble install -y
+
+    - name: Test
+      run: nimble test
