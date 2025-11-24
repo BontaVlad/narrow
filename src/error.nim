@@ -7,7 +7,7 @@ type
   GErrorWrapper = object
     error: ptr GError
 
-proc `=destroy`(x: var GErrorWrapper) =
+proc `=destroy`(x: GErrorWrapper) =
   ## Automatic cleanup when the wrapper goes out of scope
   if not isNil(x.error):
     gErrorFree(x.error)

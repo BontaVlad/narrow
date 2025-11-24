@@ -646,6 +646,9 @@ type
     GARROW_S3_LOG_LEVEL_INFO = 4, GARROW_S3_LOG_LEVEL_DEBUG = 5,
     GARROW_S3_LOG_LEVEL_TRACE = 6
 type
+  enum_GConnectFlags* {.size: sizeof(cuint).} = enum
+    G_CONNECT_DEFAULT = 0, G_CONNECT_AFTER = 1, G_CONNECT_SWAPPED = 2
+type
   enum_GParamFlags* {.size: sizeof(cint).} = enum
     G_PARAM_DEPRECATED = -2147483648, G_PARAM_READABLE = 1,
     G_PARAM_WRITABLE = 2, G_PARAM_READWRITE = 3, G_PARAM_CONSTRUCT = 4,
@@ -1654,14 +1657,66 @@ type
   GPathBuf_listautoptr* = ptr GList ## Generated based on /usr/include/glib-2.0/glib/glib-autocleanups.h:106:1
   GPathBuf_slistautoptr* = ptr GSList ## Generated based on /usr/include/glib-2.0/glib/glib-autocleanups.h:106:1
   GPathBuf_queueautoptr* = ptr GQueue ## Generated based on /usr/include/glib-2.0/glib/glib-autocleanups.h:106:1
+  GObject* = struct_GObject  ## Generated based on /usr/include/glib-2.0/gobject/gobject.h:192:42
+  struct_GObject* {.pure, inheritable, bycopy.} = object
+    g_type_instance*: GTypeInstance ## Generated based on /usr/include/glib-2.0/gobject/gobject.h:252:9
+    ref_count*: guint
+    qdata*: ptr GData
+  GObjectClass* = struct_GObjectClass ## Generated based on /usr/include/glib-2.0/gobject/gobject.h:193:42
+  struct_GObjectClass* {.pure, inheritable, bycopy.} = object
+    g_type_class*: GTypeClass ## Generated based on /usr/include/glib-2.0/gobject/gobject.h:322:9
+    construct_properties*: ptr GSList
+    constructor*: proc (a0: GType; a1: guint; a2: ptr GObjectConstructParam): ptr GObject {.
+        cdecl.}
+    set_property*: proc (a0: ptr GObject; a1: guint; a2: ptr GValue;
+                         a3: ptr GParamSpec): void {.cdecl.}
+    get_property*: proc (a0: ptr GObject; a1: guint; a2: ptr GValue;
+                         a3: ptr GParamSpec): void {.cdecl.}
+    dispose*: proc (a0: ptr GObject): void {.cdecl.}
+    finalize*: proc (a0: ptr GObject): void {.cdecl.}
+    dispatch_properties_changed*: proc (a0: ptr GObject; a1: guint;
+                                        a2: ptr ptr GParamSpec): void {.cdecl.}
+    notify*: proc (a0: ptr GObject; a1: ptr GParamSpec): void {.cdecl.}
+    constructed*: proc (a0: ptr GObject): void {.cdecl.}
+    flags*: gsize
+    n_construct_properties*: gsize
+    pspecs*: gpointer
+    n_pspecs*: gsize
+    pdummy*: array[3'i64, gpointer]
+  GInitiallyUnowned* = struct_GObject ## Generated based on /usr/include/glib-2.0/gobject/gobject.h:194:42
+  GInitiallyUnownedClass* = struct_GObjectClass ## Generated based on /usr/include/glib-2.0/gobject/gobject.h:195:42
+  GObjectConstructParam* = struct_GObjectConstructParam ## Generated based on /usr/include/glib-2.0/gobject/gobject.h:196:42
+  struct_GObjectConstructParam* {.pure, inheritable, bycopy.} = object
+    pspec*: ptr GParamSpec   ## Generated based on /usr/include/glib-2.0/gobject/gobject.h:376:8
+    value*: ptr GValue
+  GObjectGetPropertyFunc* = proc (a0: ptr GObject; a1: guint; a2: ptr GValue;
+                                  a3: ptr GParamSpec): void {.cdecl.} ## Generated based on /usr/include/glib-2.0/gobject/gobject.h:207:16
+  GValue* = struct_GValue    ## Generated based on /usr/include/glib-2.0/gobject/gtype.h:431:41
+  GParamSpec* = struct_GParamSpec ## Generated based on /usr/include/glib-2.0/gobject/gparam.h:204:33
+  GObjectSetPropertyFunc* = proc (a0: ptr GObject; a1: guint; a2: ptr GValue;
+                                  a3: ptr GParamSpec): void {.cdecl.} ## Generated based on /usr/include/glib-2.0/gobject/gobject.h:221:16
+  GObjectFinalizeFunc* = proc (a0: ptr GObject): void {.cdecl.} ## Generated based on /usr/include/glib-2.0/gobject/gobject.h:231:16
+  GWeakNotify* = proc (a0: gpointer; a1: ptr GObject): void {.cdecl.} ## Generated based on /usr/include/glib-2.0/gobject/gobject.h:249:16
+  GTypeInstance* = struct_GTypeInstance ## Generated based on /usr/include/glib-2.0/gobject/gtype.h:436:41
+  GTypeClass* = struct_GTypeClass ## Generated based on /usr/include/glib-2.0/gobject/gtype.h:434:41
   GType* = gsize             ## Generated based on /usr/include/glib-2.0/gobject/gtype.h:427:41
+  GParameter* = struct_GParameter ## Generated based on /usr/include/glib-2.0/gobject/gparam.h:206:28
+  GToggleNotify* = proc (a0: gpointer; a1: ptr GObject; a2: gboolean): void {.
+      cdecl.}                ## Generated based on /usr/include/glib-2.0/gobject/gobject.h:551:16
+  GClosure* = struct_GClosure ## Generated based on /usr/include/glib-2.0/gobject/gclosure.h:77:28
+  GCallback* = proc (): void {.cdecl.} ## Generated based on /usr/include/glib-2.0/gobject/gclosure.h:92:17
+  GConnectFlags* = enum_GConnectFlags ## Generated based on /usr/include/glib-2.0/gobject/gsignal.h:200:3
+  struct_GWeakRef_priv_t* {.union, bycopy.} = object
+    p*: gpointer
+  struct_GWeakRef* {.pure, inheritable, bycopy.} = object
+    priv*: struct_GWeakRef_priv_t ## Generated based on /usr/include/glib-2.0/gobject/gobject.h:920:9
+  GWeakRef* = struct_GWeakRef ## Generated based on /usr/include/glib-2.0/gobject/gobject.h:923:3
   GArrowArray* = struct_GArrowArray ## Generated based on /usr/include/arrow-glib/basic-array-definition.h:30:1
   struct_GArrowArray* {.pure, inheritable, bycopy.} = object
     parent_instance*: GObject ## Generated based on /usr/include/arrow-glib/basic-array-definition.h:30:1
   GArrowArrayClass* = struct_GArrowArrayClass ## Generated based on /usr/include/arrow-glib/basic-array-definition.h:30:1
   struct_GArrowArrayClass* {.pure, inheritable, bycopy.} = object
     parent_class*: GObjectClass ## Generated based on /usr/include/arrow-glib/basic-array-definition.h:31:8
-  GObject* = struct_GObject  ## Generated based on /usr/include/glib-2.0/gobject/gobject.h:192:42
   GArrowArray_autoptr* = ptr GArrowArray ## Generated based on /usr/include/arrow-glib/basic-array-definition.h:30:1
   GArrowArray_listautoptr* = ptr GList ## Generated based on /usr/include/arrow-glib/basic-array-definition.h:30:1
   GArrowArray_slistautoptr* = ptr GSList ## Generated based on /usr/include/arrow-glib/basic-array-definition.h:30:1
@@ -1670,7 +1725,6 @@ type
   GArrowArrayClass_listautoptr* = ptr GList ## Generated based on /usr/include/arrow-glib/basic-array-definition.h:30:1
   GArrowArrayClass_slistautoptr* = ptr GSList ## Generated based on /usr/include/arrow-glib/basic-array-definition.h:30:1
   GArrowArrayClass_queueautoptr* = ptr GQueue ## Generated based on /usr/include/arrow-glib/basic-array-definition.h:30:1
-  GObjectClass* = struct_GObjectClass ## Generated based on /usr/include/glib-2.0/gobject/gobject.h:193:42
   GArrowExtensionArray* = struct_GArrowExtensionArray ## Generated based on /usr/include/arrow-glib/basic-array-definition.h:38:1
   struct_GArrowExtensionArray* {.pure, inheritable, bycopy.} = object
     parent_instance*: GArrowArray ## Generated based on /usr/include/arrow-glib/basic-array-definition.h:38:1
@@ -5886,30 +5940,52 @@ type
     compiler_data*: struct_pthread_mutex_s ## Generated based on /usr/include/bits/pthreadtypes.h:67:9
     compiler_size*: array[40'i64, cschar]
     compiler_align*: clong
-  struct_GObject* {.pure, inheritable, bycopy.} = object
-    g_type_instance*: GTypeInstance ## Generated based on /usr/include/glib-2.0/gobject/gobject.h:252:9
-    ref_count*: guint
+  struct_GValue_data_t* {.union, bycopy.} = object
+    v_int*: gint
+    v_uint*: guint
+    v_long*: glong
+    v_ulong*: gulong
+    v_int64*: gint64
+    v_uint64*: guint64
+    v_float*: gfloat
+    v_double*: gdouble
+    v_pointer*: gpointer
+  struct_GValue* {.pure, inheritable, bycopy.} = object
+    g_type*: GType           ## Generated based on /usr/include/glib-2.0/gobject/gvalue.h:131:8
+    data*: array[2'i64, struct_GValue_data_t]
+  struct_GParamSpec* {.pure, inheritable, bycopy.} = object
+    g_type_instance*: GTypeInstance ## Generated based on /usr/include/glib-2.0/gobject/gparam.h:209:8
+    name*: cstring
+    flags*: GParamFlags
+    value_type*: GType
+    owner_type*: GType
+    internal_nick*: cstring
+    internal_blurb*: cstring
     qdata*: ptr GData
-  struct_GObjectClass* {.pure, inheritable, bycopy.} = object
-    g_type_class*: GTypeClass ## Generated based on /usr/include/glib-2.0/gobject/gobject.h:322:9
-    construct_properties*: ptr GSList
-    constructor*: proc (a0: GType; a1: guint; a2: ptr GObjectConstructParam): ptr GObject {.
-        cdecl.}
-    set_property*: proc (a0: ptr GObject; a1: guint; a2: ptr GValue;
-                         a3: ptr GParamSpec): void {.cdecl.}
-    get_property*: proc (a0: ptr GObject; a1: guint; a2: ptr GValue;
-                         a3: ptr GParamSpec): void {.cdecl.}
-    dispose*: proc (a0: ptr GObject): void {.cdecl.}
-    finalize*: proc (a0: ptr GObject): void {.cdecl.}
-    dispatch_properties_changed*: proc (a0: ptr GObject; a1: guint;
-                                        a2: ptr ptr GParamSpec): void {.cdecl.}
-    notify*: proc (a0: ptr GObject; a1: ptr GParamSpec): void {.cdecl.}
-    constructed*: proc (a0: ptr GObject): void {.cdecl.}
-    flags*: gsize
-    n_construct_properties*: gsize
-    pspecs*: gpointer
-    n_pspecs*: gsize
-    pdummy*: array[3'i64, gpointer]
+    ref_count*: guint
+    param_id*: guint
+  struct_GTypeInstance* {.pure, inheritable, bycopy.} = object
+    g_class*: ptr GTypeClass ## Generated based on /usr/include/glib-2.0/gobject/gtype.h:461:8
+  struct_GTypeClass* {.pure, inheritable, bycopy.} = object
+    g_type*: GType           ## Generated based on /usr/include/glib-2.0/gobject/gtype.h:451:8
+  struct_GParameter* {.pure, inheritable, bycopy.} = object
+    name*: cstring           ## Generated based on /usr/include/glib-2.0/gobject/gparam.h:280:8
+    value*: GValue
+  struct_GClosure* {.pure, inheritable, bycopy.} = object
+    ref_count* {.bitsize: 15'i64.}: guint ## Generated based on /usr/include/glib-2.0/gobject/gclosure.h:173:8
+    meta_marshal_nouse* {.bitsize: 1'i64.}: guint
+    n_guards* {.bitsize: 1'i64.}: guint
+    n_fnotifiers* {.bitsize: 2'i64.}: guint
+    n_inotifiers* {.bitsize: 8'i64.}: guint
+    in_inotify* {.bitsize: 1'i64.}: guint
+    floating* {.bitsize: 1'i64.}: guint
+    derivative_flag* {.bitsize: 1'i64.}: guint
+    in_marshal* {.bitsize: 1'i64.}: guint
+    is_invalid* {.bitsize: 1'i64.}: guint
+    marshal*: proc (a0: ptr GClosure; a1: ptr GValue; a2: guint; a3: ptr GValue;
+                    a4: gpointer; a5: gpointer): void {.cdecl.}
+    data*: gpointer
+    notifiers*: ptr GClosureNotifyData
   struct_GOutputStream* {.pure, inheritable, bycopy.} = object
     parent_instance*: GObject ## Generated based on /usr/include/glib-2.0/gio/goutputstream.h:44:8
     priv*: ptr GOutputStreamPrivate
@@ -5952,11 +6028,8 @@ type
     compiler_spins*: cshort
     compiler_elision*: cshort
     compiler_list*: compiler_pthread_list_t
-  GTypeInstance* = struct_GTypeInstance ## Generated based on /usr/include/glib-2.0/gobject/gtype.h:436:41
-  GTypeClass* = struct_GTypeClass ## Generated based on /usr/include/glib-2.0/gobject/gtype.h:434:41
-  GObjectConstructParam* = struct_GObjectConstructParam ## Generated based on /usr/include/glib-2.0/gobject/gobject.h:196:42
-  GValue* = struct_GValue    ## Generated based on /usr/include/glib-2.0/gobject/gtype.h:431:41
-  GParamSpec* = struct_GParamSpec ## Generated based on /usr/include/glib-2.0/gobject/gparam.h:204:33
+  GParamFlags* = enum_GParamFlags ## Generated based on /usr/include/glib-2.0/gobject/gparam.h:172:3
+  GClosureNotifyData* = struct_GClosureNotifyData ## Generated based on /usr/include/glib-2.0/gobject/gclosure.h:78:37
   GOutputStreamPrivate* = struct_GOutputStreamPrivate ## Generated based on /usr/include/glib-2.0/gio/goutputstream.h:42:39
   GInputStreamPrivate* = struct_GInputStreamPrivate ## Generated based on /usr/include/glib-2.0/gio/ginputstream.h:42:38
   GCancellable* = struct_GCancellable ## Generated based on /usr/include/glib-2.0/gio/giotypes.h:40:47
@@ -5964,44 +6037,16 @@ type
                                a2: gpointer): void {.cdecl.} ## Generated based on /usr/include/glib-2.0/gio/giotypes.h:190:16
   GAsyncResult* = struct_GAsyncResult ## Generated based on /usr/include/glib-2.0/gio/giotypes.h:36:47
   compiler_pthread_list_t* = struct_pthread_internal_list ## Generated based on /usr/include/bits/thread-shared-types.h:55:3
-  struct_GTypeInstance* {.pure, inheritable, bycopy.} = object
-    g_class*: ptr GTypeClass ## Generated based on /usr/include/glib-2.0/gobject/gtype.h:461:8
-  struct_GTypeClass* {.pure, inheritable, bycopy.} = object
-    g_type*: GType           ## Generated based on /usr/include/glib-2.0/gobject/gtype.h:451:8
-  struct_GObjectConstructParam* {.pure, inheritable, bycopy.} = object
-    pspec*: ptr GParamSpec   ## Generated based on /usr/include/glib-2.0/gobject/gobject.h:376:8
-    value*: ptr GValue
-  struct_GValue_data_t* {.union, bycopy.} = object
-    v_int*: gint
-    v_uint*: guint
-    v_long*: glong
-    v_ulong*: gulong
-    v_int64*: gint64
-    v_uint64*: guint64
-    v_float*: gfloat
-    v_double*: gdouble
-    v_pointer*: gpointer
-  struct_GValue* {.pure, inheritable, bycopy.} = object
-    g_type*: GType           ## Generated based on /usr/include/glib-2.0/gobject/gvalue.h:131:8
-    data*: array[2'i64, struct_GValue_data_t]
-  struct_GParamSpec* {.pure, inheritable, bycopy.} = object
-    g_type_instance*: GTypeInstance ## Generated based on /usr/include/glib-2.0/gobject/gparam.h:209:8
-    name*: cstring
-    flags*: GParamFlags
-    value_type*: GType
-    owner_type*: GType
-    internal_nick*: cstring
-    internal_blurb*: cstring
-    qdata*: ptr GData
-    ref_count*: guint
-    param_id*: guint
+  struct_GClosureNotifyData* {.pure, inheritable, bycopy.} = object
+    data*: gpointer          ## Generated based on /usr/include/glib-2.0/gobject/gclosure.h:167:8
+    notify*: GClosureNotify
   struct_GCancellable* {.pure, inheritable, bycopy.} = object
     parent_instance*: GObject ## Generated based on /usr/include/glib-2.0/gio/gcancellable.h:44:8
     priv*: ptr GCancellablePrivate
   struct_pthread_internal_list* {.pure, inheritable, bycopy.} = object
     compiler_prev*: ptr struct_pthread_internal_list ## Generated based on /usr/include/bits/thread-shared-types.h:51:16
     compiler_next*: ptr struct_pthread_internal_list
-  GParamFlags* = enum_GParamFlags ## Generated based on /usr/include/glib-2.0/gobject/gparam.h:172:3
+  GClosureNotify* = proc (a0: gpointer; a1: ptr GClosure): void {.cdecl.} ## Generated based on /usr/include/glib-2.0/gobject/gclosure.h:101:17
   GCancellablePrivate* = struct_GCancellablePrivate ## Generated based on /usr/include/glib-2.0/gio/gcancellable.h:42:37
 when 0 is static:
   const
@@ -11390,6 +11435,177 @@ proc g_cond_free*(cond: ptr GCond): void {.cdecl, importc: "g_cond_free".}
 proc g_cond_timed_wait*(cond: ptr GCond; mutex: ptr GMutex;
                         abs_time: ptr GTimeVal): gboolean {.cdecl,
     importc: "g_cond_timed_wait".}
+proc g_initially_unowned_get_type*(): GType {.cdecl,
+    importc: "g_initially_unowned_get_type".}
+proc g_object_class_install_property*(oclass: ptr GObjectClass;
+                                      property_id: guint; pspec: ptr GParamSpec): void {.
+    cdecl, importc: "g_object_class_install_property".}
+proc g_object_class_find_property*(oclass: ptr GObjectClass;
+                                   property_name: cstring): ptr GParamSpec {.
+    cdecl, importc: "g_object_class_find_property".}
+proc g_object_class_list_properties*(oclass: ptr GObjectClass;
+                                     n_properties: ptr guint): ptr ptr GParamSpec {.
+    cdecl, importc: "g_object_class_list_properties".}
+proc g_object_class_override_property*(oclass: ptr GObjectClass;
+                                       property_id: guint; name: cstring): void {.
+    cdecl, importc: "g_object_class_override_property".}
+proc g_object_class_install_properties*(oclass: ptr GObjectClass;
+                                        n_pspecs: guint;
+                                        pspecs: ptr ptr GParamSpec): void {.
+    cdecl, importc: "g_object_class_install_properties".}
+proc g_object_interface_install_property*(g_iface: gpointer;
+    pspec: ptr GParamSpec): void {.cdecl, importc: "g_object_interface_install_property".}
+proc g_object_interface_find_property*(g_iface: gpointer; property_name: cstring): ptr GParamSpec {.
+    cdecl, importc: "g_object_interface_find_property".}
+proc g_object_interface_list_properties*(g_iface: gpointer;
+    n_properties_p: ptr guint): ptr ptr GParamSpec {.cdecl,
+    importc: "g_object_interface_list_properties".}
+proc g_object_get_type*(): GType {.cdecl, importc: "g_object_get_type".}
+proc g_object_new*(object_type: GType; first_property_name: cstring): gpointer {.
+    cdecl, varargs, importc: "g_object_new".}
+proc g_object_new_with_properties*(object_type: GType; n_properties: guint;
+                                   names: ptr UncheckedArray[cstring];
+                                   values: ptr UncheckedArray[GValue]): ptr GObject {.
+    cdecl, importc: "g_object_new_with_properties".}
+proc g_object_newv*(object_type: GType; n_parameters: guint;
+                    parameters: ptr GParameter): gpointer {.cdecl,
+    importc: "g_object_newv".}
+proc g_object_new_valist*(object_type: GType; first_property_name: cstring): ptr GObject {.
+    cdecl, varargs, importc: "g_object_new_valist".}
+proc g_object_set*(object_arg: gpointer; first_property_name: cstring): void {.
+    cdecl, varargs, importc: "g_object_set".}
+proc g_object_get*(object_arg: gpointer; first_property_name: cstring): void {.
+    cdecl, varargs, importc: "g_object_get".}
+proc g_object_connect*(object_arg: gpointer; signal_spec: cstring): gpointer {.
+    cdecl, varargs, importc: "g_object_connect".}
+proc g_object_disconnect*(object_arg: gpointer; signal_spec: cstring): void {.
+    cdecl, varargs, importc: "g_object_disconnect".}
+proc g_object_setv*(object_arg: ptr GObject; n_properties: guint;
+                    names: ptr UncheckedArray[cstring];
+                    values: ptr UncheckedArray[GValue]): void {.cdecl,
+    importc: "g_object_setv".}
+proc g_object_set_valist*(object_arg: ptr GObject; first_property_name: cstring): void {.
+    cdecl, varargs, importc: "g_object_set_valist".}
+proc g_object_getv*(object_arg: ptr GObject; n_properties: guint;
+                    names: ptr UncheckedArray[cstring];
+                    values: ptr UncheckedArray[GValue]): void {.cdecl,
+    importc: "g_object_getv".}
+proc g_object_get_valist*(object_arg: ptr GObject; first_property_name: cstring): void {.
+    cdecl, varargs, importc: "g_object_get_valist".}
+proc g_object_set_property*(object_arg: ptr GObject; property_name: cstring;
+                            value: ptr GValue): void {.cdecl,
+    importc: "g_object_set_property".}
+proc g_object_get_property*(object_arg: ptr GObject; property_name: cstring;
+                            value: ptr GValue): void {.cdecl,
+    importc: "g_object_get_property".}
+proc g_object_freeze_notify*(object_arg: ptr GObject): void {.cdecl,
+    importc: "g_object_freeze_notify".}
+proc g_object_notify*(object_arg: ptr GObject; property_name: cstring): void {.
+    cdecl, importc: "g_object_notify".}
+proc g_object_notify_by_pspec*(object_arg: ptr GObject; pspec: ptr GParamSpec): void {.
+    cdecl, importc: "g_object_notify_by_pspec".}
+proc g_object_thaw_notify*(object_arg: ptr GObject): void {.cdecl,
+    importc: "g_object_thaw_notify".}
+proc g_object_is_floating*(object_arg: gpointer): gboolean {.cdecl,
+    importc: "g_object_is_floating".}
+proc g_object_ref_sink*(object_arg: gpointer): gpointer {.cdecl,
+    importc: "g_object_ref_sink".}
+proc g_object_take_ref*(object_arg: gpointer): gpointer {.cdecl,
+    importc: "g_object_take_ref".}
+proc g_object_ref*(object_arg: gpointer): gpointer {.cdecl,
+    importc: "g_object_ref".}
+proc g_object_unref*(object_arg: gpointer): void {.cdecl,
+    importc: "g_object_unref".}
+proc g_object_weak_ref*(object_arg: ptr GObject; notify: GWeakNotify;
+                        data: gpointer): void {.cdecl,
+    importc: "g_object_weak_ref".}
+proc g_object_weak_unref*(object_arg: ptr GObject; notify: GWeakNotify;
+                          data: gpointer): void {.cdecl,
+    importc: "g_object_weak_unref".}
+proc g_object_add_weak_pointer*(object_arg: ptr GObject;
+                                weak_pointer_location: ptr gpointer): void {.
+    cdecl, importc: "g_object_add_weak_pointer".}
+proc g_object_remove_weak_pointer*(object_arg: ptr GObject;
+                                   weak_pointer_location: ptr gpointer): void {.
+    cdecl, importc: "g_object_remove_weak_pointer".}
+proc g_object_add_toggle_ref*(object_arg: ptr GObject; notify: GToggleNotify;
+                              data: gpointer): void {.cdecl,
+    importc: "g_object_add_toggle_ref".}
+proc g_object_remove_toggle_ref*(object_arg: ptr GObject; notify: GToggleNotify;
+                                 data: gpointer): void {.cdecl,
+    importc: "g_object_remove_toggle_ref".}
+proc g_object_get_qdata*(object_arg: ptr GObject; quark: GQuark): gpointer {.
+    cdecl, importc: "g_object_get_qdata".}
+proc g_object_set_qdata*(object_arg: ptr GObject; quark: GQuark; data: gpointer): void {.
+    cdecl, importc: "g_object_set_qdata".}
+proc g_object_set_qdata_full*(object_arg: ptr GObject; quark: GQuark;
+                              data: gpointer; destroy: GDestroyNotify): void {.
+    cdecl, importc: "g_object_set_qdata_full".}
+proc g_object_steal_qdata*(object_arg: ptr GObject; quark: GQuark): gpointer {.
+    cdecl, importc: "g_object_steal_qdata".}
+proc g_object_dup_qdata*(object_arg: ptr GObject; quark: GQuark;
+                         dup_func: GDuplicateFunc; user_data: gpointer): gpointer {.
+    cdecl, importc: "g_object_dup_qdata".}
+proc g_object_replace_qdata*(object_arg: ptr GObject; quark: GQuark;
+                             oldval: gpointer; newval: gpointer;
+                             destroy: GDestroyNotify;
+                             old_destroy: GDestroyNotify): gboolean {.cdecl,
+    importc: "g_object_replace_qdata".}
+proc g_object_get_data*(object_arg: ptr GObject; key: cstring): gpointer {.
+    cdecl, importc: "g_object_get_data".}
+proc g_object_set_data*(object_arg: ptr GObject; key: cstring; data: gpointer): void {.
+    cdecl, importc: "g_object_set_data".}
+proc g_object_set_data_full*(object_arg: ptr GObject; key: cstring;
+                             data: gpointer; destroy: GDestroyNotify): void {.
+    cdecl, importc: "g_object_set_data_full".}
+proc g_object_steal_data*(object_arg: ptr GObject; key: cstring): gpointer {.
+    cdecl, importc: "g_object_steal_data".}
+proc g_object_dup_data*(object_arg: ptr GObject; key: cstring;
+                        dup_func: GDuplicateFunc; user_data: gpointer): gpointer {.
+    cdecl, importc: "g_object_dup_data".}
+proc g_object_replace_data*(object_arg: ptr GObject; key: cstring;
+                            oldval: gpointer; newval: gpointer;
+                            destroy: GDestroyNotify; old_destroy: GDestroyNotify): gboolean {.
+    cdecl, importc: "g_object_replace_data".}
+proc g_object_watch_closure*(object_arg: ptr GObject; closure: ptr GClosure): void {.
+    cdecl, importc: "g_object_watch_closure".}
+proc g_cclosure_new_object*(callback_func: GCallback; object_arg: ptr GObject): ptr GClosure {.
+    cdecl, importc: "g_cclosure_new_object".}
+proc g_cclosure_new_object_swap*(callback_func: GCallback;
+                                 object_arg: ptr GObject): ptr GClosure {.cdecl,
+    importc: "g_cclosure_new_object_swap".}
+proc g_closure_new_object*(sizeof_closure: guint; object_arg: ptr GObject): ptr GClosure {.
+    cdecl, importc: "g_closure_new_object".}
+proc g_value_set_object*(value: ptr GValue; v_object: gpointer): void {.cdecl,
+    importc: "g_value_set_object".}
+proc g_value_get_object*(value: ptr GValue): gpointer {.cdecl,
+    importc: "g_value_get_object".}
+proc g_value_dup_object*(value: ptr GValue): gpointer {.cdecl,
+    importc: "g_value_dup_object".}
+proc g_signal_connect_object*(instance: gpointer; detailed_signal: cstring;
+                              c_handler: GCallback; gobject: gpointer;
+                              connect_flags: GConnectFlags): gulong {.cdecl,
+    importc: "g_signal_connect_object".}
+proc g_object_force_floating*(object_arg: ptr GObject): void {.cdecl,
+    importc: "g_object_force_floating".}
+proc g_object_run_dispose*(object_arg: ptr GObject): void {.cdecl,
+    importc: "g_object_run_dispose".}
+proc g_value_take_object*(value: ptr GValue; v_object: gpointer): void {.cdecl,
+    importc: "g_value_take_object".}
+proc g_value_set_object_take_ownership*(value: ptr GValue; v_object: gpointer): void {.
+    cdecl, importc: "g_value_set_object_take_ownership".}
+proc g_object_compat_control*(what: gsize; data: gpointer): gsize {.cdecl,
+    importc: "g_object_compat_control".}
+proc g_clear_object*(object_ptr: ptr ptr GObject): void {.cdecl,
+    importc: "g_clear_object".}
+proc g_weak_ref_init*(weak_ref: ptr GWeakRef; object_arg: gpointer): void {.
+    cdecl, importc: "g_weak_ref_init".}
+proc g_weak_ref_clear*(weak_ref: ptr GWeakRef): void {.cdecl,
+    importc: "g_weak_ref_clear".}
+proc g_weak_ref_get*(weak_ref: ptr GWeakRef): gpointer {.cdecl,
+    importc: "g_weak_ref_get".}
+proc g_weak_ref_set*(weak_ref: ptr GWeakRef; object_arg: gpointer): void {.
+    cdecl, importc: "g_weak_ref_set".}
 proc garrow_array_get_type*(): GType {.cdecl, importc: "garrow_array_get_type".}
 proc garrow_extension_array_get_type*(): GType {.cdecl,
     importc: "garrow_extension_array_get_type".}
