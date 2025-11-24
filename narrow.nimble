@@ -8,6 +8,7 @@ bin           = @["narrow"]
 
 requires "nim >= 2.0.0"
 requires "futhark"
+requires "unittest2 >= 0.2.3"
 
 task test, "Run testament":
   echo staticExec("testament p \"./tests/test_*.nim\"")
