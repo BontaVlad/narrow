@@ -336,7 +336,7 @@ suite "Streams - Corrected":
       
       inStream.close()
 
-  test "withOutputStream callback style":
+  test "withOutputStream macro style":
     withTestDir:
       let fs = newLocalFileSystem()
       let path = TestRoot / "callback_out.txt"

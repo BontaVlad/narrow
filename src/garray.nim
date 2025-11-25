@@ -179,7 +179,7 @@ proc appendValues*[T](builder: var ArrayBuilder, values: sink seq[T]) =
       cast[ptr gint32](values[0].addr),
       values.len.gint64,
       nil,
-      0
+      0,
     )
   elif T is int64:
     check garrow_int64_array_builder_append_values(
@@ -187,7 +187,7 @@ proc appendValues*[T](builder: var ArrayBuilder, values: sink seq[T]) =
       cast[ptr gint64](values[0].addr),
       values.len.gint64,
       nil,
-      0
+      0,
     )
   elif T is float32:
     check garrow_float_array_builder_append_values(
@@ -195,7 +195,7 @@ proc appendValues*[T](builder: var ArrayBuilder, values: sink seq[T]) =
       cast[ptr gfloat](values[0].addr),
       values.len.gint64,
       nil,
-      0
+      0,
     )
   elif T is float64:
     check garrow_double_array_builder_append_values(
@@ -203,7 +203,7 @@ proc appendValues*[T](builder: var ArrayBuilder, values: sink seq[T]) =
       cast[ptr gdouble](values[0].addr),
       values.len.gint64,
       nil,
-      0
+      0,
     )
   else:
     # Fallback to individual appends for unsupported batch operations

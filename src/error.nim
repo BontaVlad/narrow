@@ -1,4 +1,3 @@
-
 import macros
 import ./[ffi]
 

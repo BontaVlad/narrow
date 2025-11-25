@@ -81,7 +81,11 @@ proc `$`*(tbl: ArrowTable): string =
   result = $newGString(gStr)
 
 proc newArrowTable*(schema: Schema, recordBatches: sink seq[RecordBatch]): ArrowTable =
-  let handle = check garrow_table_new_record_batches(schema, cast[ptr ptr GArrowRecordBatch](recordBatches[0].addr), gsize(recordBatches.len))
+  let handle = check garrow_table_new_record_batches(
+    schema,
+    cast[ptr ptr GArrowRecordBatch](recordBatches[0].addr),
+    gsize(recordBatches.len),
+  )
   ArrowTable(handle)
 
 proc schema*(tbl: ArrowTable): Schema =
@@ -94,7 +98,9 @@ proc nRows*(tbl: ArrowTable): int64 =
   garrow_table_get_n_rows(tbl).int64
 
 proc addColumn*(tbl: ArrowTable, idx: int, field: Field, column: pointer): ArrowTable =
-  let handle = check garrow_table_add_column(tbl, guint(idx), field, cast[ptr GArrowChunkedArray](column))
+  let handle = check garrow_table_add_column(
+    tbl, guint(idx), field, cast[ptr GArrowChunkedArray](column)
+  )
   ArrowTable(handle)
 
 proc removeColumn*(tbl: ArrowTable, idx: int): ArrowTable =
@@ -104,7 +110,9 @@ proc removeColumn*(tbl: ArrowTable, idx: int): ArrowTable =
 proc replaceColumn*(
     tbl: ArrowTable, idx: int, field: Field, column: pointer
 ): ArrowTable =
-  let handle = check garrow_table_replace_column(tbl, guint(idx), field, cast[ptr GArrowChunkedArray](column))
+  let handle = check garrow_table_replace_column(
+    tbl, guint(idx), field, cast[ptr GArrowChunkedArray](column)
+  )
   ArrowTable(handle)
 
 proc equal*(a, b: ArrowTable): bool =
@@ -133,7 +141,9 @@ proc validateFull*(tbl: ArrowTable): bool =
 proc concatenate*(tbl: ArrowTable, others: seq[ArrowTable]): ArrowTable =
   var err: ptr GError
   var gList = newGList(others)
-  let handle = check garrow_table_concatenate(tbl, gList.list, garrow_table_concatenate_options_new())
+  let handle = check garrow_table_concatenate(
+    tbl, gList.list, garrow_table_concatenate_options_new()
+  )
   ArrowTable(handle)
 
 proc getColumnData*(tbl: ArrowTable, idx: int): ChunkedArray =

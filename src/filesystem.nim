@@ -1,7 +1,6 @@
 import macros
 import ./[ffi, error, glist]
 
-
 const
   PropPath = "path"
   PropBaseName = "base-name"
@@ -12,16 +11,13 @@ const
   PropFileType = "type"
 
 type
-  FileInfo* = object
-    ## Information about a filesystem entry
+  FileInfo* = object ## Information about a filesystem entry
     handle*: ptr GArrowFileInfo
 
-  FileSelector* = object
-    ## A selector for discovering files in a directory
+  FileSelector* = object ## A selector for discovering files in a directory
     handle*: ptr GArrowFileSelector
 
-  FileSystemObj = object of RootObj
-    ## Base filesystem object
+  FileSystemObj = object of RootObj ## Base filesystem object
     handle*: ptr GArrowFileSystem
 
   FileSystem* = ref FileSystemObj
@@ -30,8 +26,7 @@ type
     ## FileSystem provides a unified interface for interacting with different
     ## storage backends, including local filesystems, cloud storage, and HDFS.
 
-  LocalFileSystemOptions* = object
-    ## Options for creating a local filesystem
+  LocalFileSystemOptions* = object ## Options for creating a local filesystem
     handle*: ptr GArrowLocalFileSystemOptions
 
   LocalFileSystem* = ref object of FileSystemObj
@@ -50,16 +45,14 @@ type
     ## A filesystem wrapper that adds artificial latency (for testing)
     averageLatency*: float64
 
-  InputStream* = object
-    ## A readable stream
+  InputStream* = object ## A readable stream
     handle*: ptr GArrowInputStream
 
   SeekableInputStream* = object
     ## A readable stream that supports random access (seeking)
     handle*: ptr GArrowSeekableInputStream
 
-  OutputStream* = object
-    ## A writable stream
+  OutputStream* = object ## A writable stream
     handle*: ptr GArrowOutputStream
 
   StreamError* = object of CatchableError
@@ -67,7 +60,8 @@ type
 template with*(resource, name, body: untyped): untyped =
   block:
     var name = resource
-    defer: name.close()
+    defer:
+      name.close()
     body
 
 # =============================================================================
@@ -78,7 +72,7 @@ proc `=destroy`*(opts: LocalFileSystemOptions) =
   if opts.handle != nil:
     g_object_unref(opts.handle)
 
-proc `=copy`*(dest: var LocalFileSystemOptions; src: LocalFileSystemOptions) =
+proc `=copy`*(dest: var LocalFileSystemOptions, src: LocalFileSystemOptions) =
   if dest.handle != nil:
     g_object_unref(dest.handle)
   if src.handle != nil:
@@ -94,7 +88,7 @@ proc newLocalFileSystemOptions*(): LocalFileSystemOptions =
 # =============================================================================
 # FileInfo Implementation
 # =============================================================================
- 
+
 proc newFileInfo*(): FileInfo =
   ## Create a new empty FileInfo object
   result.handle = garrow_file_info_new()
@@ -103,7 +97,7 @@ proc `=destroy`*(info: FileInfo) =
   if info.handle != nil:
     g_object_unref(info.handle)
 
-proc `=copy`*(dest: var FileInfo; src: FileInfo) =
+proc `=copy`*(dest: var FileInfo, src: FileInfo) =
   if dest.handle != nil:
     g_object_unref(dest.handle)
   if src.handle != nil:
@@ -116,6 +110,7 @@ proc `=copy`*(dest: var FileInfo; src: FileInfo) =
 proc isValid*(info: FileInfo): bool {.inline.} =
   ## Check if the FileInfo handle is valid
   info.handle != nil
+
 proc `==`*(a, b: FileInfo): bool =
   ## Compare two FileInfo objects for equality
   if not a.isValid or not b.isValid:
@@ -130,7 +125,9 @@ proc isFile*(info: FileInfo): bool =
 
 proc fileType*(info: FileInfo): GArrowFileType =
   var fileType: cint = 0
-  g_object_get(cast[ptr GArrowFileInfo](info.handle), PropFileType.cstring, addr fileType, nil)
+  g_object_get(
+    cast[ptr GArrowFileInfo](info.handle), PropFileType.cstring, addr fileType, nil
+  )
   result = GArrowFileType(fileType)
 
 proc path*(info: FileInfo): string =
@@ -145,7 +142,9 @@ proc path*(info: FileInfo): string =
 proc baseName*(info: FileInfo): string =
   ## Get the filename without directory
   var cstr: cstring = nil
-  g_object_get(cast[ptr GArrowFileInfo](info.handle), PropBaseName.cstring, addr cstr, nil)
+  g_object_get(
+    cast[ptr GArrowFileInfo](info.handle), PropBaseName.cstring, addr cstr, nil
+  )
   if cstr != nil:
     result = $cstr
     g_free(cstr)
@@ -153,7 +152,9 @@ proc baseName*(info: FileInfo): string =
 proc dirName*(info: FileInfo): string =
   ## Get the directory part of the path
   var cstr: cstring = nil
-  g_object_get(cast[ptr GArrowFileInfo](info.handle), PropDirName.cstring, addr cstr, nil)
+  g_object_get(
+    cast[ptr GArrowFileInfo](info.handle), PropDirName.cstring, addr cstr, nil
+  )
   if cstr != nil:
     result = $cstr
     g_free(cstr)
@@ -161,7 +162,9 @@ proc dirName*(info: FileInfo): string =
 proc extension*(info: FileInfo): string =
   ## Get the file extension (without dot)
   var cstr: cstring = nil
-  g_object_get(cast[ptr GArrowFileInfo](info.handle), PropExtension.cstring, addr cstr, nil)
+  g_object_get(
+    cast[ptr GArrowFileInfo](info.handle), PropExtension.cstring, addr cstr, nil
+  )
   if cstr != nil:
     result = $cstr
     g_free(cstr)
@@ -175,12 +178,15 @@ proc size*(info: FileInfo): int64 =
 proc mtime*(info: FileInfo): int64 =
   ## Get modification time as nanoseconds since epoch
   var mtime: int64 = 0
-  g_object_get(cast[ptr GArrowFileInfo](info.handle), PropMtime.cstring, addr mtime, nil)
+  g_object_get(
+    cast[ptr GArrowFileInfo](info.handle), PropMtime.cstring, addr mtime, nil
+  )
   result = mtime
 
 proc exists*(info: FileInfo): bool =
   ## Check if the entry exists
-  info.fileType != GARROW_FILE_TYPE_NOT_FOUND and info.fileType != GARROW_FILE_TYPE_UNKNOWN
+  info.fileType != GARROW_FILE_TYPE_NOT_FOUND and
+    info.fileType != GARROW_FILE_TYPE_UNKNOWN
 
 proc `$`*(info: FileInfo): string =
   ## Get a string representation of the FileInfo
@@ -192,7 +198,6 @@ proc `$`*(info: FileInfo): string =
   result = $cstr
   g_free(cstr)
 
-
 # =============================================================================
 # Helper: Convert GBytes to seq[byte]
 # =============================================================================
@@ -201,30 +206,29 @@ proc toBytesSeq(gbytes: ptr GBytes): seq[byte] =
   ## Convert GBytes to Nim seq[byte] and free the GBytes
   if gbytes == nil:
     return @[]
-  
+
   let size = g_bytes_get_size(gbytes)
   if size == 0:
     g_bytes_unref(gbytes)
     return @[]
-  
+
   var sizeOut: gsize
   let data = g_bytes_get_data(gbytes, addr sizeOut)
-  
+
   result = newSeq[byte](sizeOut)
   if sizeOut > 0:
     copyMem(addr result[0], data, sizeOut)
-  
+
   g_bytes_unref(gbytes)
 
 proc toBytesSeq(buffer: ptr GArrowBuffer): seq[byte] =
   ## Convert GArrowBuffer to Nim seq[byte] and unref the buffer
   if buffer == nil:
     return @[]
-  
+
   let gbytes = garrow_buffer_get_data(buffer)
   result = toBytesSeq(gbytes)
   g_object_unref(buffer)
-
 
 # =============================================================================
 # Stream Implementations
@@ -241,7 +245,6 @@ proc asReadable(stream: SeekableInputStream): ptr GArrowReadable {.inline.} =
   ## Cast to GArrowReadable interface
   cast[ptr GArrowReadable](stream.handle)
 
-
 # =============================================================================
 # InputStream Implementation
 # =============================================================================
@@ -250,7 +253,7 @@ proc asReadable(stream: SeekableInputStream): ptr GArrowReadable {.inline.} =
 #   if stream.handle != nil:
 #     g_object_unref(stream.handle)
 
-proc `=copy`*(dest: var InputStream; src: InputStream) =
+proc `=copy`*(dest: var InputStream, src: InputStream) =
   if dest.handle != nil:
     g_object_unref(dest.handle)
   if src.handle != nil:
@@ -274,7 +277,7 @@ proc read*(stream: InputStream, nBytes: int64): seq[byte] =
   ## if end of stream is reached.
   if stream.handle == nil:
     raise newException(StreamError, "Cannot read from closed stream")
-  
+
   let gbytes = check garrow_readable_read_bytes(stream.asReadable, nBytes.gint64)
   result = toBytesSeq(gbytes)
 
@@ -282,7 +285,7 @@ proc readBuffer*(stream: InputStream, nBytes: int64): seq[byte] =
   ## Read using GArrowBuffer (alternative implementation)
   if stream.handle == nil:
     raise newException(StreamError, "Cannot read from closed stream")
-  
+
   let buffer = check garrow_readable_read(stream.asReadable, nBytes.gint64)
   result = toBytesSeq(buffer)
 
@@ -318,7 +321,7 @@ proc readAllString*(stream: InputStream): string =
 #   if stream.handle != nil:
 #     g_object_unref(stream.handle)
 
-proc `=copy`*(dest: var SeekableInputStream; src: SeekableInputStream) =
+proc `=copy`*(dest: var SeekableInputStream, src: SeekableInputStream) =
   if dest.handle != nil:
     g_object_unref(dest.handle)
   if src.handle != nil:
@@ -345,7 +348,7 @@ proc read*(stream: SeekableInputStream, nBytes: int64): seq[byte] =
   ## Read up to nBytes from current position
   if stream.handle == nil:
     raise newException(StreamError, "Cannot read from closed stream")
-  
+
   let gbytes = check garrow_readable_read_bytes(stream.asReadable, nBytes.gint64)
   result = toBytesSeq(gbytes)
 
@@ -355,18 +358,22 @@ proc readAt*(stream: SeekableInputStream, position: int64, nBytes: int64): seq[b
   ## Does not change the stream's current position for sequential reads.
   if stream.handle == nil:
     raise newException(StreamError, "Cannot read from closed stream")
-  
+
   let gbytes = check garrow_seekable_input_stream_read_at_bytes(
-    stream.handle, position.gint64, nBytes.gint64)
+    stream.handle, position.gint64, nBytes.gint64
+  )
   result = toBytesSeq(gbytes)
 
-proc readAtBuffer*(stream: SeekableInputStream, position: int64, nBytes: int64): seq[byte] =
+proc readAtBuffer*(
+    stream: SeekableInputStream, position: int64, nBytes: int64
+): seq[byte] =
   ## Read using GArrowBuffer (alternative)
   if stream.handle == nil:
     raise newException(StreamError, "Cannot read from closed stream")
-  
+
   let buffer = check garrow_seekable_input_stream_read_at(
-    stream.handle, position.gint64, nBytes.gint64)
+    stream.handle, position.gint64, nBytes.gint64
+  )
   result = toBytesSeq(buffer)
 
 proc readAll*(stream: SeekableInputStream): seq[byte] =
@@ -383,7 +390,9 @@ proc readString*(stream: SeekableInputStream, nBytes: int64): string =
   if data.len > 0:
     copyMem(addr result[0], unsafeAddr data[0], data.len)
 
-proc readAtString*(stream: SeekableInputStream, position: int64, nBytes: int64): string =
+proc readAtString*(
+    stream: SeekableInputStream, position: int64, nBytes: int64
+): string =
   ## Read nBytes at position as a string
   let data = stream.readAt(position, nBytes)
   result = newString(data.len)
@@ -396,7 +405,6 @@ proc readAllString*(stream: SeekableInputStream): string =
   result = newString(data.len)
   if data.len > 0:
     copyMem(addr result[0], unsafeAddr data[0], data.len)
-
 
 # =============================================================================
 # OutputStream Implementation
@@ -411,7 +419,7 @@ proc readAllString*(stream: SeekableInputStream): string =
 #       g_error_free(error)  # Ignore flush errors on destroy
 #     g_object_unref(stream.handle)
 
-proc `=copy`*(dest: var OutputStream; src: OutputStream) =
+proc `=copy`*(dest: var OutputStream, src: OutputStream) =
   if dest.handle != nil:
     g_object_unref(dest.handle)
   if src.handle != nil:
@@ -436,39 +444,39 @@ proc close*(stream: OutputStream) =
     var error: ptr GError = nil
     discard garrow_writable_flush(stream.asWritable, addr error)
     if error != nil:
-      let msg = if error.message != nil: $error.message else: "Flush failed"
+      let msg =
+        if error.message != nil:
+          $error.message
+        else:
+          "Flush failed"
       g_error_free(error)
       g_object_unref(stream.handle)
       raise newException(StreamError, msg)
-    
+
     g_object_unref(stream.handle)
 
 proc write*(stream: OutputStream, data: openArray[byte]) =
   ## Write bytes to the stream
   if stream.handle == nil:
     raise newException(StreamError, "Cannot write to closed stream")
-  
+
   if data.len == 0:
     return
-  
+
   check garrow_writable_write(
-    stream.asWritable,
-    cast[ptr guint8](unsafeAddr data[0]),
-    data.len.gint64
+    stream.asWritable, cast[ptr guint8](unsafeAddr data[0]), data.len.gint64
   )
 
 proc write*(stream: OutputStream, data: string) =
   ## Write a string to the stream
   if stream.handle == nil:
     raise newException(StreamError, "Cannot write to closed stream")
-  
+
   if data.len == 0:
     return
-  
+
   check garrow_writable_write(
-    stream.asWritable,
-    cast[ptr guint8](unsafeAddr data[0]),
-    data.len.gint64
+    stream.asWritable, cast[ptr guint8](unsafeAddr data[0]), data.len.gint64
   )
 
 proc writeLine*(stream: OutputStream, data: string) =
@@ -481,7 +489,6 @@ proc tell*(stream: OutputStream): int64 =
   if stream.handle == nil:
     raise newException(StreamError, "Cannot tell position of closed stream")
   result = check garrow_file_tell(cast[ptr GArrowFile](stream.handle))
-
 
 # =============================================================================
 # FileSystem Implementation
@@ -531,23 +538,21 @@ proc getFileInfos*(fs: FileSystem, paths: openArray[string]): seq[FileInfo] =
   ## More efficient than calling getFileInfo multiple times.
   if paths.len == 0:
     return @[]
-  
+
   # Convert paths to C strings array
   var cPaths = newSeq[cstring](paths.len)
   for i, p in paths:
     cPaths[i] = p.cstring
-  
+
   let glistPtr = check garrow_file_system_get_file_infos_paths(
-    fs.handle,
-    addr cPaths[0],
-    paths.len.gsize
+    fs.handle, addr cPaths[0], paths.len.gsize
   )
 
   let gList = newGlist[ptr GArrowFileInfo](glistPtr)
   result = newSeq[FileInfo]()
   for p in gList:
     result.add(FileInfo(handle: cast[ptr GArrowFileInfo](p)))
-  
+
 proc getFileInfos*(fs: FileSystem, selector: FileSelector): seq[FileInfo] =
   ## Get information about files matching a selector
   ##
@@ -557,15 +562,13 @@ proc getFileInfos*(fs: FileSystem, selector: FileSelector): seq[FileInfo] =
   ## for info in fs.getFileInfos(selector):
   ##   echo info.path
   ## ```
-  let glistPtr = check garrow_file_system_get_file_infos_selector(
-    fs.handle,
-    selector.handle
-  )
+  let glistPtr =
+    check garrow_file_system_get_file_infos_selector(fs.handle, selector.handle)
   let gList = newGlist[ptr GArrowFileInfo](glistPtr)
   result = newSeq[FileInfo]()
   for p in gList:
     result.add(FileInfo(handle: cast[ptr GArrowFileInfo](p)))
-  
+
 proc createDir*(fs: FileSystem, path: string, recursive = true) =
   ## Create a directory
   ##
@@ -597,11 +600,11 @@ proc deleteFiles*(fs: FileSystem, paths: openArray[string]) =
   ## All paths must be regular files.
   if paths.len == 0:
     return
-  
+
   var cPaths = newSeq[cstring](paths.len)
   for i, p in paths:
     cPaths[i] = p.cstring
-  
+
   check garrow_file_system_delete_files(fs.handle, addr cPaths[0], paths.len.gsize)
 
 proc move*(fs: FileSystem, src, dest: string) =
@@ -685,7 +688,6 @@ proc appendText*(fs: FileSystem, path: string, text: string) =
   finally:
     stream.close()
 
-
 # =============================================================================
 # LocalFileSystem Implementation
 # =============================================================================
@@ -693,9 +695,8 @@ proc appendText*(fs: FileSystem, path: string, text: string) =
 proc newLocalFileSystem*(options: LocalFileSystemOptions): LocalFileSystem =
   ## Create a local filesystem with custom options
   new(result)
-  result.handle = cast[ptr GArrowFileSystem](
-    garrow_local_file_system_new(options.handle)
-  )
+  result.handle =
+    cast[ptr GArrowFileSystem](garrow_local_file_system_new(options.handle))
 
 proc newLocalFileSystem*(): LocalFileSystem =
   ## Create a local filesystem with default options
