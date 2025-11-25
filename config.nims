@@ -1,3 +1,4 @@
+switch("path", "$projectDir/../src")
 switch("passL", "-larrow-glib")
 switch("passL", "-lgobject-2.0")
 switch("passL", "-lglib-2.0")

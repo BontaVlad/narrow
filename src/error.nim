@@ -36,21 +36,16 @@ macro check*(callable: untyped, message: static string = ""): untyped =
   for i in 1 ..< callable.len:
     args.add(callable[i])
 
-  # Create the error variable identifier
   let errorVar = genSym(nskVar, "error")
 
-  # Add the error parameter to the arguments
   args.add(
     newDotExpr(newDotExpr(errorVar, newIdentNode("error")), newIdentNode("addr"))
   )
 
-  # Convert static string to string literal node
   let messageNode = newLit(message)
 
-  # Build the new function call with the error parameter
   let newCall = newCall(funcName, args)
 
-  # Generate the complete code block
   result = quote:
     var `errorVar` = newError()
     let callResult = `newCall`
@@ -60,7 +55,6 @@ macro check*(callable: untyped, message: static string = ""): untyped =
       let errorMessage = `messageNode` & " " & $`errorVar`
       raise newException(OperationError, errorMessage)
 
-    # Type-specific handling
     when typeof(callResult) is gboolean:
       # For gboolean, check the result but don't return it
       if callResult != 1:
