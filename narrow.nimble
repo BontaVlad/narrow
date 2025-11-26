@@ -12,10 +12,13 @@ requires "nim >= 2.0.0"
 requires "futhark"
 requires "unittest2 >= 0.2.3"
 
+# task test, "Run testament":
+#   echo staticExec("testament p \"./tests/test_*.nim\"")
+#   discard staticExec("find tests/ -type f ! -name \"*.*\" -delete 2> /dev/null")
+
 # task test, "Generate test coverage":
 #   var isParallel = false
 #   var cores = 4
-#   var pattern = ""
 
 #   for i in 0..paramCount():
 #     let parts = paramStr(i).split(":")
@@ -28,8 +31,6 @@ requires "unittest2 >= 0.2.3"
 #           isParallel = false
 #       if name == "cores":
 #         cores = parseInt(value)
-#       if name == "pattern":
-#         pattern = value
 
 #   const nimcacheDir = "nimcache"
 #   let testsDir = nimcacheDir / "tests"
@@ -37,6 +38,8 @@ requires "unittest2 >= 0.2.3"
 #   # Create nimcache/tests directory if it doesn't exist
 #   mkDir(testsDir)
   
+#     # "--passc:-fsanitize=address",
+#     # "--passl:-fsanitize=address",
 #   # Compile flags
 #   const compileFlags = [
 #     "-d:debug",
@@ -46,8 +49,6 @@ requires "unittest2 >= 0.2.3"
 #     "--opt:none",
 #     "--debugger:native",
 #     "--stacktrace:on",
-#     "--passc:-fsanitize=address",
-#     "--passl:-fsanitize=address",
 #     "-d:useMalloc",
 #     "--mm:orc",
 #     "--passC:-O0",
@@ -68,7 +69,7 @@ requires "unittest2 >= 0.2.3"
 #     # Step 1: Compile with debug flags
 #     var compileCmd = @["nim", "c"]
 #     compileCmd.add(compileFlags)
-#     compileCmd.add(["-o:" & outputPath, file, pattern])
+#     compileCmd.add(["-o:" & outputPath, file])
     
 #     let compileResult = gorge(compileCmd.join(" "))
 #     echo compileResult
