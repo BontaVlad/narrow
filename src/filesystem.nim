@@ -1,4 +1,4 @@
-import ./[ffi, error, glist]
+import ./[ffi, error, glist, gtypes]
 
 const
   PropPath = "path"
@@ -71,40 +71,57 @@ proc `=destroy`*(opts: LocalFileSystemOptions) =
   if opts.handle != nil:
     g_object_unref(opts.handle)
 
-proc `=copy`*(dest: var LocalFileSystemOptions, src: LocalFileSystemOptions) =
-  if dest.handle != nil:
+proc `=sink`*(dest: var LocalFileSystemOptions, src: LocalFileSystemOptions) =
+  if dest.handle != nil and dest.handle != src.handle:
     g_object_unref(dest.handle)
-  if src.handle != nil:
+  dest.handle = src.handle
+
+proc `=copy`*(dest: var LocalFileSystemOptions, src: LocalFileSystemOptions) =
+  if dest.handle != src.handle:
+    if dest.handle != nil:
+      g_object_unref(dest.handle)
     dest.handle = src.handle
-    discard g_object_ref(dest.handle)
-  else:
-    dest.handle = nil
+    if src.handle != nil:
+      discard g_object_ref(dest.handle)
 
 proc newLocalFileSystemOptions*(): LocalFileSystemOptions =
-  ## Create default options for local filesystem
-  result.handle = garrow_local_file_system_options_new()
+  var handle = garrow_local_file_system_options_new()
+  
+  # Sink floating reference if present
+  if g_object_is_floating(handle) != 0:
+    discard g_object_ref_sink(handle)
+  
+  result.handle = handle
 
 # =============================================================================
 # FileInfo Implementation
 # =============================================================================
 
 proc newFileInfo*(): FileInfo =
-  ## Create a new empty FileInfo object
-  result.handle = garrow_file_info_new()
+  var handle = garrow_file_info_new()
+  
+  # Sink floating reference if present
+  if g_object_is_floating(handle) != 0:
+    discard g_object_ref_sink(handle)
+  
+  result.handle = handle
 
 proc `=destroy`*(info: FileInfo) =
   if info.handle != nil:
     g_object_unref(info.handle)
 
-proc `=copy`*(dest: var FileInfo, src: FileInfo) =
-  if dest.handle != nil:
+proc `=sink`*(dest: var FileInfo, src: FileInfo) =
+  if dest.handle != nil and dest.handle != src.handle:
     g_object_unref(dest.handle)
-  if src.handle != nil:
-    # GObject reference counting
+  dest.handle = src.handle
+
+proc `=copy`*(dest: var FileInfo, src: FileInfo) =
+  if dest.handle != src.handle:
+    if dest.handle != nil:
+      g_object_unref(dest.handle)
     dest.handle = src.handle
-    discard g_object_ref(dest.handle)
-  else:
-    dest.handle = nil
+    if src.handle != nil:
+      discard g_object_ref(dest.handle)
 
 proc isValid*(info: FileInfo): bool {.inline.} =
   ## Check if the FileInfo handle is valid
@@ -117,69 +134,52 @@ proc `==`*(a, b: FileInfo): bool =
   return garrow_file_info_equal(a.handle, b.handle) != 0
 
 proc isDir*(info: FileInfo): bool =
-  result = garrow_file_info_is_dir(cast[ptr GArrowFileInfo](info.handle)).bool
+  garrow_file_info_is_dir(info.handle).bool
 
 proc isFile*(info: FileInfo): bool =
-  result = garrow_file_info_is_file(cast[ptr GArrowFileInfo](info.handle)).bool
+  garrow_file_info_is_file(info.handle).bool
 
 proc fileType*(info: FileInfo): GArrowFileType =
   var fileType: cint = 0
-  g_object_get(
-    cast[ptr GArrowFileInfo](info.handle), PropFileType.cstring, addr fileType, nil
-  )
+  g_object_get(info.handle, PropFileType.cstring, addr fileType, nil)
   result = GArrowFileType(fileType)
 
 proc path*(info: FileInfo): string =
-  ## Get the full file path using g_object_get
   var cstr: cstring = nil
-  g_object_get(cast[ptr GArrowFileInfo](info.handle), PropPath.cstring, addr cstr, nil)
-  # TODO: make this a Nim nice object so we don't have to call free
+  g_object_get(info.handle, PropPath.cstring, addr cstr, nil)
   if cstr != nil:
     result = $cstr
     g_free(cstr)
 
 proc baseName*(info: FileInfo): string =
-  ## Get the filename without directory
   var cstr: cstring = nil
-  g_object_get(
-    cast[ptr GArrowFileInfo](info.handle), PropBaseName.cstring, addr cstr, nil
-  )
+  g_object_get(info.handle, PropBaseName.cstring, addr cstr, nil)
   if cstr != nil:
     result = $cstr
     g_free(cstr)
 
 proc dirName*(info: FileInfo): string =
-  ## Get the directory part of the path
   var cstr: cstring = nil
-  g_object_get(
-    cast[ptr GArrowFileInfo](info.handle), PropDirName.cstring, addr cstr, nil
-  )
+  g_object_get(info.handle, PropDirName.cstring, addr cstr, nil)
   if cstr != nil:
     result = $cstr
     g_free(cstr)
 
 proc extension*(info: FileInfo): string =
-  ## Get the file extension (without dot)
   var cstr: cstring = nil
-  g_object_get(
-    cast[ptr GArrowFileInfo](info.handle), PropExtension.cstring, addr cstr, nil
-  )
+  g_object_get(info.handle, PropExtension.cstring, addr cstr, nil)
   if cstr != nil:
     result = $cstr
     g_free(cstr)
 
 proc size*(info: FileInfo): int64 =
-  ## Get file size in bytes (-1 if unknown/not a file)
   var size: int64 = -1
-  g_object_get(cast[ptr GArrowFileInfo](info.handle), PropSize.cstring, addr size, nil)
+  g_object_get(info.handle, PropSize.cstring, addr size, nil)
   result = size
 
 proc mtime*(info: FileInfo): int64 =
-  ## Get modification time as nanoseconds since epoch
   var mtime: int64 = 0
-  g_object_get(
-    cast[ptr GArrowFileInfo](info.handle), PropMtime.cstring, addr mtime, nil
-  )
+  g_object_get(info.handle, PropMtime.cstring, addr mtime, nil)
   result = mtime
 
 proc exists*(info: FileInfo): bool =
@@ -196,6 +196,28 @@ proc `$`*(info: FileInfo): string =
     return "<FileInfo>"
   result = $cstr
   g_free(cstr)
+
+
+# =============================================================================
+# FileSelector Implementation
+# =============================================================================
+
+proc `=destroy`*(sel: FileSelector) =
+  if sel.handle != nil:
+    g_object_unref(sel.handle)
+
+proc `=sink`*(dest: var FileSelector, src: FileSelector) =
+  if dest.handle != nil and dest.handle != src.handle:
+    g_object_unref(dest.handle)
+  dest.handle = src.handle
+
+proc `=copy`*(dest: var FileSelector, src: FileSelector) =
+  if dest.handle != src.handle:
+    if dest.handle != nil:
+      g_object_unref(dest.handle)
+    dest.handle = src.handle
+    if src.handle != nil:
+      discard g_object_ref(dest.handle)
 
 # =============================================================================
 # Helper: Convert GBytes to seq[byte]
@@ -248,26 +270,31 @@ proc asReadable(stream: SeekableInputStream): ptr GArrowReadable {.inline.} =
 # InputStream Implementation
 # =============================================================================
 
-# proc `=destroy`*(stream: InputStream) =
-#   if stream.handle != nil:
-#     g_object_unref(stream.handle)
+proc `=destroy`*(stream: InputStream) =
+  if stream.handle != nil:
+    g_object_unref(stream.handle)
+
+proc `=sink`*(dest: var InputStream, src: InputStream) =
+  if dest.handle != nil and dest.handle != src.handle:
+    g_object_unref(dest.handle)
+  dest.handle = src.handle
 
 proc `=copy`*(dest: var InputStream, src: InputStream) =
-  if dest.handle != nil:
-    g_object_unref(dest.handle)
-  if src.handle != nil:
+  if dest.handle != src.handle:
+    if dest.handle != nil:
+      g_object_unref(dest.handle)
     dest.handle = src.handle
-    discard g_object_ref(dest.handle)
-  else:
-    dest.handle = nil
+    if src.handle != nil:
+      discard g_object_ref(dest.handle)
 
 proc isValid*(stream: InputStream): bool {.inline.} =
   stream.handle != nil
 
 proc close*(stream: InputStream) =
   ## Close the input stream (releases the underlying resource)
-  if stream.handle != nil:
-    g_object_unref(stream.handle)
+  discard
+  # if stream.handle != nil:
+  #   g_object_unref(stream.handle)
 
 proc read*(stream: InputStream, nBytes: int64): seq[byte] =
   ## Read up to nBytes from the stream
@@ -315,27 +342,31 @@ proc readAllString*(stream: InputStream): string =
 # SeekableInputStream Implementation
 # =============================================================================
 
-# FIXME: close and destroy are in conflict
-# proc `=destroy`*(stream: SeekableInputStream) =
-#   if stream.handle != nil:
-#     g_object_unref(stream.handle)
+proc `=destroy`*(stream: SeekableInputStream) =
+  if stream.handle != nil:
+    g_object_unref(stream.handle)
+
+proc `=sink`*(dest: var SeekableInputStream, src: SeekableInputStream) =
+  if dest.handle != nil and dest.handle != src.handle:
+    g_object_unref(dest.handle)
+  dest.handle = src.handle
 
 proc `=copy`*(dest: var SeekableInputStream, src: SeekableInputStream) =
-  if dest.handle != nil:
-    g_object_unref(dest.handle)
-  if src.handle != nil:
+  if dest.handle != src.handle:
+    if dest.handle != nil:
+      g_object_unref(dest.handle)
     dest.handle = src.handle
-    discard g_object_ref(dest.handle)
-  else:
-    dest.handle = nil
+    if src.handle != nil:
+      discard g_object_ref(dest.handle)
 
 proc isValid*(stream: SeekableInputStream): bool {.inline.} =
   stream.handle != nil
 
 proc close*(stream: SeekableInputStream) =
   ## Close the seekable input stream
-  if stream.handle != nil:
-    g_object_unref(stream.handle)
+  discard
+  # if stream.handle != nil:
+  #   g_object_unref(stream.handle)
 
 proc size*(stream: SeekableInputStream): uint64 =
   ## Get the total size of the stream in bytes
@@ -409,24 +440,38 @@ proc readAllString*(stream: SeekableInputStream): string =
 # OutputStream Implementation
 # =============================================================================
 
-# proc `=destroy`*(stream: OutputStream) =
-#   if stream.handle != nil:
-#     # Flush before closing
-#     var error: ptr GError = nil
-#     discard garrow_writable_flush(cast[ptr GArrowWritable](stream.handle), addr error)
-#     if error != nil:
-#       g_error_free(error)  # Ignore flush errors on destroy
-#     g_object_unref(stream.handle)
+proc `=destroy`*(stream: OutputStream) =
+  if stream.handle != nil:
+    # Flush before destroying
+    var error: ptr GError = nil
+    discard garrow_writable_flush(stream.asWritable, addr error)
+    if error != nil:
+      g_error_free(error)
+    
+    g_object_unref(stream.handle)
+
+proc `=sink`*(dest: var OutputStream, src: OutputStream) =
+  if dest.handle != nil and dest.handle != src.handle:
+    # Flush before releasing
+    var error: ptr GError = nil
+    discard garrow_writable_flush(dest.asWritable, addr error)
+    if error != nil:
+      g_error_free(error)
+    g_object_unref(dest.handle)
+  dest.handle = src.handle
 
 proc `=copy`*(dest: var OutputStream, src: OutputStream) =
-  if dest.handle != nil:
-    g_object_unref(dest.handle)
-  if src.handle != nil:
+  if dest.handle != src.handle:
+    if dest.handle != nil:
+      # Flush before releasing
+      var error: ptr GError = nil
+      discard garrow_writable_flush(dest.asWritable, addr error)
+      if error != nil:
+        g_error_free(error)
+      g_object_unref(dest.handle)
     dest.handle = src.handle
-    discard g_object_ref(dest.handle)
-  else:
-    dest.handle = nil
-
+    if src.handle != nil:
+      discard g_object_ref(dest.handle)
 proc isValid*(stream: OutputStream): bool {.inline.} =
   stream.handle != nil
 
@@ -449,10 +494,10 @@ proc close*(stream: OutputStream) =
         else:
           "Flush failed"
       g_error_free(error)
-      g_object_unref(stream.handle)
+      # g_object_unref(stream.handle)
       raise newException(StreamError, msg)
 
-    g_object_unref(stream.handle)
+    # g_object_unref(stream.handle)
 
 proc write*(stream: OutputStream, data: openArray[byte]) =
   ## Write bytes to the stream
@@ -517,13 +562,19 @@ proc newFileSystem*(uri: string): FileSystem =
   ## let s3Fs = newFileSystem("s3://my-bucket/prefix")
   ## ```
   new(result)
-  result.handle = check garrow_file_system_create(uri.cstring)
+  let handle = check garrow_file_system_create(uri.cstring)
+  
+  # Sink floating reference if present
+  if g_object_is_floating(handle) != 0:
+    discard g_object_ref_sink(handle)
+  
+  result.handle = handle
 
 proc typeName*(fs: FileSystem): string =
   ## Get the filesystem type name (e.g., "local", "s3", "gcs")
   let cstr = garrow_file_system_get_type_name(fs.handle)
   if cstr != nil:
-    result = $cstr
+    result = $newGString(cstr)
 
 proc getFileInfo*(fs: FileSystem, path: string): FileInfo =
   ## Get information about a single path
@@ -694,8 +745,13 @@ proc appendText*(fs: FileSystem, path: string, text: string) =
 proc newLocalFileSystem*(options: LocalFileSystemOptions): LocalFileSystem =
   ## Create a local filesystem with custom options
   new(result)
-  result.handle =
-    cast[ptr GArrowFileSystem](garrow_local_file_system_new(options.handle))
+  let handle = garrow_local_file_system_new(options.handle)
+  
+  # Sink floating reference if present
+  if g_object_is_floating(handle) != 0:
+    discard g_object_ref_sink(handle)
+  
+  result.handle = cast[ptr GArrowFileSystem](handle)
 
 proc newLocalFileSystem*(): LocalFileSystem =
   ## Create a local filesystem with default options

@@ -1,4 +1,4 @@
-import std/[os, tempfiles]
+import std/[os, tempfiles, strformat]
 import unittest2
 import ../src/[ffi, filesystem]
 
@@ -410,3 +410,342 @@ suite "FileSystem high level":
 
     let fs = fp.openInputStream(filename)
     echo fs.readAllString()
+suite "FileSystem - Memory Stress Tests":
+  
+  test "Create and destroy many FileInfo objects":
+    withTestDir:
+      let fs = newLocalFileSystem()
+      for i in 0..1000:
+        let info = fs.getFileInfo(TestRoot)
+        check info.isValid
+        check info.isDir
+  
+  test "Create and destroy many FileSystems":
+    for i in 0..1000:
+      let fs = newLocalFileSystem()
+      check fs.isValid
+  
+  test "Repeated file creation and deletion":
+    withTestDir:
+      let fs = newLocalFileSystem()
+      for i in 0..100:
+        let path = TestRoot / fmt"file_{i}.txt"
+        var stream = fs.openOutputStream(path)
+        stream.write("test data")
+        stream.close()
+        
+        let info = fs.getFileInfo(path)
+        check info.exists
+        
+        fs.deleteFile(path)
+  
+  test "Multiple stream operations":
+    withTestDir:
+      let fs = newLocalFileSystem()
+      let path = TestRoot / "stream_test.txt"
+      
+      for i in 0..1000:
+        var outStream = fs.openOutputStream(path)
+        outStream.write(fmt"iteration {i}")
+        outStream.close()
+        
+        var inStream = fs.openInputStream(path)
+        let data = inStream.readAllString()
+        inStream.close()
+        check data.len > 0
+  
+  test "Nested directory creation and deletion":
+    withTestDir:
+      let fs = newLocalFileSystem()
+      for i in 0..100:
+        let path = TestRoot / fmt"dir_{i}" / "subdir" / "nested"
+        fs.createDir(path)
+        check fs.getFileInfo(path).isDir
+        fs.deleteDir(TestRoot / fmt"dir_{i}")
+  
+  test "Large file write and read":
+    withTestDir:
+      let fs = newLocalFileSystem()
+      let path = TestRoot / "large_file.bin"
+      
+      # Create 1MB of data
+      var largeData = newSeq[byte](1024 * 1024)
+      for i in 0..<largeData.len:
+        largeData[i] = (i mod 256).byte
+      
+      for cycle in 0..10:
+        var outStream = fs.openOutputStream(path)
+        outStream.write(largeData)
+        outStream.close()
+        
+        var inStream = fs.openInputFile(path)
+        let readData = inStream.readAll()
+        inStream.close()
+        
+        check readData.len == largeData.len
+  
+  test "Multiple FileInfo from paths":
+    withTestDir:
+      let fs = newLocalFileSystem()
+      
+      # Create test files
+      var paths: seq[string]
+      for i in 0..99:
+        let path = TestRoot / fmt"multi_{i}.txt"
+        paths.add(path)
+        var stream = fs.openOutputStream(path)
+        stream.write("test")
+        stream.close()
+      
+      for cycle in 0..10:
+        let infos = fs.getFileInfos(paths)
+        check infos.len == 100
+        for info in infos:
+          check info.exists
+          check info.isFile
+  
+  test "Stream read/write cycles":
+    withTestDir:
+      let fs = newLocalFileSystem()
+      let path = TestRoot / "cycle_test.txt"
+      
+      for i in 0..1000:
+        var outStream = fs.openOutputStream(path)
+        outStream.write(fmt"{i}")
+        outStream.flush()
+        outStream.close()
+        
+        var inStream = fs.openInputStream(path)
+        discard inStream.readAll()
+        inStream.close()
+  
+  test "FileInfo property access":
+    withTestDir:
+      let fs = newLocalFileSystem()
+      let path = TestRoot / "props.txt"
+      
+      var stream = fs.openOutputStream(path)
+      stream.write("test content")
+      stream.close()
+      
+      for i in 0..1000:
+        let info = fs.getFileInfo(path)
+        discard info.path()
+        discard info.baseName()
+        discard info.dirName()
+        discard info.extension()
+        discard info.size()
+        discard info.mtime()
+        discard info.fileType()
+  
+  test "SeekableInputStream random access":
+    withTestDir:
+      let fs = newLocalFileSystem()
+      let path = TestRoot / "seekable.bin"
+      
+      # Write test data
+      var data = newSeq[byte](1000)
+      for i in 0..<data.len:
+        data[i] = (i mod 256).byte
+      
+      var outStream = fs.openOutputStream(path)
+      outStream.write(data)
+      outStream.close()
+      
+      # Random access reads
+      for cycle in 0..1000:
+        var inStream = fs.openInputFile(path)
+        discard inStream.readAt(100, 50)
+        discard inStream.readAt(500, 100)
+        discard inStream.readAt(0, 10)
+        inStream.close()
+  
+  test "OutputStream tell position":
+    withTestDir:
+      let fs = newLocalFileSystem()
+      let path = TestRoot / "tell_test.txt"
+      
+      for i in 0..1000:
+        var stream = fs.openOutputStream(path)
+        for j in 0..99:
+          stream.write("x")
+          discard stream.tell()
+        stream.close()
+  
+  test "Multiple filesystem instances":
+    withTestDir:
+      for i in 0..100:
+        let fs1 = newLocalFileSystem()
+        let fs2 = newLocalFileSystem()
+        let fs3 = newFileSystem("file://" & TestRoot)
+        
+        check fs1.isValid
+        check fs2.isValid
+        check fs3.isValid
+  
+  test "FileInfo copying":
+    withTestDir:
+      let fs = newLocalFileSystem()
+      let original = fs.getFileInfo(TestRoot)
+      
+      for i in 0..1000:
+        let copy1 = original
+        let copy2 = copy1
+        let copy3 = copy2
+        check copy3.isValid
+        check copy3.isDir
+  
+  test "Stream copying":
+    withTestDir:
+      let fs = newLocalFileSystem()
+      let path = TestRoot / "copy_stream.txt"
+      
+      var outStream = fs.openOutputStream(path)
+      outStream.write("test")
+      outStream.close()
+      
+      for i in 0..100:
+        let stream1 = fs.openInputStream(path)
+        let stream2 = stream1
+        let stream3 = stream2
+        discard stream3.readAll()
+  
+  test "Rapid file creation and getFileInfo":
+    withTestDir:
+      let fs = newLocalFileSystem()
+      
+      for i in 0..1000:
+        let path = TestRoot / fmt"rapid_{i}.txt"
+        var stream = fs.openOutputStream(path)
+        stream.write("x")
+        stream.close()
+        
+        let info = fs.getFileInfo(path)
+        check info.exists
+        
+        fs.deleteFile(path)
+  
+  test "WriteText and ReadText cycles":
+    withTestDir:
+      let fs = newLocalFileSystem()
+      let path = TestRoot / "text_cycles.txt"
+      
+      for i in 0..1000:
+        fs.writeText(path, fmt"iteration {i}")
+        let content = fs.readText(path)
+        check content == fmt"iteration {i}"
+  
+  test "AppendText operations":
+    withTestDir:
+      let fs = newLocalFileSystem()
+      let path = TestRoot / "append.txt"
+      
+      for i in 0..100:
+        fs.appendText(path, fmt"{i}\n")
+      
+      let content = fs.readText(path)
+      check content.len > 0
+  
+  test "Directory listing stress":
+    withTestDir:
+      let fs = newLocalFileSystem()
+      
+      # Create many files
+      for i in 0..99:
+        let path = TestRoot / fmt"list_{i}.txt"
+        var stream = fs.openOutputStream(path)
+        stream.write("x")
+        stream.close()
+      
+      # List repeatedly
+      for cycle in 0..10:
+        var paths: seq[string]
+        for i in 0..99:
+          paths.add(TestRoot / fmt"list_{i}.txt")
+        
+        let infos = fs.getFileInfos(paths)
+        check infos.len == 100
+  
+  test "FileInfo string conversion":
+    withTestDir:
+      let fs = newLocalFileSystem()
+      let info = fs.getFileInfo(TestRoot)
+      
+      for i in 0..1000:
+        let str = $info
+        check str.len > 0
+  
+  test "Mixed stream types":
+    withTestDir:
+      let fs = newLocalFileSystem()
+      let path = TestRoot / "mixed.txt"
+      
+      for i in 0..100:
+        var outStream = fs.openOutputStream(path)
+        outStream.write(fmt"data {i}")
+        outStream.close()
+        
+        var inStream = fs.openInputStream(path)
+        discard inStream.readAll()
+        inStream.close()
+        
+        var seekableStream = fs.openInputFile(path)
+        discard seekableStream.readAll()
+        seekableStream.close()
+  
+  test "Interleaved operations":
+    withTestDir:
+      let fs = newLocalFileSystem()
+      
+      for i in 0..100:
+        let path1 = TestRoot / fmt"inter1_{i}.txt"
+        let path2 = TestRoot / fmt"inter2_{i}.txt"
+        
+        var stream1 = fs.openOutputStream(path1)
+        let info1 = fs.getFileInfo(path1)
+        var stream2 = fs.openOutputStream(path2)
+        let info2 = fs.getFileInfo(path2)
+        
+        stream1.write("a")
+        stream2.write("b")
+        
+        stream1.close()
+        stream2.close()
+        
+        check info1.exists
+        check info2.exists
+
+suite "FileSystem - Error Recovery":
+  
+  test "Handle missing files gracefully":
+    withTestDir:
+      let fs = newLocalFileSystem()
+      for i in 0..100:
+        let path = TestRoot / fmt"missing_{i}.txt"
+        let info = fs.getFileInfo(path)
+        check not info.exists
+  
+  test "Close streams multiple times":
+    withTestDir:
+      let fs = newLocalFileSystem()
+      let path = TestRoot / "multi_close.txt"
+      
+      var outStream = fs.openOutputStream(path)
+      outStream.write("test")
+      outStream.close()
+      # Second close should be safe due to nil check
+      outStream.close()
+  
+  # test "Write to closed stream detection":
+  #   withTestDir:
+  #     let fs = newLocalFileSystem()
+  #     let path = TestRoot / "closed_write.txt"
+      
+  #     var stream = fs.openOutputStream(path)
+  #     stream.close()
+      
+  #     try:
+  #       stream.write("should fail")
+  #       check false # Should not reach here
+  #     except StreamError:
+  #       check true
