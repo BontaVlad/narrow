@@ -328,12 +328,14 @@ proc readCSV*(uri: string, options: CsvReadOptions): ArrowTable =
     let tablePtr = check garrow_csv_reader_read(reader)
     result = ArrowTable(tablePtr)
 
-  let tblKeys = toHashSet(result.keys.toSeq)
-  var keep = newSeq[string]()
   if not options.schema.isNil:
-    for k in options.schema:
-      if k.name in tblKeys:
-        result = result.removeColumn(k.name)
+    var keep = initHashSet[string]()
+    for f in options.schema.fields:
+      keep.incl(f.name)
+
+    for k in result.keys:
+      if k notin keep:
+        result = result.removeColumn(k)
 
 proc readCSV*(uri: string): ArrowTable =
   let options = newCsvReadOptions()
