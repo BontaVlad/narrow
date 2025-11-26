@@ -84,6 +84,9 @@ proc newCsvReadOptions*(
     g_object_set(result.handle, "use-threads", 
                  gboolean(useThreads.get), nil)
 
+proc `=destroy`*(o: CsvReadOptions) =
+  g_object_unref(o.handle)
+
 # Property getters
 proc getAllowNewlinesInValues*(options: CsvReadOptions): bool =
   var value: gboolean
@@ -318,13 +321,14 @@ proc readCSV*(uri: string, options: CsvReadOptions): ArrowTable =
   if $scheme == "":
     fullUri = fmt"file://{uri}"
 
-  let
-    guri = check g_uri_parse(fullUri.cstring, G_URI_FLAGS_NONE)
-    path = $g_uri_get_path(guri)
-    fs = newFileSystem(fullUri)
+  let guri = check g_uri_parse(fullUri.cstring, G_URI_FLAGS_NONE)
+  defer: g_uri_unref(guri)
+  let path = $g_uri_get_path(guri)
+  let fs = newFileSystem(fullUri)
 
   with fs.openInputStream(path), stream:
     let reader = check garrow_csv_reader_new(stream.handle, options.handle)
+    defer: g_object_unref(reader)
     let tablePtr = check garrow_csv_reader_read(reader)
     result = ArrowTable(tablePtr)
 

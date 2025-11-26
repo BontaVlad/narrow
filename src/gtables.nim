@@ -106,6 +106,7 @@ proc addColumn*(tbl: ArrowTable, idx: int, field: Field, column: pointer): Arrow
 
 proc removeColumn*(tbl: ArrowTable, idx: int): ArrowTable =
   let handle = check garrow_table_remove_column(tbl, guint(idx))
+  g_object_unref(cast[ptr GArrowTable](tbl))
   ArrowTable(handle)
 
 proc removeColumn*(tbl: ArrowTable, key: string): ArrowTable =

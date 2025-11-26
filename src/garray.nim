@@ -12,42 +12,77 @@ proc `=destroy`*[T](builder: ArrayBuilder[T]) =
   if not isNil(builder.handle):
     g_object_unref(builder.handle)
 
+proc `=sink`*[T](dest: var ArrayBuilder[T], src: ArrayBuilder[T]) =
+  if not isNil(dest.handle) and dest.handle != src.handle:
+    g_object_unref(dest.handle)
+  dest.handle = src.handle
+
+proc `=copy`*[T](dest: var ArrayBuilder[T], src: ArrayBuilder[T]) =
+  if dest.handle != src.handle:
+    if not isNil(dest.handle):
+      g_object_unref(dest.handle)
+    dest.handle = src.handle
+    if not isNil(dest.handle):
+      discard g_object_ref(dest.handle)
+
 proc `=destroy`*[T](ar: Array[T]) =
   if not isNil(ar.handle):
     g_object_unref(ar.handle)
 
+proc `=sink`*[T](dest: var Array[T], src: Array[T]) =
+  if not isNil(dest.handle) and dest.handle != src.handle:
+    g_object_unref(dest.handle)
+  dest.handle = src.handle
+
+proc `=copy`*[T](dest: var Array[T], src: Array[T]) =
+  if dest.handle != src.handle:
+    if not isNil(dest.handle):
+      g_object_unref(dest.handle)
+    dest.handle = src.handle
+    if not isNil(dest.handle):
+      discard g_object_ref(dest.handle)
+
 proc newArrayBuilder*[T](): ArrayBuilder[T] =
+  var handle: gpointer
+  
   when T is bool:
-    let handle = cast[ptr GArrowArrayBuilder](garrow_boolean_array_builder_new())
+    handle = garrow_boolean_array_builder_new()
   elif T is int8:
-    let handle = cast[ptr GArrowArrayBuilder](garrow_int8_array_builder_new())
+    handle = garrow_int8_array_builder_new()
   elif T is uint8:
-    let handle = cast[ptr GArrowArrayBuilder](garrow_uint8_array_builder_new())
+    handle = garrow_uint8_array_builder_new()
   elif T is int16:
-    let handle = cast[ptr GArrowArrayBuilder](garrow_int16_array_builder_new())
+    handle = garrow_int16_array_builder_new()
   elif T is uint16:
-    let handle = cast[ptr GArrowArrayBuilder](garrow_uint16_array_builder_new())
+    handle = garrow_uint16_array_builder_new()
   elif T is int32:
-    let handle = cast[ptr GArrowArrayBuilder](garrow_int32_array_builder_new())
+    handle = garrow_int32_array_builder_new()
   elif T is uint32:
-    let handle = cast[ptr GArrowArrayBuilder](garrow_uint32_array_builder_new())
+    handle = garrow_uint32_array_builder_new()
   elif T is int64:
-    let handle = cast[ptr GArrowArrayBuilder](garrow_int64_array_builder_new())
+    handle = garrow_int64_array_builder_new()
   elif T is uint64:
-    let handle = cast[ptr GArrowArrayBuilder](garrow_uint64_array_builder_new())
+    handle = garrow_uint64_array_builder_new()
   elif T is float32:
-    let handle = cast[ptr GArrowArrayBuilder](garrow_float_array_builder_new())
+    handle = garrow_float_array_builder_new()
   elif T is float64:
-    let handle = cast[ptr GArrowArrayBuilder](garrow_double_array_builder_new())
+    handle = garrow_double_array_builder_new()
   elif T is string:
-    let handle = cast[ptr GArrowArrayBuilder](garrow_string_array_builder_new())
+    handle = garrow_string_array_builder_new()
+  else:
+    static:
+      doAssert false, "Unsupported type for ArrayBuilder"
 
   if isNil(handle):
     raise newException(OperationError, "Error creating the builder")
 
-  result = ArrayBuilder[T](handle: handle)
+  # Sink floating reference if present
+  if g_object_is_floating(handle) != 0:
+    discard g_object_ref_sink(handle)
+  
+  result = ArrayBuilder[T](handle: cast[ptr GArrowArrayBuilder](handle))
 
-proc append*[T](builder: var ArrayBuilder, val: sink T) =
+proc append*[T](builder: var ArrayBuilder[T], val: sink T) =
   when T is bool:
     check(
       garrow_boolean_array_builder_append_value(
@@ -118,7 +153,7 @@ proc append*[T](builder: var ArrayBuilder, val: sink T) =
       cast[ptr GArrowStringArrayBuilder](builder.handle), val.cstring
     )
 
-proc appendNull*[T](builder: var ArrayBuilder) =
+proc appendNull*[T](builder: var ArrayBuilder[T]) =
   when T is bool:
     check garrow_boolean_array_builder_append_null(
       cast[ptr GArrowBooleanArrayBuilder](builder.handle)
@@ -166,13 +201,13 @@ proc appendNull*[T](builder: var ArrayBuilder) =
   else:
     check garrow_array_builder_append_null(builder.handle)
 
-proc append*[T](builder: var ArrayBuilder, val: sink Option[T]) =
+proc append*[T](builder: var ArrayBuilder[T], val: sink Option[T]) =
   if val.isSome():
     builder.append(val.get())
   else:
     builder.appendNull()
 
-proc appendValues*[T](builder: var ArrayBuilder, values: sink seq[T]) =
+proc appendValues*[T](builder: var ArrayBuilder[T], values: sink seq[T]) =
   when T is int32:
     check garrow_int32_array_builder_append_values(
       cast[ptr GArrowInt32ArrayBuilder](builder.handle),
@@ -211,12 +246,18 @@ proc appendValues*[T](builder: var ArrayBuilder, values: sink seq[T]) =
       builder.append(val)
 
 proc finish*[T](builder: var ArrayBuilder[T]): Array[T] =
-  result.handle = check garrow_array_builder_finish(builder.handle)
+  let handle = check garrow_array_builder_finish(builder.handle)
+  
+  # Sink floating reference if present
+  if g_object_is_floating(handle) != 0:
+    discard g_object_ref_sink(handle)
+  
+  result = Array[T](handle: handle)
 
 proc newArray*[T](values: sink seq[T]): Array[T] =
-  var errorBuffer: ptr Gerror
   var builder = newArrayBuilder[T]()
-  builder.appendValues(values)
+  if len(values) != 0:
+    builder.appendValues(values)
   result = builder.finish()
 
 proc newArray*[T](gptr: pointer): Array[T] =
@@ -228,6 +269,14 @@ proc newArray*[T](gptr: pointer): Array[T] =
   result = cast[Array[T]](rawPtr)
 
 proc newArray*[T](handle: ptr GArrowArray): Array[T] =
+  # Increment reference count since we're taking ownership
+  if not isNil(handle):
+    # Check if floating and sink it, or just ref it
+    if g_object_is_floating(handle) != 0:
+      discard g_object_ref_sink(handle)
+    else:
+      discard g_object_ref(handle)
+  
   result = Array[T](handle: handle)
 
 proc len*(ar: Array): int =
@@ -261,9 +310,18 @@ proc `[]`*[T](arr: Array[T], i: int): T =
   elif T is string:
     let cstr =
       garrow_string_array_get_string(cast[ptr GArrowStringArray](arr.handle), i)
-    return $cstr
+    return $newGstring(cstr)
   else:
     {.error: "Unsupported array type for indexing".}
+
+proc `[]`*[T](arr: Array[T], slice: HSlice[int, int]): Array[T] =
+  let offset = slice.a
+  let length = slice.b - slice.a + 1
+  result.handle = garrow_array_slice(arr.handle, offset.gint64, length.gint64)
+
+iterator items*[T](arr: Array[T]): T =
+  for i in 0 ..< arr.len:
+    yield arr[i]
 
 proc isNull*[T](arr: Array[T], i: int): bool =
   return garrow_array_is_null(arr.handle, i) != 0
@@ -277,17 +335,6 @@ proc tryGet*[T](arr: Array[T], i: int): Option[T] =
   if arr.isNull(i):
     return none(T)
   return some(arr[i])
-
-proc `[]`*[T](arr: Array[T], slice: HSlice[int, int]): Array[T] =
-  var errorBuffer: ptr Gerror
-  let start = slice.a
-  let length = slice.b - slice.a + 1
-  result.handle =
-    garrow_array_slice(arr.handle, start.gint64, length.gint64, errorBuffer.addr)
-
-iterator items*[T](arr: Array[T]): lent T =
-  for i in 0 ..< arr.len:
-    yield arr[i]
 
 proc `@`*[T](arr: Array[T]): seq[T] =
   arr.toSeq
