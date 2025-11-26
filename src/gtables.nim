@@ -61,7 +61,8 @@ proc newSchema*(gptr: pointer): Schema =
   Schema(handle)
 
 iterator fields*(schema: Schema): lent Field {.inline.} =
-  for field in newGList[Field](garrow_schema_get_fields(schema)):
+  let gFields = newGList[Field](garrow_schema_get_fields(schema))
+  for field in gFields:
     yield field
 
 iterator items*(schema: Schema): lent Field {.inline.} =
@@ -106,6 +107,10 @@ proc addColumn*(tbl: ArrowTable, idx: int, field: Field, column: pointer): Arrow
 proc removeColumn*(tbl: ArrowTable, idx: int): ArrowTable =
   let handle = check garrow_table_remove_column(tbl, guint(idx))
   ArrowTable(handle)
+
+proc removeColumn*(tbl: ArrowTable, key: string): ArrowTable =
+  let idx = garrow_schema_get_field_index(tbl.schema, key.cstring)
+  result = tbl.removeColumn(idx.int)
 
 proc replaceColumn*(
     tbl: ArrowTable, idx: int, field: Field, column: pointer

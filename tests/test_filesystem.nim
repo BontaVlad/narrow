@@ -24,6 +24,7 @@ template withTestDir(body: untyped) =
   finally:
     teardownTestDir()
 
+
 suite "FileInfo retrieval":
 
   var dir: string
@@ -395,3 +396,17 @@ suite "Streams - Corrected":
       stream.close()
       
       check fs.readText(path) == "Line 1\nLine 2\nLine 3"
+
+suite "FileSystem high level":
+
+  test "New FileSystem from uri":
+    let filename = "mystring.txt"
+    let uri = "file://" / TestRoot / filename
+
+    let fp = newFileSystem(uri)
+    var outStream = fp.openOutputStream(filename)
+    outStream.write("Hello world")
+    outStream.close()
+
+    let fs = fp.openInputStream(filename)
+    echo fs.readAllString()

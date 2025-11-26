@@ -73,10 +73,10 @@ import ./[ffi]
 
 type
   GADType*[T] = object
-    handle: ptr GArrowDataType
+    handle*: ptr GArrowDataType
 
   GString* = object
-    handle: cstring
+    handle*: cstring
 
 converter toArrowType*(g: GADType): ptr GArrowDataType =
   g.handle
@@ -84,7 +84,6 @@ converter toArrowType*(g: GADType): ptr GArrowDataType =
 proc `=destroy`*[T](tp: GADType[T]) =
   if not isNil(tp.handle):
     g_object_unref(tp.handle)
-    tp.handle = nil
 
 proc `=destroy`*(str: GString) =
   if not isNil(str.handle):
