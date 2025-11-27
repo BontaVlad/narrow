@@ -84,8 +84,27 @@ proc newCsvReadOptions*(
     g_object_set(result.handle, "use-threads", 
                  gboolean(useThreads.get), nil)
 
+# proc `=destroy`*(o: CsvReadOptions) =
+#   g_object_unref(o.handle)
+
 proc `=destroy`*(o: CsvReadOptions) =
-  g_object_unref(o.handle)
+  if o.handle != nil:
+    if o.schema.isValid:
+      g_object_unref(o.schema.handle)
+    g_object_unref(o.handle)
+
+proc `=sink`*(dest: var CsvReadOptions, src: CsvReadOptions) =
+  if dest.handle != nil and dest.handle != src.handle:
+    g_object_unref(dest.handle)
+  dest.handle = src.handle
+
+proc `=copy`*(dest: var CsvReadOptions, src: CsvReadOptions) =
+  if dest.handle != src.handle:
+    if dest.handle != nil:
+      g_object_unref(dest.handle)
+    dest.handle = src.handle
+    if src.handle != nil:
+      discard g_object_ref(dest.handle)
 
 # Property getters
 proc getAllowNewlinesInValues*(options: CsvReadOptions): bool =
@@ -236,7 +255,7 @@ proc getColumnTypes*(options: CsvReadOptions): Table[string, GADType] =
 
 # Schema methods
 proc addSchema*(options: var CsvReadOptions, schema: Schema) =
-  garrow_csv_read_options_add_schema(options.handle, cast[ptr GArrowSchema](schema))
+  garrow_csv_read_options_add_schema(options.handle, schema.handle)
   options.schema = schema
 
 # Null values methods
@@ -327,14 +346,15 @@ proc readCSV*(uri: string, options: CsvReadOptions): ArrowTable =
   let fs = newFileSystem(fullUri)
 
   with fs.openInputStream(path), stream:
-    let reader = check garrow_csv_reader_new(stream.handle, options.handle)
+    var err: ptr GError
+    let reader = garrow_csv_reader_new(stream.handle, options.handle, err.addr)
     defer: g_object_unref(reader)
     let tablePtr = check garrow_csv_reader_read(reader)
-    result = ArrowTable(tablePtr)
+    result = newArrowTable(tablePtr)
 
-  if not options.schema.isNil:
+  if options.schema.isValid:
     var keep = initHashSet[string]()
-    for f in options.schema.fields:
+    for f in options.schema.ffields:
       keep.incl(f.name)
 
     for k in result.keys:

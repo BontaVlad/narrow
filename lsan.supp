@@ -1,0 +1,5 @@
+leak:arrow::csv::ConvertOptions::Defaults
+leak:garrow_csv_read_options_add_schema
+leak:garrow_csv_read_options_init
+leak:execute_native_thread_routine
+leak:std::_Hashtable

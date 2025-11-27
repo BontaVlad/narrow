@@ -74,7 +74,7 @@ proc `$`*[T](tp: GADType[T]): string =
   let namePtr = garrow_data_type_get_name(tp.handle)
   if isNil(namePtr):
     return "unknown"
-  result = $namePtr
+  result = $newGString(namePtr)
 
 proc newGType*(T: typedesc): GADType[T] =
   when T is bool:

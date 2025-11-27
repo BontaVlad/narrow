@@ -2,7 +2,12 @@ import ./[ffi, gtypes, error, garray, glist]
 
 type ChunkedArray* = distinct ptr GArrowChunkedArray
 
+# TODO: remove converter
 converter toGArrow*(chunkedArray: ChunkedArray): ptr GArrowChunkedArray =
+  cast[ptr GArrowChunkedArray](chunkedArray)
+
+
+proc toPtr*(chunkedArray: ChunkedArray): ptr GArrowChunkedArray =
   cast[ptr GArrowChunkedArray](chunkedArray)
 
 proc `=destroy`*(chunkedArray: ChunkedArray) =

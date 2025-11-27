@@ -1,170 +1,432 @@
+import std/[strutils]
 import ./[ffi, gchunkedarray, glist, gtypes, error]
 
 type
-  Field* = distinct ptr GArrowField
-  Schema* = distinct ptr GArrowSchema
-  ArrowTable* = distinct ptr GArrowTable
-  RecordBatch* = distinct ptr GArrowRecordBatch
+  Field* = object
+    handle: ptr GArrowField
 
-converter toPtr*(f: Field): ptr GArrowField =
-  cast[ptr GArrowField](f)
+  Schema* = object
+    handle*: ptr GArrowSchema
 
-converter toPtr*(s: Schema): ptr GArrowSchema =
-  cast[ptr GArrowSchema](s)
+  ArrowTable* = object
+    handle: ptr GArrowTable
 
-converter toPtr*(rb: RecordBatch): ptr GArrowRecordBatch =
-  cast[ptr GArrowRecordBatch](rb)
+  RecordBatch* = object
+    handle: ptr GArrowRecordBatch
 
-converter toPtr*(tbl: ArrowTable): ptr GArrowTable =
-  cast[ptr GArrowTable](tbl)
-
-proc `=destroy`(tbl: ArrowTable) =
-  if cast[pointer](tbl) != nil:
-    gObjectUnref(cast[gpointer](tbl))
-
-proc `=destroy`(record: RecordBatch) =
-  if cast[pointer](record) != nil:
-    gObjectUnref(cast[gpointer](record))
+# =============================================================================
+# Field Implementation
+# =============================================================================
 
 proc `=destroy`*(field: Field) =
-  if not isNil(field.addr):
-    gObjectUnref(cast[pointer](field))
+  if field.handle != nil:
+    g_object_unref(field.handle)
 
-proc `=destroy`(s: Schema) =
-  if not isNil(s.addr):
-    gObjectUnref(cast[pointer](s))
+proc `=sink`*(dest: var Field, src: Field) =
+  if dest.handle != nil and dest.handle != src.handle:
+    g_object_unref(dest.handle)
+  dest.handle = src.handle
 
-proc name*(field: Field): string =
-  $garrow_field_get_name(field)
+proc `=copy`*(dest: var Field, src: Field) =
+  if dest.handle != src.handle:
+    if dest.handle != nil:
+      g_object_unref(dest.handle)
+    dest.handle = src.handle
+    if src.handle != nil:
+      discard g_object_ref(dest.handle)
 
-proc `$`*(field: Field): string =
-  let gStr = garrow_field_to_string(field)
-  result = $newGString(gStr)
-
-proc `==`*(a, b: Field): bool =
-  garrow_field_equal(a, b).bool
+proc toPtr*(f: Field): ptr GArrowField {.inline.} =
+  f.handle
 
 proc newField*[T](name: string): Field =
   let gType = newGType(T)
-  Field(garrow_field_new(name.cstring, gType))
+  let handle = garrow_field_new(name.cstring, gType)
+  
+  if g_object_is_floating(handle) != 0:
+    discard g_object_ref_sink(handle)
+  
+  result.handle = handle
 
-proc `$`*(schema: Schema): string =
-  let gStr = garrow_schema_to_string(schema)
-  result = $newGString(gStr)
+proc newField*(handle: ptr GArrowField): Field =
+  result.handle = handle
 
-proc newSchema*(flds: openArray[Field]): Schema =
-  let fList = newGList(flds)
-  Schema(garrow_schema_new(fList.list))
+proc name*(field: Field): string =
+  let cstr = garrow_field_get_name(field.handle)
+  if cstr != nil:
+    result = $cstr
+
+proc dataType*(field: Field): ptr GArrowDataType =
+  garrow_field_get_data_type(field.handle)
+
+proc `$`*(field: Field): string =
+  let cstr = garrow_field_to_string(field.handle)
+  if cstr != nil:
+    result = $cstr
+    g_free(cstr)
+
+proc `==`*(a, b: Field): bool =
+  if a.handle == nil or b.handle == nil:
+    return a.handle == b.handle
+  garrow_field_equal(a.handle, b.handle).bool
+
+proc isValid*(field: Field): bool {.inline.} =
+  field.handle != nil
+
+# =============================================================================
+# Schema Implementation
+# =============================================================================
+
+proc `=destroy`*(schema: Schema) =
+  if schema.handle != nil:
+    g_object_unref(schema.handle)
+
+proc `=sink`*(dest: var Schema, src: Schema) =
+  if dest.handle != nil and dest.handle != src.handle:
+    g_object_unref(dest.handle)
+  dest.handle = src.handle
+
+proc `=copy`*(dest: var Schema, src: Schema) =
+  if dest.handle != src.handle:
+    if dest.handle != nil:
+      g_object_unref(dest.handle)
+    dest.handle = src.handle
+    if src.handle != nil:
+      discard g_object_ref(dest.handle)
+
+proc toPtr*(s: Schema): ptr GArrowSchema {.inline.} =
+  s.handle
+
+proc newSchema*(fields: openArray[Field]): Schema =
+  var fieldList = newGList[ptr GArrowField]()
+  for field in fields:
+    fieldList.append(field.handle)
+  result.handle = garrow_schema_new(fieldList.list)
 
 proc newSchema*(gptr: pointer): Schema =
-  let handle = check garrow_schema_import(cast[gpointer](gptr))
-  Schema(handle)
+  var err: ptr GError
+  let handle = garrow_schema_import(gptr, addr err)
+  
+  if not isNil(err):
+    let msg = if not isNil(err.message): $err.message else: "Schema import failed"
+    g_error_free(err)
+    raise newException(OperationError, msg)
+  
+  if g_object_is_floating(handle) != 0:
+    discard g_object_ref_sink(handle)
+  
+  result.handle = handle
 
-iterator fields*(schema: Schema): lent Field {.inline.} =
-  let gFields = newGList[Field](garrow_schema_get_fields(schema))
-  for field in gFields:
+proc newSchema*(handle: ptr GArrowSchema): Schema =
+  result.handle = handle
+
+proc `$`*(schema: Schema): string =
+  let cstr = garrow_schema_to_string(schema.handle)
+  if cstr != nil:
+    result = $cstr
+    g_free(cstr)
+
+proc nFields*(schema: Schema): int =
+  garrow_schema_n_fields(schema.handle).int
+
+proc getField*(schema: Schema, idx: int): Field =
+  let handle = garrow_schema_get_field(schema.handle, idx.guint)
+  result = newField(handle)
+
+proc getFieldByName*(schema: Schema, name: string): Field =
+  let handle = garrow_schema_get_field_by_name(schema.handle, name.cstring)
+  result = newField(handle)
+
+proc getFieldIndex*(schema: Schema, name: string): int =
+  garrow_schema_get_field_index(schema.handle, name.cstring).int
+
+proc ffields*(schema: Schema): seq[Field] =
+  let glistPtr = garrow_schema_get_fields(schema.handle)
+  
+  if glistPtr == nil:
+    return @[]
+  
+  result = newSeq[Field]()
+  var current = glistPtr
+  while current != nil:
+    let item = current.data
+    if item != nil:
+      let fieldPtr = cast[ptr GArrowField](item)
+      result.add(newField(fieldPtr))
+    current = current.next
+  
+  g_list_free(glistPtr)
+
+iterator items*(schema: Schema): Field =
+  for field in schema.ffields:
     yield field
 
-iterator items*(schema: Schema): lent Field {.inline.} =
-  for field in schema.fields:
-    yield field
+proc isValid*(schema: Schema): bool {.inline.} =
+  schema.handle != nil
+
+proc `==`*(a, b: Schema): bool =
+  if a.handle == nil or b.handle == nil:
+    return a.handle == b.handle
+  garrow_schema_equal(a.handle, b.handle).bool
+
+# =============================================================================
+# RecordBatch Implementation
+# =============================================================================
+
+proc `=destroy`*(rb: RecordBatch) =
+  if rb.handle != nil:
+    g_object_unref(rb.handle)
+
+proc `=sink`*(dest: var RecordBatch, src: RecordBatch) =
+  if dest.handle != nil and dest.handle != src.handle:
+    g_object_unref(dest.handle)
+  dest.handle = src.handle
+
+proc `=copy`*(dest: var RecordBatch, src: RecordBatch) =
+  if dest.handle != src.handle:
+    if dest.handle != nil:
+      g_object_unref(dest.handle)
+    dest.handle = src.handle
+    if src.handle != nil:
+      discard g_object_ref(dest.handle)
+
+proc toPtr*(rb: RecordBatch): ptr GArrowRecordBatch {.inline.} =
+  rb.handle
 
 proc newRecordBatch*(arr: pointer, schema: Schema): RecordBatch =
-  let handle = check garrow_record_batch_import(arr, schema)
-  RecordBatch(handle)
+  var err: ptr GError
+  let handle = garrow_record_batch_import(arr, schema.handle, addr err)
+  
+  if not isNil(err):
+    let msg = if not isNil(err.message): $err.message else: "RecordBatch import failed"
+    g_error_free(err)
+    raise newException(OperationError, msg)
+  
+  if g_object_is_floating(handle) != 0:
+    discard g_object_ref_sink(handle)
+  
+  result.handle = handle
 
-proc `$`*(record: RecordBatch): string =
-  let gStr = check garrow_record_batch_to_string(record)
-  result = $newGString(gStr)
+proc newRecordBatch*(handle: ptr GArrowRecordBatch): RecordBatch =
+  if handle != nil:
+    if g_object_is_floating(handle) != 0:
+      discard g_object_ref_sink(handle)
+    else:
+      discard g_object_ref(handle)
+  result.handle = handle
+
+proc `$`*(rb: RecordBatch): string =
+  var err: ptr GError
+  let cstr = garrow_record_batch_to_string(rb.handle, addr err)
+  
+  if not isNil(err):
+    g_error_free(err)
+    return "<RecordBatch: error>"
+  
+  if cstr != nil:
+    result = $cstr
+    g_free(cstr)
+
+proc isValid*(rb: RecordBatch): bool {.inline.} =
+  rb.handle != nil
+
+proc schema*(rb: RecordBatch): Schema =
+  let handle = garrow_record_batch_get_schema(rb.handle)
+  result = newSchema(handle)
+
+proc nColumns*(rb: RecordBatch): int =
+  garrow_record_batch_get_n_columns(rb.handle).int
+
+proc nRows*(rb: RecordBatch): int64 =
+  garrow_record_batch_get_n_rows(rb.handle).int64
+
+# =============================================================================
+# ArrowTable Implementation
+# =============================================================================
+
+proc `=destroy`*(tbl: ArrowTable) =
+  if tbl.handle != nil:
+    g_object_unref(tbl.handle)
+
+proc `=sink`*(dest: var ArrowTable, src: ArrowTable) =
+  if dest.handle != nil and dest.handle != src.handle:
+    g_object_unref(dest.handle)
+  dest.handle = src.handle
+
+proc `=copy`*(dest: var ArrowTable, src: ArrowTable) =
+  if dest.handle != src.handle:
+    if dest.handle != nil:
+      g_object_unref(dest.handle)
+    dest.handle = src.handle
+    if src.handle != nil:
+      discard g_object_ref(dest.handle)
+
+proc toPtr*(tbl: ArrowTable): ptr GArrowTable {.inline.} =
+  tbl.handle
+
+proc newArrowTable*(schema: Schema, recordBatches: openArray[RecordBatch]): ArrowTable =
+  if recordBatches.len == 0:
+    raise newException(ValueError, "Cannot create table from empty record batches")
+  
+  var rbHandles = newSeq[ptr GArrowRecordBatch](recordBatches.len)
+  for i, rb in recordBatches:
+    rbHandles[i] = rb.handle
+  
+  var err: ptr GError
+  let handle = garrow_table_new_record_batches(
+    schema.handle,
+    addr rbHandles[0],
+    recordBatches.len.gsize,
+    addr err
+  )
+  
+  if not isNil(err):
+    let msg = if not isNil(err.message): $err.message else: "Table creation failed"
+    g_error_free(err)
+    raise newException(OperationError, msg)
+  
+  if g_object_is_floating(handle) != 0:
+    discard g_object_ref_sink(handle)
+  
+  result.handle = handle
+
+proc newArrowTable*(handle: ptr GArrowTable): ArrowTable =
+  result.handle = handle
 
 proc `$`*(tbl: ArrowTable): string =
-  let gStr = check garrow_table_to_string(tbl)
-  result = $newGString(gStr)
+  var err: ptr GError
+  let cstr = garrow_table_to_string(tbl.handle, addr err)
+  
+  if not isNil(err):
+    g_error_free(err)
+    return "<Table: error>"
+  
+  if cstr != nil:
+    result = $cstr
+    g_free(cstr)
 
-proc newArrowTable*(schema: Schema, recordBatches: sink seq[RecordBatch]): ArrowTable =
-  let handle = check garrow_table_new_record_batches(
-    schema,
-    cast[ptr ptr GArrowRecordBatch](recordBatches[0].addr),
-    gsize(recordBatches.len),
-  )
-  ArrowTable(handle)
+proc isValid*(tbl: ArrowTable): bool {.inline.} =
+  tbl.handle != nil
 
 proc schema*(tbl: ArrowTable): Schema =
-  Schema(garrow_table_get_schema(tbl))
+  let handle = garrow_table_get_schema(tbl.handle)
+  result = newSchema(handle)
 
 proc nColumns*(tbl: ArrowTable): int =
-  garrow_table_get_n_columns(tbl).int
+  garrow_table_get_n_columns(tbl.handle).int
 
 proc nRows*(tbl: ArrowTable): int64 =
-  garrow_table_get_n_rows(tbl).int64
+  garrow_table_get_n_rows(tbl.handle).int64
 
-proc addColumn*(tbl: ArrowTable, idx: int, field: Field, column: pointer): ArrowTable =
-  let handle = check garrow_table_add_column(
-    tbl, guint(idx), field, cast[ptr GArrowChunkedArray](column)
+proc addColumn*(tbl: ArrowTable, idx: int, field: Field, column: ChunkedArray): ArrowTable =
+  var err: ptr GError
+  let handle = garrow_table_add_column(
+    tbl.handle, idx.guint, field.handle, column.toPtr, addr err
   )
-  ArrowTable(handle)
+  
+  if not isNil(err):
+    let msg = if not isNil(err.message): $err.message else: "Add column failed"
+    g_error_free(err)
+    raise newException(OperationError, msg)
+  
+  result = newArrowTable(handle)
 
 proc removeColumn*(tbl: ArrowTable, idx: int): ArrowTable =
-  let handle = check garrow_table_remove_column(tbl, guint(idx))
-  g_object_unref(cast[ptr GArrowTable](tbl))
-  ArrowTable(handle)
+  var err: ptr GError
+  let handle = garrow_table_remove_column(tbl.handle, idx.guint, addr err)
+  
+  if not isNil(err):
+    let msg = if not isNil(err.message): $err.message else: "Remove column failed"
+    g_error_free(err)
+    raise newException(OperationError, msg)
+  
+  result = newArrowTable(handle)
 
 proc removeColumn*(tbl: ArrowTable, key: string): ArrowTable =
-  let idx = garrow_schema_get_field_index(tbl.schema, key.cstring)
-  result = tbl.removeColumn(idx.int)
+  let idx = tbl.schema.getFieldIndex(key)
+  if idx < 0:
+    raise newException(KeyError, "Column not found: " & key)
+  result = tbl.removeColumn(idx)
 
-proc replaceColumn*(
-    tbl: ArrowTable, idx: int, field: Field, column: pointer
-): ArrowTable =
-  let handle = check garrow_table_replace_column(
-    tbl, guint(idx), field, cast[ptr GArrowChunkedArray](column)
-  )
-  ArrowTable(handle)
+proc replaceColumn*(tbl: ArrowTable, idx: int, field: Field, column: ChunkedArray): ArrowTable =
+  let handle = check garrow_table_replace_column(tbl.handle, idx.guint, field.handle, column.toPtr)
+  result = newArrowTable(handle)
 
 proc equal*(a, b: ArrowTable): bool =
-  garrow_table_equal(a, b).bool
+  if a.handle == nil or b.handle == nil:
+    return a.handle == b.handle
+  garrow_table_equal(a.handle, b.handle).bool
 
 proc equalMetadata*(a, b: ArrowTable, checkMetadata: bool): bool =
-  garrow_table_equal_metadata(a, b, checkMetadata.gboolean).bool
+  if a.handle == nil or b.handle == nil:
+    return a.handle == b.handle
+  garrow_table_equal_metadata(a.handle, b.handle, checkMetadata.gboolean).bool
 
 proc slice*(tbl: ArrowTable, offset, length: int64): ArrowTable =
-  ArrowTable(garrow_table_slice(tbl, gint64(offset), gint64(length)))
+  let handle = garrow_table_slice(tbl.handle, offset.gint64, length.gint64)
+  result = newArrowTable(handle)
 
 proc combineChunks*(tbl: ArrowTable): ArrowTable =
-  let handle = check garrow_table_combine_chunks(tbl)
-  ArrowTable(handle)
+  var err: ptr GError
+  let handle = garrow_table_combine_chunks(tbl.handle, addr err)
+  
+  if not isNil(err):
+    let msg = if not isNil(err.message): $err.message else: "Combine chunks failed"
+    g_error_free(err)
+    raise newException(OperationError, msg)
+  
+  result = newArrowTable(handle)
 
 proc validate*(tbl: ArrowTable): bool =
-  # TODO: check here is not working because it threats bool ret value as error Status
   var err: ptr GError
-  garrow_table_validate(tbl, addr err).bool
+  result = garrow_table_validate(tbl.handle, addr err).bool
+  if not isNil(err):
+    g_error_free(err)
 
 proc validateFull*(tbl: ArrowTable): bool =
-  # TODO: check here is not working because it threats bool ret value as error Status
   var err: ptr GError
-  garrow_table_validate_full(tbl, addr err).bool
+  result = garrow_table_validate_full(tbl.handle, addr err).bool
+  if not isNil(err):
+    g_error_free(err)
 
-proc concatenate*(tbl: ArrowTable, others: seq[ArrowTable]): ArrowTable =
+proc concatenate*(tbl: ArrowTable, others: openArray[ArrowTable]): ArrowTable =
+  var tableList: ptr GList = nil
+  for other in others:
+    tableList = g_list_append(tableList, other.handle)
+  
+  let options = garrow_table_concatenate_options_new()
+  
   var err: ptr GError
-  var gList = newGList(others)
-  let handle = check garrow_table_concatenate(
-    tbl, gList.list, garrow_table_concatenate_options_new()
-  )
-  ArrowTable(handle)
+  let handle = garrow_table_concatenate(tbl.handle, tableList, options, addr err)
+  
+  g_list_free(tableList)
+  g_object_unref(options)
+  
+  if not isNil(err):
+    let msg = if not isNil(err.message): $err.message else: "Concatenate failed"
+    g_error_free(err)
+    raise newException(OperationError, msg)
+  
+  result = newArrowTable(handle)
 
 proc getColumnData*(tbl: ArrowTable, idx: int): ChunkedArray =
-  let handle = garrow_table_get_column_data(tbl, idx.gint)
+  let handle = garrow_table_get_column_data(tbl.handle, idx.gint)
   result = newChunkedArray(handle)
 
 proc `[]`*(tbl: ArrowTable, idx: int): ChunkedArray =
-  result = tbl.getColumnData(idx)
+  tbl.getColumnData(idx)
 
 proc `[]`*(tbl: ArrowTable, key: string): ChunkedArray =
-  let idx = garrow_schema_get_field_index(tbl.schema, key.cstring)
-  result = tbl.getColumnData(idx)
-
-# proc columns*(tbl: ArrowTable)
+  let idx = tbl.schema.getFieldIndex(key)
+  if idx < 0:
+    raise newException(KeyError, "Column not found: " & key)
+  tbl.getColumnData(idx)
 
 iterator keys*(tbl: ArrowTable): string =
   for field in tbl.schema:
-    yield $field.name
+    yield field.name
+
+iterator columns*(tbl: ArrowTable): (string, ChunkedArray) =
+  for i in 0 ..< tbl.nColumns:
+    let field = tbl.schema.getField(i)
+    let column = tbl.getColumnData(i)
+    yield (field.name, column)

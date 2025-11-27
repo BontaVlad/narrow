@@ -409,7 +409,7 @@ suite "FileSystem high level":
     outStream.close()
 
     let fs = fp.openInputStream(filename)
-    echo fs.readAllString()
+
 suite "FileSystem - Memory Stress Tests":
   
   test "Create and destroy many FileInfo objects":
