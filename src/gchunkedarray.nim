@@ -6,7 +6,6 @@ type ChunkedArray* = distinct ptr GArrowChunkedArray
 converter toGArrow*(chunkedArray: ChunkedArray): ptr GArrowChunkedArray =
   cast[ptr GArrowChunkedArray](chunkedArray)
 
-
 proc toPtr*(chunkedArray: ChunkedArray): ptr GArrowChunkedArray =
   cast[ptr GArrowChunkedArray](chunkedArray)
 

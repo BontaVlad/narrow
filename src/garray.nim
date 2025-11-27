@@ -44,7 +44,7 @@ proc `=copy`*[T](dest: var Array[T], src: Array[T]) =
 
 proc newArrayBuilder*[T](): ArrayBuilder[T] =
   var handle: gpointer
-  
+
   when T is bool:
     handle = garrow_boolean_array_builder_new()
   elif T is int8:
@@ -79,7 +79,7 @@ proc newArrayBuilder*[T](): ArrayBuilder[T] =
   # Sink floating reference if present
   if g_object_is_floating(handle) != 0:
     discard g_object_ref_sink(handle)
-  
+
   result = ArrayBuilder[T](handle: cast[ptr GArrowArrayBuilder](handle))
 
 proc append*[T](builder: var ArrayBuilder[T], val: sink T) =
@@ -247,11 +247,11 @@ proc appendValues*[T](builder: var ArrayBuilder[T], values: sink seq[T]) =
 
 proc finish*[T](builder: var ArrayBuilder[T]): Array[T] =
   let handle = check garrow_array_builder_finish(builder.handle)
-  
+
   # Sink floating reference if present
   if g_object_is_floating(handle) != 0:
     discard g_object_ref_sink(handle)
-  
+
   result = Array[T](handle: handle)
 
 proc newArray*[T](values: sink seq[T]): Array[T] =
@@ -276,7 +276,7 @@ proc newArray*[T](handle: ptr GArrowArray): Array[T] =
       discard g_object_ref_sink(handle)
     else:
       discard g_object_ref(handle)
-  
+
   result = Array[T](handle: handle)
 
 proc len*(ar: Array): int =

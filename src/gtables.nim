@@ -41,10 +41,10 @@ proc toPtr*(f: Field): ptr GArrowField {.inline.} =
 proc newField*[T](name: string): Field =
   let gType = newGType(T)
   let handle = garrow_field_new(name.cstring, gType)
-  
+
   if g_object_is_floating(handle) != 0:
     discard g_object_ref_sink(handle)
-  
+
   result.handle = handle
 
 proc newField*(handle: ptr GArrowField): Field =
@@ -105,15 +105,19 @@ proc newSchema*(fields: openArray[Field]): Schema =
 proc newSchema*(gptr: pointer): Schema =
   var err: ptr GError
   let handle = garrow_schema_import(gptr, addr err)
-  
+
   if not isNil(err):
-    let msg = if not isNil(err.message): $err.message else: "Schema import failed"
+    let msg =
+      if not isNil(err.message):
+        $err.message
+      else:
+        "Schema import failed"
     g_error_free(err)
     raise newException(OperationError, msg)
-  
+
   if g_object_is_floating(handle) != 0:
     discard g_object_ref_sink(handle)
-  
+
   result.handle = handle
 
 proc newSchema*(handle: ptr GArrowSchema): Schema =
@@ -141,10 +145,10 @@ proc getFieldIndex*(schema: Schema, name: string): int =
 
 proc ffields*(schema: Schema): seq[Field] =
   let glistPtr = garrow_schema_get_fields(schema.handle)
-  
+
   if glistPtr == nil:
     return @[]
-  
+
   result = newSeq[Field]()
   var current = glistPtr
   while current != nil:
@@ -153,7 +157,7 @@ proc ffields*(schema: Schema): seq[Field] =
       let fieldPtr = cast[ptr GArrowField](item)
       result.add(newField(fieldPtr))
     current = current.next
-  
+
   g_list_free(glistPtr)
 
 iterator items*(schema: Schema): Field =
@@ -195,15 +199,19 @@ proc toPtr*(rb: RecordBatch): ptr GArrowRecordBatch {.inline.} =
 proc newRecordBatch*(arr: pointer, schema: Schema): RecordBatch =
   var err: ptr GError
   let handle = garrow_record_batch_import(arr, schema.handle, addr err)
-  
+
   if not isNil(err):
-    let msg = if not isNil(err.message): $err.message else: "RecordBatch import failed"
+    let msg =
+      if not isNil(err.message):
+        $err.message
+      else:
+        "RecordBatch import failed"
     g_error_free(err)
     raise newException(OperationError, msg)
-  
+
   if g_object_is_floating(handle) != 0:
     discard g_object_ref_sink(handle)
-  
+
   result.handle = handle
 
 proc newRecordBatch*(handle: ptr GArrowRecordBatch): RecordBatch =
@@ -217,11 +225,11 @@ proc newRecordBatch*(handle: ptr GArrowRecordBatch): RecordBatch =
 proc `$`*(rb: RecordBatch): string =
   var err: ptr GError
   let cstr = garrow_record_batch_to_string(rb.handle, addr err)
-  
+
   if not isNil(err):
     g_error_free(err)
     return "<RecordBatch: error>"
-  
+
   if cstr != nil:
     result = $cstr
     g_free(cstr)
@@ -266,27 +274,28 @@ proc toPtr*(tbl: ArrowTable): ptr GArrowTable {.inline.} =
 proc newArrowTable*(schema: Schema, recordBatches: openArray[RecordBatch]): ArrowTable =
   if recordBatches.len == 0:
     raise newException(ValueError, "Cannot create table from empty record batches")
-  
+
   var rbHandles = newSeq[ptr GArrowRecordBatch](recordBatches.len)
   for i, rb in recordBatches:
     rbHandles[i] = rb.handle
-  
+
   var err: ptr GError
   let handle = garrow_table_new_record_batches(
-    schema.handle,
-    addr rbHandles[0],
-    recordBatches.len.gsize,
-    addr err
+    schema.handle, addr rbHandles[0], recordBatches.len.gsize, addr err
   )
-  
+
   if not isNil(err):
-    let msg = if not isNil(err.message): $err.message else: "Table creation failed"
+    let msg =
+      if not isNil(err.message):
+        $err.message
+      else:
+        "Table creation failed"
     g_error_free(err)
     raise newException(OperationError, msg)
-  
+
   if g_object_is_floating(handle) != 0:
     discard g_object_ref_sink(handle)
-  
+
   result.handle = handle
 
 proc newArrowTable*(handle: ptr GArrowTable): ArrowTable =
@@ -295,11 +304,11 @@ proc newArrowTable*(handle: ptr GArrowTable): ArrowTable =
 proc `$`*(tbl: ArrowTable): string =
   var err: ptr GError
   let cstr = garrow_table_to_string(tbl.handle, addr err)
-  
+
   if not isNil(err):
     g_error_free(err)
     return "<Table: error>"
-  
+
   if cstr != nil:
     result = $cstr
     g_free(cstr)
@@ -317,28 +326,37 @@ proc nColumns*(tbl: ArrowTable): int =
 proc nRows*(tbl: ArrowTable): int64 =
   garrow_table_get_n_rows(tbl.handle).int64
 
-proc addColumn*(tbl: ArrowTable, idx: int, field: Field, column: ChunkedArray): ArrowTable =
+proc addColumn*(
+    tbl: ArrowTable, idx: int, field: Field, column: ChunkedArray
+): ArrowTable =
   var err: ptr GError
-  let handle = garrow_table_add_column(
-    tbl.handle, idx.guint, field.handle, column.toPtr, addr err
-  )
-  
+  let handle =
+    garrow_table_add_column(tbl.handle, idx.guint, field.handle, column.toPtr, addr err)
+
   if not isNil(err):
-    let msg = if not isNil(err.message): $err.message else: "Add column failed"
+    let msg =
+      if not isNil(err.message):
+        $err.message
+      else:
+        "Add column failed"
     g_error_free(err)
     raise newException(OperationError, msg)
-  
+
   result = newArrowTable(handle)
 
 proc removeColumn*(tbl: ArrowTable, idx: int): ArrowTable =
   var err: ptr GError
   let handle = garrow_table_remove_column(tbl.handle, idx.guint, addr err)
-  
+
   if not isNil(err):
-    let msg = if not isNil(err.message): $err.message else: "Remove column failed"
+    let msg =
+      if not isNil(err.message):
+        $err.message
+      else:
+        "Remove column failed"
     g_error_free(err)
     raise newException(OperationError, msg)
-  
+
   result = newArrowTable(handle)
 
 proc removeColumn*(tbl: ArrowTable, key: string): ArrowTable =
@@ -347,8 +365,11 @@ proc removeColumn*(tbl: ArrowTable, key: string): ArrowTable =
     raise newException(KeyError, "Column not found: " & key)
   result = tbl.removeColumn(idx)
 
-proc replaceColumn*(tbl: ArrowTable, idx: int, field: Field, column: ChunkedArray): ArrowTable =
-  let handle = check garrow_table_replace_column(tbl.handle, idx.guint, field.handle, column.toPtr)
+proc replaceColumn*(
+    tbl: ArrowTable, idx: int, field: Field, column: ChunkedArray
+): ArrowTable =
+  let handle =
+    check garrow_table_replace_column(tbl.handle, idx.guint, field.handle, column.toPtr)
   result = newArrowTable(handle)
 
 proc equal*(a, b: ArrowTable): bool =
@@ -368,12 +389,16 @@ proc slice*(tbl: ArrowTable, offset, length: int64): ArrowTable =
 proc combineChunks*(tbl: ArrowTable): ArrowTable =
   var err: ptr GError
   let handle = garrow_table_combine_chunks(tbl.handle, addr err)
-  
+
   if not isNil(err):
-    let msg = if not isNil(err.message): $err.message else: "Combine chunks failed"
+    let msg =
+      if not isNil(err.message):
+        $err.message
+      else:
+        "Combine chunks failed"
     g_error_free(err)
     raise newException(OperationError, msg)
-  
+
   result = newArrowTable(handle)
 
 proc validate*(tbl: ArrowTable): bool =
@@ -392,20 +417,24 @@ proc concatenate*(tbl: ArrowTable, others: openArray[ArrowTable]): ArrowTable =
   var tableList: ptr GList = nil
   for other in others:
     tableList = g_list_append(tableList, other.handle)
-  
+
   let options = garrow_table_concatenate_options_new()
-  
+
   var err: ptr GError
   let handle = garrow_table_concatenate(tbl.handle, tableList, options, addr err)
-  
+
   g_list_free(tableList)
   g_object_unref(options)
-  
+
   if not isNil(err):
-    let msg = if not isNil(err.message): $err.message else: "Concatenate failed"
+    let msg =
+      if not isNil(err.message):
+        $err.message
+      else:
+        "Concatenate failed"
     g_error_free(err)
     raise newException(OperationError, msg)
-  
+
   result = newArrowTable(handle)
 
 proc getColumnData*(tbl: ArrowTable, idx: int): ChunkedArray =

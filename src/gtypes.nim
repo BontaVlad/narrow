@@ -18,7 +18,6 @@ import ./[ffi]
 # signal(SIGILL, crashHandler)
 # signal(SIGFPE, crashHandler)
 
-
 type
   GADType*[T] = object
     handle*: ptr GArrowDataType
@@ -61,14 +60,17 @@ proc `=copy`*(dest: var GString, src: GString) =
   if dest.handle != src.handle:
     if not isNil(dest.handle):
       gFree(dest.handle)
-    dest.handle = if not isNil(src.handle): g_strdup(src.handle) else: nil
+    dest.handle =
+      if not isNil(src.handle):
+        g_strdup(src.handle)
+      else:
+        nil
 
 proc newGString*(str: cstring): GString =
   result.handle = str
 
 proc `$`*(str: GString): string =
   $str.handle
-
 
 proc `$`*[T](tp: GADType[T]): string =
   let namePtr = garrow_data_type_get_name(tp.handle)

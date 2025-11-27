@@ -1,10 +1,9 @@
 import std/[strformat, options, tables, sequtils, sets, enumerate]
 import ./[ffi, filesystem, gtables, error, gtypes]
 
-type
-  CsvReadOptions* = object
-    handle*: ptr GArrowCSVReadOptions
-    schema*: Schema
+type CsvReadOptions* = object
+  handle*: ptr GArrowCSVReadOptions
+  schema*: Schema
 
 proc newCsvReadOptions*(
     allowNewlinesInValues: Option[bool] = none(bool),
@@ -20,72 +19,66 @@ proc newCsvReadOptions*(
     isQuoted: Option[bool] = none(bool),
     nSkipRows: Option[int] = none(int),
     quoteCharacter: Option[char] = none(char),
-    useThreads: Option[bool] = none(bool)
+    useThreads: Option[bool] = none(bool),
 ): CsvReadOptions =
   let handle = garrow_csv_read_options_new()
   if handle.isNil:
     raise newException(IOError, "Failed to create CsvReadOptions")
   result.handle = handle
-  
+
   # Set optional properties
   if allowNewlinesInValues.isSome:
-    g_object_set(result.handle, "allow-newlines-in-values", 
-                 gboolean(allowNewlinesInValues.get), nil)
-  
-  if allowNullStrings.isSome:
-    g_object_set(result.handle, "allow-null-strings", 
-                 gboolean(allowNullStrings.get), nil)
-  
-  if blockSize.isSome:
-    g_object_set(result.handle, "block-size", 
-                 gint(blockSize.get), nil)
-  
-  if checkUtf8.isSome:
-    g_object_set(result.handle, "check-utf8", 
-                 gboolean(checkUtf8.get), nil)
-  
-  if delimiter.isSome:
-    g_object_set(result.handle, "delimiter", 
-                 gchar(delimiter.get), nil)
-  
-  if escapeCharacter.isSome:
-    g_object_set(result.handle, "escape-character", 
-                 gchar(escapeCharacter.get), nil)
-  
-  if generateColumnNames.isSome:
-    g_object_set(result.handle, "generate-column-names", 
-                 gboolean(generateColumnNames.get), nil)
-  
-  if ignoreEmptyLines.isSome:
-    g_object_set(result.handle, "ignore-empty-lines", 
-                 gboolean(ignoreEmptyLines.get), nil)
-  
-  if isDoubleQuoted.isSome:
-    g_object_set(result.handle, "is-double-quoted", 
-                 gboolean(isDoubleQuoted.get), nil)
-  
-  if isEscaped.isSome:
-    g_object_set(result.handle, "is-escaped", 
-                 gboolean(isEscaped.get), nil)
-  
-  if isQuoted.isSome:
-    g_object_set(result.handle, "is-quoted", 
-                 gboolean(isQuoted.get), nil)
-  
-  if nSkipRows.isSome:
-    g_object_set(result.handle, "n-skip-rows", 
-                 gint(nSkipRows.get), nil)
-  
-  if quoteCharacter.isSome:
-    g_object_set(result.handle, "quote-character", 
-                 gchar(quoteCharacter.get), nil)
-  
-  if useThreads.isSome:
-    g_object_set(result.handle, "use-threads", 
-                 gboolean(useThreads.get), nil)
+    g_object_set(
+      result.handle,
+      "allow-newlines-in-values",
+      gboolean(allowNewlinesInValues.get),
+      nil,
+    )
 
-# proc `=destroy`*(o: CsvReadOptions) =
-#   g_object_unref(o.handle)
+  if allowNullStrings.isSome:
+    g_object_set(
+      result.handle, "allow-null-strings", gboolean(allowNullStrings.get), nil
+    )
+
+  if blockSize.isSome:
+    g_object_set(result.handle, "block-size", gint(blockSize.get), nil)
+
+  if checkUtf8.isSome:
+    g_object_set(result.handle, "check-utf8", gboolean(checkUtf8.get), nil)
+
+  if delimiter.isSome:
+    g_object_set(result.handle, "delimiter", gchar(delimiter.get), nil)
+
+  if escapeCharacter.isSome:
+    g_object_set(result.handle, "escape-character", gchar(escapeCharacter.get), nil)
+
+  if generateColumnNames.isSome:
+    g_object_set(
+      result.handle, "generate-column-names", gboolean(generateColumnNames.get), nil
+    )
+
+  if ignoreEmptyLines.isSome:
+    g_object_set(
+      result.handle, "ignore-empty-lines", gboolean(ignoreEmptyLines.get), nil
+    )
+
+  if isDoubleQuoted.isSome:
+    g_object_set(result.handle, "is-double-quoted", gboolean(isDoubleQuoted.get), nil)
+
+  if isEscaped.isSome:
+    g_object_set(result.handle, "is-escaped", gboolean(isEscaped.get), nil)
+
+  if isQuoted.isSome:
+    g_object_set(result.handle, "is-quoted", gboolean(isQuoted.get), nil)
+
+  if nSkipRows.isSome:
+    g_object_set(result.handle, "n-skip-rows", gint(nSkipRows.get), nil)
+
+  if quoteCharacter.isSome:
+    g_object_set(result.handle, "quote-character", gchar(quoteCharacter.get), nil)
+
+  if useThreads.isSome:
+    g_object_set(result.handle, "use-threads", gboolean(useThreads.get), nil)
 
 proc `=destroy`*(o: CsvReadOptions) =
   if o.handle != nil:
@@ -228,12 +221,14 @@ proc setColumnNames*(options: CsvReadOptions, names: openArray[string]) =
   var cnames = newSeq[cstring](names.len)
   for i, name in names:
     cnames[i] = name.cstring
-  garrow_csv_read_options_set_column_names(options.handle, 
-                                           cast[ptr cstring](cnames[0].addr), 
-                                           gsize(names.len))
+  garrow_csv_read_options_set_column_names(
+    options.handle, cast[ptr cstring](cnames[0].addr), gsize(names.len)
+  )
 
 proc getColumnNames*(options: CsvReadOptions): seq[string] =
-  let cnames = cast[ptr UncheckedArray[cstring]](garrow_csv_read_options_get_column_names(options.handle))
+  let cnames = cast[ptr UncheckedArray[cstring]](garrow_csv_read_options_get_column_names(
+    options.handle
+  ))
   result = newSeq[string]()
   if cnames.isNil:
     return result
@@ -266,9 +261,9 @@ proc setNullValues*(options: CsvReadOptions, values: openArray[string]) =
   var cvalues = newSeq[cstring](values.len)
   for i, value in values:
     cvalues[i] = value.cstring
-  garrow_csv_read_options_set_null_values(options.handle, 
-                                          cast[ptr cstring](cvalues[0].addr), 
-                                          gsize(values.len))
+  garrow_csv_read_options_set_null_values(
+    options.handle, cast[ptr cstring](cvalues[0].addr), gsize(values.len)
+  )
 
 # proc getNullValues*(options: CsvReadOptions): seq[string] =
 #   var nValues: gsize
@@ -285,9 +280,9 @@ proc setTrueValues*(options: CsvReadOptions, values: openArray[string]) =
   var cvalues = newSeq[cstring](values.len)
   for i, value in values:
     cvalues[i] = value.cstring
-  garrow_csv_read_options_set_true_values(options.handle, 
-                                          cast[ptr cstring](cvalues[0].addr), 
-                                          gsize(values.len))
+  garrow_csv_read_options_set_true_values(
+    options.handle, cast[ptr cstring](cvalues[0].addr), gsize(values.len)
+  )
 
 # proc getTrueValues*(options: CsvReadOptions): seq[string] =
 #   var nValues: gsize
@@ -304,9 +299,9 @@ proc setFalseValues*(options: CsvReadOptions, values: openArray[string]) =
   var cvalues = newSeq[cstring](values.len)
   for i, value in values:
     cvalues[i] = value.cstring
-  garrow_csv_read_options_set_false_values(options.handle, 
-                                           cast[ptr cstring](cvalues[0].addr), 
-                                           gsize(values.len))
+  garrow_csv_read_options_set_false_values(
+    options.handle, cast[ptr cstring](cvalues[0].addr), gsize(values.len)
+  )
 
 # proc getFalseValues*(options: CsvReadOptions): seq[string] =
 #   var nValues: gsize
@@ -341,14 +336,16 @@ proc readCSV*(uri: string, options: CsvReadOptions): ArrowTable =
     fullUri = fmt"file://{uri}"
 
   let guri = check g_uri_parse(fullUri.cstring, G_URI_FLAGS_NONE)
-  defer: g_uri_unref(guri)
+  defer:
+    g_uri_unref(guri)
   let path = $g_uri_get_path(guri)
   let fs = newFileSystem(fullUri)
 
   with fs.openInputStream(path), stream:
     var err: ptr GError
     let reader = garrow_csv_reader_new(stream.handle, options.handle, err.addr)
-    defer: g_object_unref(reader)
+    defer:
+      g_object_unref(reader)
     let tablePtr = check garrow_csv_reader_read(reader)
     result = newArrowTable(tablePtr)
 
@@ -364,4 +361,3 @@ proc readCSV*(uri: string, options: CsvReadOptions): ArrowTable =
 proc readCSV*(uri: string): ArrowTable =
   let options = newCsvReadOptions()
   return readCSV(uri, options)
-

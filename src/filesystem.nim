@@ -86,11 +86,11 @@ proc `=copy`*(dest: var LocalFileSystemOptions, src: LocalFileSystemOptions) =
 
 proc newLocalFileSystemOptions*(): LocalFileSystemOptions =
   var handle = garrow_local_file_system_options_new()
-  
+
   # Sink floating reference if present
   if g_object_is_floating(handle) != 0:
     discard g_object_ref_sink(handle)
-  
+
   result.handle = handle
 
 # =============================================================================
@@ -99,11 +99,11 @@ proc newLocalFileSystemOptions*(): LocalFileSystemOptions =
 
 proc newFileInfo*(): FileInfo =
   var handle = garrow_file_info_new()
-  
+
   # Sink floating reference if present
   if g_object_is_floating(handle) != 0:
     discard g_object_ref_sink(handle)
-  
+
   result.handle = handle
 
 proc `=destroy`*(info: FileInfo) =
@@ -196,7 +196,6 @@ proc `$`*(info: FileInfo): string =
     return "<FileInfo>"
   result = $cstr
   g_free(cstr)
-
 
 # =============================================================================
 # FileSelector Implementation
@@ -447,7 +446,7 @@ proc `=destroy`*(stream: OutputStream) =
     discard garrow_writable_flush(stream.asWritable, addr error)
     if error != nil:
       g_error_free(error)
-    
+
     g_object_unref(stream.handle)
 
 proc `=sink`*(dest: var OutputStream, src: OutputStream) =
@@ -472,6 +471,7 @@ proc `=copy`*(dest: var OutputStream, src: OutputStream) =
     dest.handle = src.handle
     if src.handle != nil:
       discard g_object_ref(dest.handle)
+
 proc isValid*(stream: OutputStream): bool {.inline.} =
   stream.handle != nil
 
@@ -563,11 +563,11 @@ proc newFileSystem*(uri: string): FileSystem =
   ## ```
   new(result)
   let handle = check garrow_file_system_create(uri.cstring)
-  
+
   # Sink floating reference if present
   if g_object_is_floating(handle) != 0:
     discard g_object_ref_sink(handle)
-  
+
   result.handle = handle
 
 proc typeName*(fs: FileSystem): string =
@@ -746,11 +746,11 @@ proc newLocalFileSystem*(options: LocalFileSystemOptions): LocalFileSystem =
   ## Create a local filesystem with custom options
   new(result)
   let handle = garrow_local_file_system_new(options.handle)
-  
+
   # Sink floating reference if present
   if g_object_is_floating(handle) != 0:
     discard g_object_ref_sink(handle)
-  
+
   result.handle = cast[ptr GArrowFileSystem](handle)
 
 proc newLocalFileSystem*(): LocalFileSystem =
