@@ -47,7 +47,7 @@ proc getNRows*(chunkedArray: ChunkedArray): uint64 =
 proc getNNulls*(chunkedArray: ChunkedArray): uint64 =
   result = garrow_chunked_array_get_n_nulls(chunkedArray)
 
-proc getNChunks*(chunkedArray: ChunkedArray): uint =
+proc nChunks*(chunkedArray: ChunkedArray): uint =
   result = garrow_chunked_array_get_n_chunks(chunkedArray)
 
 proc getChunk*[T](chunkedArray: ChunkedArray, i: uint): Array[T] =

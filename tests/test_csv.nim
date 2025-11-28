@@ -2,7 +2,7 @@ import std/[os, options, sets, sequtils]
 import unittest2
 import ../src/[ffi, filesystem, gtables, csv, gtypes]
 
-suite "CSV":
+suite "Reading CSV":
 
   test "read csv file localFileSystem":
     let uri = getCurrentDir() & "/tests/customers-100.csv"
@@ -34,3 +34,11 @@ suite "CSV":
     check len(tblKeys) == 2
     check "First name" in tblKeys
     check "Last name" in tblKeys
+
+suite "Writing CSV":
+
+  test "writet table to csv file localFileSystem":
+    let uri = getCurrentDir() & "/tests/customers-100.csv"
+    # let table = 
+    # let table = readCSV(uri)
+    # check table.nRows == 100

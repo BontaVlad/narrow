@@ -3,21 +3,6 @@
 
 import ./[ffi]
 
-# # Signal handler for crashes
-# proc crashHandler(sig: cint) {.noconv.} =
-#   stderr.write("\n" & "=".repeat(60) & "\n")
-#   stderr.write("CRASH DETECTED - Signal: " & $sig & "\n")
-#   stderr.write("=".repeat(60) & "\n")
-#   writeStackTrace()
-#   stderr.write("=".repeat(60) & "\n")
-#   quit(1)
-
-# # Setup handlers
-# signal(SIGSEGV, crashHandler)
-# signal(SIGABRT, crashHandler)
-# signal(SIGILL, crashHandler)
-# signal(SIGFPE, crashHandler)
-
 type
   GADType*[T] = object
     handle*: ptr GArrowDataType

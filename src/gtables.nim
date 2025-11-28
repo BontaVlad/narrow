@@ -1,5 +1,22 @@
-import std/[strutils]
-import ./[ffi, gchunkedarray, glist, gtypes, error]
+import macros
+import ./[ffi, gchunkedarray, garray, glist, gtypes, error]
+
+
+# # Signal handler for crashes
+# proc crashHandler(sig: cint) {.noconv.} =
+#   stderr.write("\n" & "=".repeat(60) & "\n")
+#   stderr.write("CRASH DETECTED - Signal: " & $sig & "\n")
+#   stderr.write("=".repeat(60) & "\n")
+#   writeStackTrace()
+#   stderr.write("=".repeat(60) & "\n")
+#   quit(1)
+
+# # Setup handlers
+# signal(SIGSEGV, crashHandler)
+# signal(SIGABRT, crashHandler)
+# signal(SIGILL, crashHandler)
+# signal(SIGFPE, crashHandler)
+
 
 type
   Field* = object
@@ -10,6 +27,9 @@ type
 
   ArrowTable* = object
     handle: ptr GArrowTable
+
+  RecordBatchBuilder* = object
+    handle: ptr GArrowRecordBatchBuilder
 
   RecordBatch* = object
     handle: ptr GArrowRecordBatch
@@ -222,6 +242,49 @@ proc newRecordBatch*(handle: ptr GArrowRecordBatch): RecordBatch =
       discard g_object_ref(handle)
   result.handle = handle
 
+macro newRecordBatch*(schema: Schema, arrays: varargs[typed]): RecordBatch =
+  ## Create a RecordBatch from a schema and typed arrays
+  ## This macro builds a RecordBatch using RecordBatchBuilder
+  
+  # TODO: add check if array is the same type as declared in the schema
+  var stmts = newStmtList()
+  let builderSym = genSym(nskLet, "builder")
+  let resultSym = genSym(nskLet, "recordBatch")
+  
+  # Create the builder
+  stmts.add quote do:
+    let `builderSym` = newRecordBatchBuilder(`schema`)
+  
+  # For each array, add columnBuilder().appendValues() call
+  for i, arr in arrays:
+    let idx = newLit(i)
+    
+    # Extract the type from Array[T]
+    let arrType = arr.getTypeInst()
+    
+    # Get the element type T from Array[T]
+    var elementType: NimNode
+    if arrType.kind == nnkBracketExpr:
+      elementType = arrType[1]
+    else:
+      error("Expected iterable type, got: " & arrType.repr, arr)
+
+    let typeDesc = nnkBracketExpr.newTree(ident"typedesc", elementType)
+    
+    # Build: builder.columnBuilder(T, i).appendValues(array)
+    stmts.add quote do:
+      `builderSym`.columnBuilder(`typeDesc`, `idx`).appendValues(`arr`)
+  
+  # Add the flush call
+  stmts.add quote do:
+    let `resultSym` = `builderSym`.flush()
+  
+  # Return the record batch
+  stmts.add(resultSym)
+  
+  result = newBlockStmt(stmts)
+  echo repr result
+
 proc `$`*(rb: RecordBatch): string =
   var err: ptr GError
   let cstr = garrow_record_batch_to_string(rb.handle, addr err)
@@ -246,6 +309,68 @@ proc nColumns*(rb: RecordBatch): int =
 
 proc nRows*(rb: RecordBatch): int64 =
   garrow_record_batch_get_n_rows(rb.handle).int64
+
+proc getColumnName*(rb: RecordBatch, idx: int): string =
+  result = $newGString(garrow_record_batch_get_column_name(rb.toPtr, idx.gint))
+
+proc getColumnData*[T](rb: RecordBatch, _: typedesc[T], idx: int): Array[T] =
+  let handle = garrow_record_batch_get_column_data(rb.toPtr, idx.gint)
+  result = newArray[T](handle)
+
+template `[]`*(rb: RecordBatch, idx: int, T: typedesc): Array[T] =
+  rb.getColumnData(idx, T)
+
+template `[]`*(rb: RecordBatch, key: string, T: typedesc): Array[T] =
+  let idx = rb.schema.getFieldIndex(key)
+  if idx < 0:
+    raise newException(KeyError, "Column not found: " & key)
+  rb.getColumnData(idx, T)
+
+# =============================================================================
+# RecordBatchBuilder Implementation
+# =============================================================================
+
+proc toPtr*(b: RecordBatchBuilder): ptr GArrowRecordBatchBuilder {.inline.} =
+  b.handle
+
+proc schema*(builder: RecordBatchBuilder): Schema =
+  result = newSchema(garrow_record_batch_builder_get_schema(builder.toPtr))
+
+# proc `=destroy`*(builder: RecordBatchBuilder) =
+#   if not isNil(builder.handle):
+#     g_object_unref(builder.handle)
+
+# proc `=sink`*(dest: var RecordBatchBuilder, src: RecordBatchBuilder) =
+#   if not isNil(dest.handle) and dest.handle != src.handle:
+#     g_object_unref(dest.handle)
+#   dest.handle = src.handle
+
+# proc `=copy`*(dest: var RecordBatchBuilder, src: RecordBatchBuilder) =
+#   if dest.handle != src.handle:
+#     if not isNil(dest.handle):
+#       g_object_unref(dest.handle)
+#     dest.handle = src.handle
+#     if not isNil(dest.handle):
+#       discard g_object_ref(dest.handle)
+
+proc newRecordBatchBuilder*(schema: Schema): RecordBatchBuilder =
+  let handle = check garrow_record_batch_builder_new(schema.toPtr)
+  result = RecordBatchBuilder(handle: handle)
+
+proc newRecordBatchBuilder*(schema: Schema, capacity: int): RecordBatchBuilder =
+  result = newRecordBatchBuilder(schema)
+  garrow_record_batch_builder_set_initial_capacity(result.toPtr, capacity.gint64)
+
+proc capacity*(builder: RecordBatchBuilder): int64 =
+  result = garrow_record_batch_builder_get_initial_capacity(builder.toPtr).int64
+
+proc columnBuilder*[T](builder: RecordBatchBuilder, _: typedesc[T], idx: int): ArrayBuilder[T] =
+  let cBuilder = garrow_record_batch_builder_get_column_builder(builder.toPtr, idx.gint)
+  result = newArrayBuilder[T](cBuilder)
+  
+proc flush*(builder: RecordBatchBuilder): RecordBatch =
+  let handle = check garrow_record_batch_builder_flush(builder.toPtr)
+  result = RecordBatch(handle: handle)
 
 # =============================================================================
 # ArrowTable Implementation
@@ -277,30 +402,72 @@ proc newArrowTable*(schema: Schema, recordBatches: openArray[RecordBatch]): Arro
 
   var rbHandles = newSeq[ptr GArrowRecordBatch](recordBatches.len)
   for i, rb in recordBatches:
-    rbHandles[i] = rb.handle
+    rbHandles[i] = rb.toPtr
 
-  var err: ptr GError
-  let handle = garrow_table_new_record_batches(
-    schema.handle, addr rbHandles[0], recordBatches.len.gsize, addr err
-  )
-
-  if not isNil(err):
-    let msg =
-      if not isNil(err.message):
-        $err.message
-      else:
-        "Table creation failed"
-    g_error_free(err)
-    raise newException(OperationError, msg)
-
-  if g_object_is_floating(handle) != 0:
-    discard g_object_ref_sink(handle)
+  let handle = check garrow_table_new_record_batches(schema.handle, addr rbHandles[0], recordBatches.len.gsize)
 
   result.handle = handle
 
 proc newArrowTable*(handle: ptr GArrowTable): ArrowTable =
   result.handle = handle
 
+proc newArrowTable*(schema: Schema, values: openArray[seq[auto]]): ArrowTable =
+  ## Create a table from schema and values using GList
+  if values.len == 0:
+    raise newException(ValueError, "Cannot create table from empty values")
+  
+  var valueList = newGList[pointer]()
+  for val in values:
+    valueList.append(cast[pointer](val))
+  
+  let handle = check garrow_table_new_values(schema.handle, valueList.list)
+  
+  if g_object_is_floating(handle) != 0:
+    discard g_object_ref_sink(handle)
+  
+  result.handle = handle
+
+proc newArrowTable*(schema: Schema, chunkedArrays: openArray[ChunkedArray]): ArrowTable =
+  ## Create a table from schema and chunked arrays
+  if chunkedArrays.len == 0:
+    raise newException(ValueError, "Cannot create table from empty chunked arrays")
+  
+  var caHandles = newSeq[ptr GArrowChunkedArray](chunkedArrays.len)
+  for i, ca in chunkedArrays:
+    echo repr cast[pointer](ca.toPtr)
+    caHandles[i] = ca.toPtr
+  
+  var err: ptr GError = nil
+  let handle = garrow_table_new_chunked_arrays(
+    schema.handle, 
+    addr caHandles[0], 
+    chunkedArrays.len.gsize,
+    err.addr
+  )
+  # if not err.isNil:
+  #   echo err[].message
+  
+  # result.handle = handle
+
+proc newArrowTable*(schema: Schema, arrays: openArray[Array]): ArrowTable =
+  ## Create a table from schema and arrays
+  if arrays.len == 0:
+    raise newException(ValueError, "Cannot create table from empty arrays")
+  
+  var arrHandles = newSeq[ptr GArrowArray](arrays.len)
+  for i, arr in arrays:
+    arrHandles[i] = arr.toPtr
+  
+  let handle = check garrow_table_new_arrays(
+    schema.handle, 
+    addr arrHandles[0], 
+    arrays.len.gsize
+  )
+  
+  if g_object_is_floating(handle) != 0:
+    discard g_object_ref_sink(handle)
+  
+  result.handle = handle
 proc `$`*(tbl: ArrowTable): string =
   var err: ptr GError
   let cstr = garrow_table_to_string(tbl.handle, addr err)

@@ -1,4 +1,4 @@
-import std/[options, sequtils]
+import std/[options, strformat]
 import ./[ffi, gtypes, error]
 
 type
@@ -7,6 +7,15 @@ type
 
   Array*[T] = object
     handle: ptr GArrowArray
+
+converter toOpenArray*[T](a: Array[T]): openArray[T] =
+  toOpenArray(a.storage, a.len)
+
+proc toPtr*[T](b: ArrayBuilder[T]): ptr GArrowArrayBuilder {.inline.} =
+  b.handle
+
+proc toPtr*[T](a: Array[T]): ptr GArrowArray {.inline.} =
+  a.handle
 
 proc `=destroy`*[T](builder: ArrayBuilder[T]) =
   if not isNil(builder.handle):
@@ -42,6 +51,9 @@ proc `=copy`*[T](dest: var Array[T], src: Array[T]) =
     if not isNil(dest.handle):
       discard g_object_ref(dest.handle)
 
+proc newArrayBuilder*[T](builderPtr: ptr GArrowArrayBuilder): ArrayBuilder[T] =
+  result = ArrayBuilder[T](handle: builderPtr)
+
 proc newArrayBuilder*[T](): ArrayBuilder[T] =
   var handle: gpointer
 
@@ -59,9 +71,9 @@ proc newArrayBuilder*[T](): ArrayBuilder[T] =
     handle = garrow_int32_array_builder_new()
   elif T is uint32:
     handle = garrow_uint32_array_builder_new()
-  elif T is int64:
+  elif T is int64 or T is int:
     handle = garrow_int64_array_builder_new()
-  elif T is uint64:
+  elif T is uint64 or T is uint:
     handle = garrow_uint64_array_builder_new()
   elif T is float32:
     handle = garrow_float_array_builder_new()
@@ -82,7 +94,7 @@ proc newArrayBuilder*[T](): ArrayBuilder[T] =
 
   result = ArrayBuilder[T](handle: cast[ptr GArrowArrayBuilder](handle))
 
-proc append*[T](builder: var ArrayBuilder[T], val: sink T) =
+proc append*[T](builder: ArrayBuilder[T], val: sink T) =
   when T is bool:
     check(
       garrow_boolean_array_builder_append_value(
@@ -153,7 +165,7 @@ proc append*[T](builder: var ArrayBuilder[T], val: sink T) =
       cast[ptr GArrowStringArrayBuilder](builder.handle), val.cstring
     )
 
-proc appendNull*[T](builder: var ArrayBuilder[T]) =
+proc appendNull*[T](builder: ArrayBuilder[T]) =
   when T is bool:
     check garrow_boolean_array_builder_append_null(
       cast[ptr GArrowBooleanArrayBuilder](builder.handle)
@@ -201,13 +213,16 @@ proc appendNull*[T](builder: var ArrayBuilder[T]) =
   else:
     check garrow_array_builder_append_null(builder.handle)
 
-proc append*[T](builder: var ArrayBuilder[T], val: sink Option[T]) =
+proc append*[T](builder: ArrayBuilder[T], val: sink Option[T]) =
   if val.isSome():
     builder.append(val.get())
   else:
     builder.appendNull()
 
-proc appendValues*[T](builder: var ArrayBuilder[T], values: sink seq[T]) =
+proc appendValues*[T](builder: ArrayBuilder[T], values: openArray[T]) =
+  if len(values) == 0:
+    return
+
   when T is int32:
     check garrow_int32_array_builder_append_values(
       cast[ptr GArrowInt32ArrayBuilder](builder.handle),
@@ -245,17 +260,12 @@ proc appendValues*[T](builder: var ArrayBuilder[T], values: sink seq[T]) =
     for val in values:
       builder.append(val)
 
-proc finish*[T](builder: var ArrayBuilder[T]): Array[T] =
+proc finish*[T](builder: ArrayBuilder[T]): Array[T] =
   let handle = check garrow_array_builder_finish(builder.handle)
-
-  # Sink floating reference if present
-  if g_object_is_floating(handle) != 0:
-    discard g_object_ref_sink(handle)
-
   result = Array[T](handle: handle)
 
 proc newArray*[T](values: sink seq[T]): Array[T] =
-  var builder = newArrayBuilder[T]()
+  let builder = newArrayBuilder[T]()
   if len(values) != 0:
     builder.appendValues(values)
   result = builder.finish()
@@ -279,10 +289,21 @@ proc newArray*[T](handle: ptr GArrowArray): Array[T] =
 
   result = Array[T](handle: handle)
 
+proc `==`*[T](a, b: Array[T]): bool =
+  if a.handle == nil or b.handle == nil:
+    return a.handle == b.handle
+  garrow_array_equal(a.handle, b.handle).bool
 proc len*(ar: Array): int =
   return garrow_array_get_length(ar.handle)
 
 proc `[]`*[T](arr: Array[T], i: int): T =
+  if len(arr) == 0:
+    raise newException(IndexDefect, "Empty array")
+  if i < 0:
+    raise newException(IndexDefect, "Negative indexes are not supported")
+  if i > len(arr):
+    raise newException(IndexDefect, fmt"index {i} not in 0 .. {len(arr)}")
+
   when T is bool:
     let val =
       garrow_boolean_array_get_value(cast[ptr GArrowBooleanArray](arr.handle), i)
@@ -315,6 +336,13 @@ proc `[]`*[T](arr: Array[T], i: int): T =
     {.error: "Unsupported array type for indexing".}
 
 proc `[]`*[T](arr: Array[T], slice: HSlice[int, int]): Array[T] =
+  if slice.a < 0 or slice.b < 0:
+    raise newException(IndexDefect, "Negative indexes are not supported")
+  if slice.a > slice.b:
+    raise newException(IndexDefect, fmt"Start: {slice.a} is greather than {slice.b}")
+  if slice.b > len(arr):
+    raise newException(IndexDefect, fmt"index {slice.b} not in 0 .. {len(arr)}")
+
   let offset = slice.a
   let length = slice.b - slice.a + 1
   result.handle = garrow_array_slice(arr.handle, offset.gint64, length.gint64)
@@ -324,9 +352,17 @@ iterator items*[T](arr: Array[T]): T =
     yield arr[i]
 
 proc isNull*[T](arr: Array[T], i: int): bool =
+  if i < 0:
+    raise newException(IndexDefect, "Negative indexes are not supported")
+  if i > len(arr):
+    raise newException(IndexDefect, fmt"index {i} not in 0 .. {len(arr)}")
   return garrow_array_is_null(arr.handle, i) != 0
 
 proc isValid*[T](arr: Array[T], i: int): bool =
+  if i < 0:
+    raise newException(IndexDefect, "Negative indexes are not supported")
+  if i > len(arr):
+    raise newException(IndexDefect, fmt"index {i} not in 0 .. {len(arr)}")
   return garrow_array_is_valid(arr.handle, i) != 0
 
 proc tryGet*[T](arr: Array[T], i: int): Option[T] =
@@ -335,6 +371,11 @@ proc tryGet*[T](arr: Array[T], i: int): Option[T] =
   if arr.isNull(i):
     return none(T)
   return some(arr[i])
+
+proc toSeq*[T](arr: Array[T]): seq[T] =
+  result = newSeq[T](arr.len)
+  for i in 0 ..< arr.len:
+    result[i] = arr[i]
 
 proc `@`*[T](arr: Array[T]): seq[T] =
   arr.toSeq
