@@ -1,9 +1,9 @@
 import std/[strformat, options, tables, sequtils, sets, enumerate]
-import ./[ffi, filesystem, gtables, error, gtypes]
+import ./[ffi, filesystem, gtables, error, gtypes, gschema]
 
 type CsvReadOptions* = object
   handle*: ptr GArrowCSVReadOptions
-  schema*: Schema
+  schema*: Option[Schema]
 
 proc newCsvReadOptions*(
     allowNewlinesInValues: Option[bool] = none(bool),
@@ -82,8 +82,8 @@ proc newCsvReadOptions*(
 
 proc `=destroy`*(o: CsvReadOptions) =
   if o.handle != nil:
-    if o.schema.isValid:
-      g_object_unref(o.schema.handle)
+    if o.schema.isSome:
+      g_object_unref(o.schema.get().toPtr)
     g_object_unref(o.handle)
 
 proc `=sink`*(dest: var CsvReadOptions, src: CsvReadOptions) =
@@ -251,7 +251,7 @@ proc getColumnTypes*(options: CsvReadOptions): Table[string, GADType] =
 # Schema methods
 proc addSchema*(options: var CsvReadOptions, schema: Schema) =
   garrow_csv_read_options_add_schema(options.handle, schema.handle)
-  options.schema = schema
+  options.schema = some(schema)
 
 # Null values methods
 proc addNullValue*(options: CsvReadOptions, value: string) =
@@ -349,9 +349,9 @@ proc readCSV*(uri: string, options: CsvReadOptions): ArrowTable =
     let tablePtr = check garrow_csv_reader_read(reader)
     result = newArrowTable(tablePtr)
 
-  if options.schema.isValid:
+  if options.schema.isSome:
     var keep = initHashSet[string]()
-    for f in options.schema.ffields:
+    for f in options.schema.get().ffields:
       keep.incl(f.name)
 
     for k in result.keys:

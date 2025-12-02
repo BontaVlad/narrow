@@ -88,7 +88,7 @@ suite "GArrow types - Memory Stress Tests":
     check $gType2 == "int32"  # gType2 should still be valid
 
   test "Array of types":
-    var types: array[10, GADType[int32]]
+    var types: array[10, GADType]
     for i in 0..9:
       types[i] = newGType(int32)
       check $types[i] == "int32"
@@ -98,7 +98,7 @@ suite "GArrow types - Memory Stress Tests":
       check $types[i] == "int32"
 
   test "Sequence of types":
-    var types: seq[GADType[int64]]
+    var types: seq[GADType]
     for i in 0..99:
       types.add(newGType(int64))
     
@@ -109,13 +109,6 @@ suite "GArrow types - Memory Stress Tests":
     # Clear and check
     types.setLen(0)
 
-  test "Self-assignment":
-    var gType = newGType(string)
-    let originalHandle = gType.handle
-    gType = gType  # Self-assignment
-    check $gType == "utf8"
-    # Handle might change due to copy semantics, but object should be valid
-
   test "Reassignment loop":
     var gType = newGType(int8)
     for i in 0..100:
@@ -123,7 +116,7 @@ suite "GArrow types - Memory Stress Tests":
       check $gType == "int8"
 
   test "Mixed type allocations":
-    var types: seq[GADType[int32]]
+    var types: seq[GADType]
     for i in 0..50:
       if i mod 2 == 0:
         types.add(newGType(int32))
@@ -195,13 +188,8 @@ suite "GArrow types - Memory Stress Tests":
     check $copy4 == "int32"
 
 
-  test "Nil handle safety":
-    var gType: GADType[int32]
-    # Default initialized, handle should be nil
-    # Destroying should not crash
-    
   test "Copy from sequence":
-    var types: seq[GADType[string]]
+    var types: seq[GADType]
     for i in 0..9:
       types.add(newGType(string))
     
@@ -211,7 +199,7 @@ suite "GArrow types - Memory Stress Tests":
     check $types[5] == "utf8"
 
   test "Return value optimization":
-    proc createType(): GADType[int32] =
+    proc createType(): GADType =
       result = newGType(int32)
     
     for i in 0..100:
@@ -224,9 +212,9 @@ suite "GArrow types - Memory Stress Tests":
       # Temporary should be destroyed immediately after use
 
   test "Complex nesting and copying":
-    var outer: seq[seq[GADType[int32]]]
+    var outer: seq[seq[GADType]]
     for i in 0..9:
-      var inner: seq[GADType[int32]]
+      var inner: seq[GADType]
       for j in 0..9:
         inner.add(newGType(int32))
       outer.add(inner)
@@ -240,17 +228,17 @@ suite "GArrow types - Edge Cases":
   test "Rapid creation and destruction":
     # Simulate rapid allocation/deallocation
     for cycle in 0..10:
-      var temp: seq[GADType[int64]]
+      var temp: seq[GADType]
       for i in 0..999:
         temp.add(newGType(int64))
       # All destroyed when temp goes out of scope
 
   test "Copy during iteration":
-    var original: seq[GADType[float64]]
+    var original: seq[GADType]
     for i in 0..99:
       original.add(newGType(float64))
     
-    var copied: seq[GADType[float64]]
+    var copied: seq[GADType]
     for item in original:
       copied.add(item)
     

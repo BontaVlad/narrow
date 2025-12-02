@@ -4,37 +4,37 @@
 import ./[ffi]
 
 type
-  GADType*[T] = object
+  GADType* = object
     handle*: ptr GArrowDataType
 
   GString* = object
     handle*: cstring
 
-converter toArrowType*(g: GADType): ptr GArrowDataType =
+proc toPtr*(g: GADType): ptr GArrowDataType {.inline.} =
   g.handle
 
-proc `=destroy`*[T](tp: GADType[T]) =
-  if not isNil(tp.handle):
-    g_object_unref(tp.handle)
+proc `=destroy`*(tp: GADType) =
+  if not isNil(tp.toPtr):
+    g_object_unref(tp.toPtr)
 
-proc `=destroy`*(str: GString) =
-  if not isNil(str.handle):
-    gFree(str.handle)
+proc `=destroy`*(s: GString) =
+  if not isNil(s.handle):
+    gFree(s.handle)
 
-proc `=sink`*[T](dest: var GADType[T], src: GADType[T]) =
+proc `=sink`*(dest: var GADType, src: GADType) =
   # Clean up destination if different
-  if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(dest.handle)
+  if not isNil(dest.toPtr) and dest.toPtr != src.toPtr:
+    g_object_unref(dest.toPtr)
   # Transfer ownership (move semantics)
   dest.handle = src.handle
 
-proc `=copy`*[T](dest: var GADType[T], src: GADType[T]) =
-  if dest.handle != src.handle:
-    if not isNil(dest.handle):
-      g_object_unref(dest.handle)
+proc `=copy`*(dest: var GADType, src: GADType) =
+  if dest.toPtr != src.toPtr:
+    if not isNil(dest.toPtr):
+      g_object_unref(dest.toPtr)
     dest.handle = src.handle
-    if not isNil(dest.handle):
-      discard g_object_ref(dest.handle) # bump ref count
+    if not isNil(dest.toPtr):
+      discard g_object_ref(dest.toPtr) # bump ref count
 
 proc `=sink`*(dest: var GString, src: GString) =
   if not isNil(dest.handle) and dest.handle != src.handle:
@@ -57,13 +57,16 @@ proc newGString*(str: cstring): GString =
 proc `$`*(str: GString): string =
   $str.handle
 
-proc `$`*[T](tp: GADType[T]): string =
-  let namePtr = garrow_data_type_get_name(tp.handle)
+proc `$`*(tp: GADType): string =
+  let namePtr = garrow_data_type_get_name(tp.toPtr)
   if isNil(namePtr):
     return "unknown"
   result = $newGString(namePtr)
 
-proc newGType*(T: typedesc): GADType[T] =
+proc `id`*(tp: GADType): GArrowType =
+  result = garrow_data_type_get_id(tp.toPtr)
+
+proc newGType*(T: typedesc): GADType =
   when T is bool:
     result.handle = cast[ptr GArrowDataType](garrow_boolean_data_type_new())
   elif T is int8:
@@ -96,3 +99,6 @@ proc newGType*(T: typedesc): GADType[T] =
     static:
       doAssert false,
         "newGType: unsupported type for automatic Arrow GType construction."
+
+proc newGType*(pt: ptr GArrowDataType): GADType =
+  result = GADType(handle: pt)

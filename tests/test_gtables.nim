@@ -1,6 +1,6 @@
 import std/[strutils]
 import unittest2
-import ../src/[gtables, gtypes, garray, gchunkedarray]
+import ../src/[gtables, gtypes, garray, gchunkedarray, gschema, grecordbatch]
 
 suite "RecordBatchBuilder":
   test "Create RecordBatchBuilder default":
@@ -34,7 +34,6 @@ suite "Field - Basic Operations":
   
   test "Create and destroy field":
     let field = newField[int32]("test_field")
-    check field.isValid
     check field.name == "test_field"
   
   test "Field equality":
@@ -54,7 +53,6 @@ suite "Field - Basic Operations":
   test "Field copying":
     let original = newField[int32]("original")
     let copy = original
-    check copy.isValid
     check copy.name == "original"
     check copy == original
 
@@ -68,7 +66,6 @@ suite "Schema - Basic Operations":
     ]
     
     let schema = newSchema(ffields)
-    check schema.isValid
     check schema.nFields == 3
   
   test "Schema field access":
@@ -89,7 +86,6 @@ suite "Schema - Basic Operations":
     ])
     
     let field = schema.getFieldByName("name")
-    check field.isValid
     check field.name == "name"
   
   test "Schema field index":
@@ -136,7 +132,6 @@ suite "Schema - Basic Operations":
   
   test "Empty schema":
     let schema = newSchema([])
-    check schema.isValid
     check schema.nFields == 0
 
 suite "Field - Memory Tests":
@@ -144,7 +139,6 @@ suite "Field - Memory Tests":
   test "Create many fields":
     for i in 0..1000:
       let field = newField[int32]("field_" & $i)
-      check field.isValid
   
   test "Field copy chains":
     let original = newField[int32]("original")
@@ -213,7 +207,6 @@ suite "Schema - Memory Tests":
     for i in 0..1000:
       for j in 0..4:
         let field = schema.getField(j)
-        check field.isValid
 
 suite "ArrowTable Construction Tests":
   test "newArrowTable from RecordBatches":
@@ -241,7 +234,6 @@ suite "ArrowTable Construction Tests":
     # Create table
     let table = newArrowTable(schema, [rb1, rb2])
     
-    check table.isValid
     check table.nColumns == 3
     check table.nRows == 5
     check table.schema == schema

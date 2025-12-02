@@ -1,7 +1,9 @@
 import std/options
 import unittest2
-import ../src/[garray, gtypes]
+import ../src/[ffi, garray, gtypes]
 
+## TODO: remove AI GENERATED TESTS THAT DON"T DO ANYTHING
+ 
 suite "Array - Equality":
   
   test "Equal arrays":
@@ -485,15 +487,6 @@ suite "Array - Error Handling: Builder Errors":
     builder.appendValues(@[])
     let arr = builder.finish()
     check arr.len == 0
-  
-  # test "Extremely large append operation":
-  #   var builder = newArrayBuilder[int32]()
-  #   var largeSeq: seq[int32]
-  #   # Try to allocate extremely large sequence
-  #   expect(Exception):
-  #     for i in 0..<(high(int32) div 2):
-  #       largeSeq.add(i.int32)
-  #     builder.appendValues(largeSeq)
 
 suite "Array - Error Handling: Type Mismatches":
   
@@ -511,11 +504,6 @@ suite "Array - Error Handling: Type Mismatches":
     let arr = newArray[bool](@[true, false, true, false])
     check arr[0] == true
     check arr[1] == false
-  
-  # test "Float array with special values - NaN":
-  #   let arr = newArray[float64](@[1.0, NaN, 3.0])
-  #   check arr.len == 3
-  #   check arr[1].classify == fcNaN
   
   test "Float array with special values - Infinity":
     let arr = newArray[float64](@[1.0, Inf, -Inf])
@@ -839,16 +827,463 @@ suite "Array - Error Handling: Iterator Edge Cases":
         sum += val.get()
     check sum == 15
 
-# [Summary] 108 tests run (0.03s): 97 OK, 11 FAILED, 0 SKIPPED
-#   [FAILED ] (  0.00s) Slice with single element
-#   [FAILED ] (  0.00s) Slice at boundaries
-#   [FAILED ] (  0.00s) isNull with negative index
-#   [FAILED ] (  0.00s) isNull with index beyond length
-#   [FAILED ] (  0.00s) isValid with negative index
-#   [FAILED ] (  0.00s) isValid with index beyond length
-#   [FAILED ] (  0.00s) Append after finish - detect double finish
-#   [FAILED ] (  0.00s) Multiple finish calls on same builder
-#   [FAILED ] (  0.00s) Very long string
-#   [FAILED ] (  0.00s) Slice exactly at array end
-#   [FAILED ] (  0.00s) Slice on single element array
-# Error: execution of an external program failed: '/home/vlad/Sandbox/narrow/tests/test_garray -v'
+suite "UncheckedArray - Basic Creation":
+  
+  test "Create from typed array":
+    let typedArr = newArray[int32](@[1'i32, 2, 3, 4, 5])
+    let unchecked = newUncheckedArray(typedArr)
+    check unchecked.len == 5
+  
+  test "Create from different types":
+    let intArr = newArray[int64](@[10'i64, 20, 30])
+    let floatArr = newArray[float64](@[1.5, 2.5, 3.5])
+    let strArr = newArray[string](@["hello", "world"])
+    
+    let unchecked1 = newUncheckedArray(intArr)
+    let unchecked2 = newUncheckedArray(floatArr)
+    let unchecked3 = newUncheckedArray(strArr)
+    
+    check unchecked1.len == 3
+    check unchecked2.len == 3
+    check unchecked3.len == 2
+  
+  test "Create from boolean array":
+    let boolArr = newArray[bool](@[true, false, true])
+    let unchecked = newUncheckedArray(boolArr)
+    check unchecked.len == 3
+  
+  test "Create from empty array":
+    let emptyArr = newArray[int32](@[])
+    let unchecked = newUncheckedArray(emptyArr)
+    check unchecked.len == 0
+
+suite "UncheckedArray - Conversion Back to Typed":
+  
+  test "Convert back to original type":
+    let original = newArray[int32](@[1'i32, 2, 3, 4, 5])
+    let unchecked = newUncheckedArray(original)
+    let typed = unchecked.toTypedArray[:int32]()
+    
+    check typed.len == 5
+    check typed[0] == 1
+    check typed[4] == 5
+  
+  test "Convert string array round trip":
+    let original = newArray[string](@["hello", "world", "test"])
+    let unchecked = newUncheckedArray(original)
+    let typed = unchecked.toTypedArray[:string]()
+    
+    check typed.len == 3
+    check typed[0] == "hello"
+    check typed[2] == "test"
+  
+  test "Convert float array round trip":
+    let original = newArray[float64](@[1.5, 2.5, 3.5])
+    let unchecked = newUncheckedArray(original)
+    let typed = unchecked.toTypedArray[:float64]()
+    
+    check typed.len == 3
+    check typed[0] == 1.5
+    check typed[1] == 2.5
+  
+  test "Convert boolean array round trip":
+    let original = newArray[bool](@[true, false, true, false])
+    let unchecked = newUncheckedArray(original)
+    let typed = unchecked.toTypedArray[:bool]()
+    
+    check typed.len == 4
+    check typed[0] == true
+    check typed[1] == false
+
+suite "UncheckedArray - Equality":
+  
+  test "Equal unchecked arrays":
+    let arr1 = newArray[int32](@[1'i32, 2, 3])
+    let arr2 = newArray[int32](@[1'i32, 2, 3])
+    
+    let unchecked1 = newUncheckedArray(arr1)
+    let unchecked2 = newUncheckedArray(arr2)
+    
+    check unchecked1 == unchecked2
+  
+  test "Not equal unchecked arrays - different values":
+    let arr1 = newArray[int32](@[1'i32, 2, 3])
+    let arr2 = newArray[int32](@[1'i32, 2, 4])
+    
+    let unchecked1 = newUncheckedArray(arr1)
+    let unchecked2 = newUncheckedArray(arr2)
+    
+    check unchecked1 != unchecked2
+  
+  test "Not equal unchecked arrays - different lengths":
+    let arr1 = newArray[int32](@[1'i32, 2, 3])
+    let arr2 = newArray[int32](@[1'i32, 2])
+    
+    let unchecked1 = newUncheckedArray(arr1)
+    let unchecked2 = newUncheckedArray(arr2)
+    
+    check unchecked1 != unchecked2
+  
+  test "Equal arrays from different types with same data":
+    let arr1 = newArray[string](@["a", "b", "c"])
+    let arr2 = newArray[string](@["a", "b", "c"])
+    
+    let unchecked1 = newUncheckedArray(arr1)
+    let unchecked2 = newUncheckedArray(arr2)
+    
+    check unchecked1 == unchecked2
+
+suite "UncheckedArray - Null Checking":
+  
+  test "isNull checks null elements":
+    var builder = newArrayBuilder[int32]()
+    builder.appendNull()
+    builder.append(1'i32)
+    builder.appendNull()
+    let arr = builder.finish()
+    
+    let unchecked = newUncheckedArray(arr)
+    check unchecked.isNull(0) == true
+    check unchecked.isNull(1) == false
+    check unchecked.isNull(2) == true
+  
+  test "isValid checks valid elements":
+    var builder = newArrayBuilder[float64]()
+    builder.appendNull()
+    builder.append(3.14)
+    builder.appendNull()
+    let arr = builder.finish()
+    
+    let unchecked = newUncheckedArray(arr)
+    check unchecked.isValid(0) == false
+    check unchecked.isValid(1) == true
+    check unchecked.isValid(2) == false
+  
+  test "Pattern of nulls and values":
+    var builder = newArrayBuilder[string]()
+    builder.append("hello")
+    builder.appendNull()
+    builder.append("world")
+    builder.appendNull()
+    builder.append("test")
+    let arr = builder.finish()
+    
+    let unchecked = newUncheckedArray(arr)
+    
+    var nullFlags: seq[bool]
+    for i in 0 ..< unchecked.len:
+      nullFlags.add(unchecked.isNull(i))
+    
+    check nullFlags == @[false, true, false, true, false]
+  
+  test "All nulls array":
+    var builder = newArrayBuilder[int32]()
+    for i in 0..4:
+      builder.appendNull()
+    let arr = builder.finish()
+    
+    let unchecked = newUncheckedArray(arr)
+    for i in 0..4:
+      check unchecked.isNull(i) == true
+
+suite "UncheckedArray - Slicing":
+  
+  test "Slice subset of unchecked array":
+    let arr = newArray[int32](@[1'i32, 2, 3, 4, 5])
+    let unchecked = newUncheckedArray(arr)
+    
+    let slice = unchecked[1..3]
+    check slice.len == 3
+    
+    # Convert back to verify values
+    let typed = slice.toTypedArray[:int32]()
+    check typed[0] == 2
+    check typed[1] == 3
+    check typed[2] == 4
+  
+  test "Slice single element":
+    let arr = newArray[float64](@[1.5, 2.5, 3.5, 4.5])
+    let unchecked = newUncheckedArray(arr)
+    
+    let slice = unchecked[2..2]
+    check slice.len == 1
+    
+    let typed = slice.toTypedArray[:float64]()
+    check typed[0] == 3.5
+  
+  test "Slice full array":
+    let arr = newArray[string](@["a", "b", "c"])
+    let unchecked = newUncheckedArray(arr)
+    
+    let slice = unchecked[0..2]
+    check slice.len == 3
+  
+  test "Slice of slice":
+    let arr = newArray[int32](@[1'i32, 2, 3, 4, 5, 6, 7, 8])
+    let unchecked = newUncheckedArray(arr)
+    
+    let slice1 = unchecked[1..6]
+    let slice2 = slice1[1..4]
+    
+    check slice2.len == 4
+    let typed = slice2.toTypedArray[:int32]()
+    check typed[0] == 3  # Original index 2
+
+suite "UncheckedArray - String Representation":
+  
+  test "String representation of int array":
+    let arr = newArray[int32](@[1'i32, 2, 3, 4, 5])
+    let unchecked = newUncheckedArray(arr)
+    let str = $unchecked
+    check str.len > 0
+  
+  test "String representation of float array":
+    let arr = newArray[float64](@[1.5, 2.5, 3.5])
+    let unchecked = newUncheckedArray(arr)
+    let str = $unchecked
+    check str.len > 0
+  
+  test "String representation of string array":
+    let arr = newArray[string](@["hello", "world"])
+    let unchecked = newUncheckedArray(arr)
+    let str = $unchecked
+    check str.len > 0
+  
+  test "String representation of empty array":
+    let arr = newArray[int32](@[])
+    let unchecked = newUncheckedArray(arr)
+    let str = $unchecked
+    check str.len > 0
+  
+  test "String representation with nulls":
+    var builder = newArrayBuilder[int32]()
+    builder.append(1'i32)
+    builder.appendNull()
+    builder.append(3'i32)
+    let arr = builder.finish()
+    
+    let unchecked = newUncheckedArray(arr)
+    let str = $unchecked
+    check str.len > 0
+
+suite "UncheckedArray - Type Information":
+  
+  test "Get value type name for int32":
+    let arr = newArray[int32](@[1'i32, 2, 3])
+    let unchecked = newUncheckedArray(arr)
+    let valueType = unchecked.getValueType()
+    check valueType == GArrowType.GARROW_TYPE_INT32
+  
+suite "UncheckedArray - Memory Management":
+  
+  test "Create and destroy many unchecked arrays":
+    for i in 0..1000:
+      let arr = newArray[int32](@[1'i32, 2, 3, 4, 5])
+      let unchecked = newUncheckedArray(arr)
+      check unchecked.len == 5
+  
+  test "Copy unchecked arrays":
+    let original = newArray[int32](@[1'i32, 2, 3, 4, 5])
+    let unchecked = newUncheckedArray(original)
+    
+    for i in 0..1000:
+      let copy1 = unchecked
+      let copy2 = copy1
+      check copy2.len == 5
+  
+  test "Slicing stress test":
+    let arr = newArray[int32](@[1'i32, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    let unchecked = newUncheckedArray(arr)
+    
+    for i in 0..1000:
+      let sliced = unchecked[2..7]
+      check sliced.len == 6
+  
+  test "Round-trip conversion stress":
+    let original = newArray[float64](@[1.0, 2.0, 3.0, 4.0, 5.0])
+    
+    for i in 0..1000:
+      let unchecked = newUncheckedArray(original)
+      let typed = unchecked.toTypedArray[:float64]()
+      check typed.len == 5
+
+suite "UncheckedArray - Error Handling: Index Bounds":
+  
+  test "isNull with negative index":
+    let arr = newArray[int32](@[1'i32, 2, 3])
+    let unchecked = newUncheckedArray(arr)
+    
+    expect(IndexDefect):
+      discard unchecked.isNull(-1)
+  
+  test "isNull with index beyond length":
+    let arr = newArray[int32](@[1'i32, 2, 3])
+    let unchecked = newUncheckedArray(arr)
+    
+    expect(IndexDefect):
+      discard unchecked.isNull(10)
+  
+  test "isValid with negative index":
+    let arr = newArray[int32](@[1'i32, 2, 3])
+    let unchecked = newUncheckedArray(arr)
+    
+    expect(IndexDefect):
+      discard unchecked.isValid(-1)
+  
+  test "isValid with index beyond length":
+    let arr = newArray[int32](@[1'i32, 2, 3])
+    let unchecked = newUncheckedArray(arr)
+    
+    expect(IndexDefect):
+      discard unchecked.isValid(10)
+  
+  test "Slice with negative start":
+    let arr = newArray[int32](@[1'i32, 2, 3, 4, 5])
+    let unchecked = newUncheckedArray(arr)
+    
+    expect(IndexDefect):
+      discard unchecked[-1..2]
+  
+  test "Slice with end beyond length":
+    let arr = newArray[int32](@[1'i32, 2, 3, 4, 5])
+    let unchecked = newUncheckedArray(arr)
+    
+    expect(IndexDefect):
+      discard unchecked[2..10]
+  
+  test "Slice with start > end":
+    let arr = newArray[int32](@[1'i32, 2, 3, 4, 5])
+    let unchecked = newUncheckedArray(arr)
+    
+    expect(IndexDefect):
+      discard unchecked[4..2]
+
+suite "UncheckedArray - Error Handling: Edge Cases":
+  
+  test "Empty array operations":
+    let arr = newArray[int32](@[])
+    let unchecked = newUncheckedArray(arr)
+    
+    check unchecked.len == 0
+    let str = $unchecked
+    check str.len > 0
+  
+  test "Single element array":
+    let arr = newArray[int32](@[42'i32])
+    let unchecked = newUncheckedArray(arr)
+    
+    check unchecked.len == 1
+    let slice = unchecked[0..0]
+    check slice.len == 1
+  
+  test "Large array":
+    var values: seq[int32]
+    for i in 0..<10000:
+      values.add(i.int32)
+    let arr = newArray[int32](values)
+    let unchecked = newUncheckedArray(arr)
+    
+    check unchecked.len == 10000
+  
+  test "Slice at boundaries":
+    let arr = newArray[int32](@[1'i32, 2, 3, 4, 5])
+    let unchecked = newUncheckedArray(arr)
+    
+    let first = unchecked[0..0]
+    check first.len == 1
+    
+    let last = unchecked[4..4]
+    check last.len == 1
+    
+    let all = unchecked[0..4]
+    check all.len == 5
+
+suite "UncheckedArray - Mixed Type Operations":
+  
+  test "Interleaved operations on different types":
+    let arr1 = newArray[int32](@[1'i32, 2, 3])
+    let unchecked1 = newUncheckedArray(arr1)
+    
+    let arr2 = newArray[string](@["a", "b", "c"])
+    let unchecked2 = newUncheckedArray(arr2)
+    
+    check unchecked1.len == 3
+    check unchecked2.len == 3
+    
+    let slice1 = unchecked1[0..1]
+    let slice2 = unchecked2[1..2]
+    
+    check slice1.len == 2
+    check slice2.len == 2
+
+suite "UncheckedArray - Null Pattern Preservation":
+  
+  test "Null pattern preserved through conversion":
+    var builder = newArrayBuilder[int32]()
+    builder.append(1'i32)
+    builder.appendNull()
+    builder.append(3'i32)
+    builder.appendNull()
+    builder.append(5'i32)
+    let arr = builder.finish()
+    
+    let unchecked = newUncheckedArray(arr)
+    
+    check unchecked.isNull(1) == true
+    check unchecked.isNull(3) == true
+    check unchecked.isNull(0) == false
+    check unchecked.isNull(2) == false
+    check unchecked.isNull(4) == false
+  
+  test "Null pattern preserved through slicing":
+    var builder = newArrayBuilder[float64]()
+    for i in 0..9:
+      if i mod 2 == 0:
+        builder.append(i.float64)
+      else:
+        builder.appendNull()
+    let arr = builder.finish()
+    
+    let unchecked = newUncheckedArray(arr)
+    let slice = unchecked[2..7]
+    
+    check slice.len == 6
+    for i in 0..<6:
+      let originalIndex = i + 2
+      check slice.isNull(i) == (originalIndex mod 2 == 1)
+  
+  test "All nulls preserved":
+    var builder = newArrayBuilder[string]()
+    for i in 0..4:
+      builder.appendNull()
+    let arr = builder.finish()
+    
+    let unchecked = newUncheckedArray(arr)
+    for i in 0..4:
+      check unchecked.isNull(i) == true
+
+suite "UncheckedArray - Comparison Edge Cases":
+  
+  test "Compare same unchecked array":
+    let arr = newArray[int32](@[1'i32, 2, 3])
+    let unchecked = newUncheckedArray(arr)
+    
+    check unchecked == unchecked
+  
+  test "Compare slices of same array":
+    let arr = newArray[int32](@[1'i32, 2, 3, 4, 5])
+    let unchecked = newUncheckedArray(arr)
+    
+    let slice1 = unchecked[1..3]
+    let slice2 = unchecked[1..3]
+    
+    check slice1 == slice2
+  
+  test "Compare different slices of same array":
+    let arr = newArray[int32](@[1'i32, 2, 3, 4, 5])
+    let unchecked = newUncheckedArray(arr)
+    
+    let slice1 = unchecked[0..2]
+    let slice2 = unchecked[2..4]
+    
+    check slice1 != slice2
