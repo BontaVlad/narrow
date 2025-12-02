@@ -98,7 +98,8 @@ suite "Schema - Basic Operations":
     check schema.getFieldIndex("x") == 0
     check schema.getFieldIndex("y") == 1
     check schema.getFieldIndex("z") == 2
-    check schema.getFieldIndex("missing") < 0
+    expect(IndexDefect):
+      discard schema.getFieldIndex("missing")
   
   test "Schema iteration":
     let schema = newSchema([

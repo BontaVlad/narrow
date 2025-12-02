@@ -1,9 +1,9 @@
 import macros
 import ./[ffi, gchunkedarray, garray, glist, gtypes, gschema, grecordbatch, error]
 
-type
-  ArrowTable* = object
-    handle: ptr GArrowTable
+type ArrowTable* = object
+  handle: ptr GArrowTable
+
 # =============================================================================
 # ArrowTable Implementation
 # =============================================================================
@@ -77,6 +77,7 @@ proc newArrowTable*(
   let handle = garrow_table_new_chunked_arrays(
     schema.handle, addr caHandles[0], chunkedArrays.len.gsize, err.addr
   )
+
 proc newArrowTable*(schema: Schema, arrays: openArray[Array]): ArrowTable =
   ## Create a table from schema and arrays
   if arrays.len == 0:

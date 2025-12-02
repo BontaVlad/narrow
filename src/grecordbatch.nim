@@ -137,10 +137,6 @@ template `[]`*(rb: RecordBatch, key: string, T: typedesc): Array[T] =
     raise newException(KeyError, "Column not found: " & key)
   rb.getColumnData(idx, T)
 
-# =============================================================================
-# RecordBatchBuilder Implementation
-# =============================================================================
-
 proc toPtr*(b: RecordBatchBuilder): ptr GArrowRecordBatchBuilder {.inline.} =
   b.handle
 
