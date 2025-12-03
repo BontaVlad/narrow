@@ -1,6 +1,6 @@
 import std/[strutils]
 import unittest2
-import ../src/[gschema, garray, gtypes]
+import ../src/[ffi, gschema, gtypes]
 
 suite "Field - Basic Creation":
   
@@ -53,7 +53,7 @@ suite "Field - Properties":
   test "Field data type property":
     let field = newField[int32]("count")
     let dataType = field.dataType()
-    check dataType != nil
+    check dataType.id == GArrowType.GARROW_TYPE_INT32
 
 suite "Field - String Representation":
   

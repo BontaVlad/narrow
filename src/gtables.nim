@@ -4,10 +4,6 @@ import ./[ffi, gchunkedarray, garray, glist, gtypes, gschema, grecordbatch, erro
 type ArrowTable* = object
   handle: ptr GArrowTable
 
-# =============================================================================
-# ArrowTable Implementation
-# =============================================================================
-
 proc `=destroy`*(tbl: ArrowTable) =
   if tbl.handle != nil:
     g_object_unref(tbl.handle)

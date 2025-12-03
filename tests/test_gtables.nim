@@ -23,8 +23,8 @@ suite "RecordBatchBuilder":
     let field2 = newField[int32]("point")
     let schema = newSchema(@[field1, field2])
     let builder = newRecordBatchBuilder(schema)
-    builder.columnBuilder(bool, 0).appendValues(newSeq[bool]())
-    builder.columnBuilder(int32, 1).appendValues(newSeq[int32]())
+    builder.columnBuilder[:bool](0).appendValues(newSeq[bool]())
+    builder.columnBuilder[:int32](1).appendValues(newSeq[int32]())
     let record = builder.flush()
     check record.nColumns == 2
     check record.nRows == 0

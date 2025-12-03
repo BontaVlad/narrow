@@ -8,7 +8,7 @@ srcDir        = "src"
 installExt    = @["nim"]
 bin           = @["narrow"]
 
-requires "nim >= 2.0.0"
+requires "nim >= 2.2.6"
 requires "futhark"
 requires "unittest2 >= 0.2.3"
 

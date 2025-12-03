@@ -45,8 +45,8 @@ proc name*(field: Field): string =
   if cstr != nil:
     result = $cstr
 
-proc dataType*(field: Field): ptr GArrowDataType =
-  garrow_field_get_data_type(field.handle)
+proc dataType*(field: Field): GADType =
+  result = newGType(garrow_field_get_data_type(field.handle))
 
 proc `$`*(field: Field): string =
   let cstr = garrow_field_to_string(field.handle)

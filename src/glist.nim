@@ -4,6 +4,9 @@ type GListWrapper*[T] = object
   list*: ptr GList
   owned: bool # Whether this wrapper owns the list and should free it
 
+proc toPtr*(g: GListWrapper): ptr GList =
+  g.list
+
 proc `=destroy`*[T](wrapper: GListWrapper[T]) =
   if wrapper.owned and wrapper.list != nil:
     g_list_free(wrapper.list)

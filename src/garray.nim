@@ -8,9 +8,6 @@ type
   Array*[T] = object
     handle: ptr GArrowArray
 
-converter toOpenArray*[T](a: Array[T]): openArray[T] =
-  toOpenArray(a.storage, a.len)
-
 proc toPtr*[T](b: ArrayBuilder[T]): ptr GArrowArrayBuilder {.inline.} =
   b.handle
 
@@ -260,10 +257,150 @@ proc appendValues*[T](builder: ArrayBuilder[T], values: openArray[T]) =
     for val in values:
       builder.append(val)
 
+proc appendValues*[T](builder: ArrayBuilder[T], values: Array[T]) =
+  if len(values) == 0:
+    return
+
+  when T is int32:
+    var length: gint64
+    let data = garrow_int32_array_get_values(
+      cast[ptr GArrowInt32Array](values.handle),
+      addr length
+    )
+    check garrow_int32_array_builder_append_values(
+      cast[ptr GArrowInt32ArrayBuilder](builder.handle),
+      data,
+      values.len.gint64,
+      nil,
+      0,
+    )
+  elif T is int64:
+    var length: gint64
+    let data = garrow_int64_array_get_values(
+      cast[ptr GArrowInt64Array](values.handle),
+      addr length
+    )
+    check garrow_int64_array_builder_append_values(
+      cast[ptr GArrowInt64ArrayBuilder](builder.handle),
+      data,
+      values.len.gint64,
+      nil,
+      0,
+    )
+  elif T is uint32:
+    var length: gint64
+    let data = garrow_uint32_array_get_values(
+      cast[ptr GArrowUInt32Array](values.handle),
+      addr length
+    )
+    check garrow_uint32_array_builder_append_values(
+      cast[ptr GArrowUInt32ArrayBuilder](builder.handle),
+      data,
+      values.len.gint64,
+      nil,
+      0,
+    )
+  elif T is uint64:
+    var length: gint64
+    let data = garrow_uint64_array_get_values(
+      cast[ptr GArrowUInt64Array](values.handle),
+      addr length
+    )
+    check garrow_uint64_array_builder_append_values(
+      cast[ptr GArrowUInt64ArrayBuilder](builder.handle),
+      data,
+      values.len.gint64,
+      nil,
+      0,
+    )
+  elif T is int16:
+    var length: gint64
+    let data = garrow_int16_array_get_values(
+      cast[ptr GArrowInt16Array](values.handle),
+      addr length
+    )
+    check garrow_int16_array_builder_append_values(
+      cast[ptr GArrowInt16ArrayBuilder](builder.handle),
+      data,
+      values.len.gint64,
+      nil,
+      0,
+    )
+  elif T is uint16:
+    var length: gint64
+    let data = garrow_uint16_array_get_values(
+      cast[ptr GArrowUInt16Array](values.handle),
+      addr length
+    )
+    check garrow_uint16_array_builder_append_values(
+      cast[ptr GArrowUInt16ArrayBuilder](builder.handle),
+      data,
+      values.len.gint64,
+      nil,
+      0,
+    )
+  elif T is int8:
+    var length: gint64
+    let data = garrow_int8_array_get_values(
+      cast[ptr GArrowInt8Array](values.handle),
+      addr length
+    )
+    check garrow_int8_array_builder_append_values(
+      cast[ptr GArrowInt8ArrayBuilder](builder.handle),
+      data,
+      values.len.gint64,
+      nil,
+      0,
+    )
+  elif T is uint8:
+    var length: gint64
+    let data = garrow_uint8_array_get_values(
+      cast[ptr GArrowUInt8Array](values.handle),
+      addr length
+    )
+    check garrow_uint8_array_builder_append_values(
+      cast[ptr GArrowUInt8ArrayBuilder](builder.handle),
+      data,
+      values.len.gint64,
+      nil,
+      0,
+    )
+  elif T is float32:
+    var length: gint64
+    let data = garrow_float_array_get_values(
+      cast[ptr GArrowFloatArray](values.handle),
+      addr length
+    )
+    check garrow_float_array_builder_append_values(
+      cast[ptr GArrowFloatArrayBuilder](builder.handle),
+      data,
+      values.len.gint64,
+      nil,
+      0,
+    )
+  elif T is float64:
+    var length: gint64
+    let data = garrow_double_array_get_values(
+      cast[ptr GArrowDoubleArray](values.handle),
+      addr length
+    )
+    check garrow_double_array_builder_append_values(
+      cast[ptr GArrowDoubleArrayBuilder](builder.handle),
+      data,
+      values.len.gint64,
+      nil,
+      0,
+    )
+  else:
+    # Fallback to individual appends for unsupported batch operations
+    for val in values:
+      builder.append(val)
+
 proc finish*[T](builder: ArrayBuilder[T]): Array[T] =
   let handle = check garrow_array_builder_finish(builder.handle)
   result = Array[T](handle: handle)
 
+# ARRAY
 proc newArray*[T](values: sink seq[T]): Array[T] =
   let builder = newArrayBuilder[T]()
   if len(values) != 0:
