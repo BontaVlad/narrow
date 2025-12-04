@@ -1,4 +1,4 @@
-import std/[macros, sequtils]
+import std/[macros]
 import ./[ffi, gchunkedarray, garray, glist, gtypes, gschema, grecordbatch, error]
 
 type ArrowTable* = object
