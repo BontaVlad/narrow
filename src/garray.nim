@@ -8,10 +8,22 @@ type
   Array*[T] = object
     handle: ptr GArrowArray
 
+  AnyArray* = object
+    handle*: ptr GArrowArray
+
+proc toAnyArray*[T](a: Array[T]): AnyArray {.inline.} =
+  AnyArray(handle: a.handle)
+
+converter toAny*[T](a: Array[T]): AnyArray {.inline.} =
+  AnyArray(handle: a.handle)
+
 proc toPtr*[T](b: ArrayBuilder[T]): ptr GArrowArrayBuilder {.inline.} =
   b.handle
 
 proc toPtr*[T](a: Array[T]): ptr GArrowArray {.inline.} =
+  a.handle
+
+proc toPtr*(a: AnyArray): ptr GArrowArray {.inline.} =
   a.handle
 
 proc `=destroy`*[T](builder: ArrayBuilder[T]) =
@@ -521,91 +533,3 @@ proc `@`*[T](arr: Array[T]): seq[T] =
 proc `$`*[T](arr: Array[T]): string =
   let cStr = check garrow_array_to_string(arr.handle)
   result = $newGString(cStr)
-
-type UncheckedArray* = object
-  handle: ptr GArrowArray
-
-proc toPtr*(a: UncheckedArray): ptr GArrowArray {.inline.} =
-  a.handle
-
-proc `=destroy`*(ar: UncheckedArray) =
-  if not isNil(ar.handle):
-    g_object_unref(ar.handle)
-
-proc `=sink`*(dest: var UncheckedArray, src: UncheckedArray) =
-  if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-
-proc `=copy`*(dest: var UncheckedArray, src: UncheckedArray) =
-  if dest.handle != src.handle:
-    if not isNil(dest.handle):
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if not isNil(dest.handle):
-      discard g_object_ref(dest.handle)
-
-proc newUncheckedArray*(handle: ptr GArrowArray): UncheckedArray =
-  ## Create an UncheckedArray from a raw GArrowArray pointer
-  if not isNil(handle):
-    if g_object_is_floating(handle) != 0:
-      discard g_object_ref_sink(handle)
-    else:
-      discard g_object_ref(handle)
-  result = UncheckedArray(handle: handle)
-
-proc newUncheckedArray*[T](arr: Array[T]): UncheckedArray =
-  ## Convert a typed Array to UncheckedArray
-  result = newUncheckedArray(arr.toPtr)
-
-proc toTypedArray*[T](arr: UncheckedArray): Array[T] =
-  ## Convert UncheckedArray to a typed Array
-  ## Warning: This does not verify type compatibility!
-  result = newArray[T](arr.handle)
-
-proc `==`*(a, b: UncheckedArray): bool =
-  if a.handle == nil or b.handle == nil:
-    return a.handle == b.handle
-  garrow_array_equal(a.handle, b.handle).bool
-
-proc len*(arr: UncheckedArray): int =
-  return garrow_array_get_length(arr.handle)
-
-proc isNull*(arr: UncheckedArray, i: int): bool =
-  if i < 0:
-    raise newException(IndexDefect, "Negative indexes are not supported")
-  if i >= arr.len:
-    raise newException(IndexDefect, fmt"index {i} not in 0 .. {arr.len - 1}")
-  return garrow_array_is_null(arr.handle, i) != 0
-
-proc isValid*(arr: UncheckedArray, i: int): bool =
-  if i < 0:
-    raise newException(IndexDefect, "Negative indexes are not supported")
-  if i >= arr.len:
-    raise newException(IndexDefect, fmt"index {i} not in 0 .. {arr.len - 1}")
-  return garrow_array_is_valid(arr.handle, i) != 0
-
-proc `[]`*(arr: UncheckedArray, slice: HSlice[int, int]): UncheckedArray =
-  if slice.a < 0 or slice.b < 0:
-    raise newException(IndexDefect, "Negative indexes are not supported")
-  if slice.a > slice.b:
-    raise newException(IndexDefect, fmt"Start: {slice.a} is greater than {slice.b}")
-  if slice.b >= arr.len:
-    raise newException(IndexDefect, fmt"index {slice.b} not in 0 .. {arr.len - 1}")
-
-  let offset = slice.a
-  let length = slice.b - slice.a + 1
-  let slicedHandle = garrow_array_slice(arr.handle, offset.gint64, length.gint64)
-  result = newUncheckedArray(slicedHandle)
-
-proc `$`*(arr: UncheckedArray): string =
-  let cStr = check garrow_array_to_string(arr.handle)
-  result = $newGString(cStr)
-
-proc getValueType*(arr: UncheckedArray): GArrowType =
-  ## Get the Arrow type of the array
-  return garrow_array_get_value_type(arr.handle)
-
-proc getValueDataType*(arr: UncheckedArray): GADType =
-  ## Get the Arrow data type of the array
-  return newGType(garrow_array_get_value_data_type(arr.handle))

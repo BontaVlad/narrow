@@ -1,6 +1,6 @@
 import std/[os, options, sets, sequtils]
 import unittest2
-import ../src/[ffi, filesystem, gtables, csv, gtypes, gschema]
+import ../src/[ffi, filesystem, gtables, csv, gtypes, gschema, garray]
 
 suite "Reading CSV":
 
@@ -38,7 +38,19 @@ suite "Reading CSV":
 suite "Writing CSV":
 
   test "writet table to csv file localFileSystem":
-    let uri = getCurrentDir() & "/tests/customers-100.csv"
-    # let table = 
-    # let table = readCSV(uri)
-    # check table.nRows == 100
+    let uri = getCurrentDir() & "/tests/written.csv"
+    let schema = newSchema([
+      newField[bool]("alive"),
+      newField[string]("name")
+    ])
+    
+    let
+      alive = newArray(@[true, true, false])
+      name = newArray(@["a", "b", "c"])
+      table = newArrowTable(schema, alive, name)
+
+    writeCsv(uri, table)
+    let inTable = readCSV(uri)
+    check table.equal(inTable)
+    check table == inTable
+

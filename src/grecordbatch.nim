@@ -11,6 +11,9 @@ type
   RecordBatchIterator* = object
     handle: ptr GArrowRecordBatchIterator
 
+  RecordBatchReader* = object
+    handle: ptr GArrowRecordBatchReader
+
 proc `=destroy`*(rb: RecordBatch) =
   if rb.handle != nil:
     g_object_unref(rb.handle)

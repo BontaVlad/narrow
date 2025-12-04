@@ -19,11 +19,9 @@ proc `=sink`*[T](dest: var GListWrapper[T], source: GListWrapper[T]) =
   dest.list = source.list
   dest.owned = source.owned
 
-# Constructor from existing GList (non-owning by default)
 proc newGList*[T](list: ptr GList, owned: bool = true): GListWrapper[T] =
   GListWrapper[T](list: list, owned: owned)
 
-# Create a new empty list (owning)
 proc newGList*[T](): GListWrapper[T] =
   GListWrapper[T](list: nil, owned: true)
 

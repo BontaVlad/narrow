@@ -1,4 +1,4 @@
-import macros
+import std/[macros, sequtils]
 import ./[ffi, gchunkedarray, garray, glist, gtypes, gschema, grecordbatch, error]
 
 type ArrowTable* = object
@@ -24,71 +24,88 @@ proc `=copy`*(dest: var ArrowTable, src: ArrowTable) =
 proc toPtr*(tbl: ArrowTable): ptr GArrowTable {.inline.} =
   tbl.handle
 
-proc newArrowTable*(schema: Schema, recordBatches: openArray[RecordBatch]): ArrowTable =
+proc newArrowTableFromRecordBatches*(schema: Schema, recordBatches: openArray[ptr GArrowRecordBatch]): ArrowTable =
   if recordBatches.len == 0:
     raise newException(ValueError, "Cannot create table from empty record batches")
 
-  var rbHandles = newSeq[ptr GArrowRecordBatch](recordBatches.len)
-  for i, rb in recordBatches:
-    rbHandles[i] = rb.toPtr
-
   let handle = check garrow_table_new_record_batches(
-    schema.handle, addr rbHandles[0], recordBatches.len.gsize
+    schema.toPtr, addr recordBatches[0], recordBatches.len.gsize
   )
 
   result.handle = handle
 
-proc newArrowTable*(handle: ptr GArrowTable): ArrowTable =
-  result.handle = handle
-
-proc newArrowTable*(schema: Schema, values: openArray[seq[auto]]): ArrowTable =
-  ## Create a table from schema and values using GList
-  if values.len == 0:
-    raise newException(ValueError, "Cannot create table from empty values")
-
-  var valueList = newGList[pointer]()
-  for val in values:
-    valueList.append(cast[pointer](val))
-
-  let handle = check garrow_table_new_values(schema.handle, valueList.list)
-
-  if g_object_is_floating(handle) != 0:
-    discard g_object_ref_sink(handle)
-
-  result.handle = handle
-
-proc newArrowTable*(
-    schema: Schema, chunkedArrays: openArray[ChunkedArray]
-): ArrowTable =
-  ## Create a table from schema and chunked arrays
-  if chunkedArrays.len == 0:
-    raise newException(ValueError, "Cannot create table from empty chunked arrays")
-
-  var caHandles = newSeq[ptr GArrowChunkedArray](chunkedArrays.len)
-  for i, ca in chunkedArrays:
-    echo repr cast[pointer](ca.toPtr)
-    caHandles[i] = ca.toPtr
-
-  var err: ptr GError = nil
-  let handle = garrow_table_new_chunked_arrays(
-    schema.handle, addr caHandles[0], chunkedArrays.len.gsize, err.addr
-  )
-
-proc newArrowTable*(schema: Schema, arrays: openArray[Array]): ArrowTable =
-  ## Create a table from schema and arrays
+proc newArrowTableFromArrays*(schema: Schema, arrays: openArray[ptr GArrowArray]): ArrowTable =
   if arrays.len == 0:
     raise newException(ValueError, "Cannot create table from empty arrays")
 
-  var arrHandles = newSeq[ptr GArrowArray](arrays.len)
-  for i, arr in arrays:
-    arrHandles[i] = arr.toPtr
+  let handle = check garrow_table_new_arrays(
+    schema.toPtr, addr arrays[0], arrays.len.gsize
+  )
 
-  let handle =
-    check garrow_table_new_arrays(schema.handle, addr arrHandles[0], arrays.len.gsize)
+  result.handle = handle
 
-  if g_object_is_floating(handle) != 0:
-    discard g_object_ref_sink(handle)
+proc newArrowTableFromChunkedArrays*(schema: Schema, chunkedArrays: openArray[ptr GArrowChunkedArray]): ArrowTable =
+  if chunkedArrays.len == 0:
+    raise newException(ValueError, "Cannot create table from empty chunked arrays")
 
+  let handle = check garrow_table_new_chunked_arrays(
+    schema.toPtr, addr chunkedArrays[0], chunkedArrays.len.gsize
+  )
+
+  result.handle = handle
+
+# FIXME: THIS SHOULD USE CONCEPTS BECAUSE THERE IS AN EXPECTATION THAT ALL TYPES HAVE toPtr
+# FIXME: this relies on name checks, no bueno
+macro newArrowTable*(schema: Schema, args: varargs[typed]): ArrowTable =
+  ## Creates a new ArrowTable from a schema and either:
+  ## - RecordBatch objects
+  ## - Array[T] objects (can be mixed types)
+  ## - ChunkedArray[T] objects (can be mixed types)
+  if args.len == 0:
+    error("newArrowTable requires at least one argument after schema")
+  
+  let firstArg = args[0]
+  let arrType = firstArg.getTypeInst()
+  
+  var typeName: string
+  if arrType.kind == nnkBracketExpr:
+    typeName = arrType[0].strVal
+  elif arrType.kind == nnkSym:
+    typeName = arrType.strVal
+  else:
+    error("Unexpected type node kind: " & $arrType.kind)
+  
+  # Check if it's a RecordBatch
+  if typeName == "RecordBatch":
+    var bracket = newNimNode(nnkBracket)
+    for arg in args:
+      bracket.add quote do:
+        `arg`.toPtr
+    result = quote do:
+      newArrowTableFromRecordBatches(`schema`, `bracket`)
+  
+  # Check if it's an Array[T]
+  elif typeName == "Array":
+    var bracket = newNimNode(nnkBracket)
+    for arg in args:
+      bracket.add quote do:
+        `arg`.toPtr
+    result = quote do:
+      newArrowTableFromArrays(`schema`, `bracket`)
+  
+  # Check if it's a ChunkedArray[T]
+  elif typeName == "ChunkedArray":
+    var bracket = newNimNode(nnkBracket)
+    for arg in args:
+      bracket.add quote do:
+        `arg`.toPtr
+    result = quote do:
+      newArrowTableFromChunkedArrays(`schema`, `bracket`)
+  
+  else:
+    error("newArrowTable expects RecordBatch, Array[T], or ChunkedArray[T], got: " & typeName)
+
+proc newArrowTable*(handle: ptr GArrowTable): ArrowTable =
   result.handle = handle
 
 proc `$`*(tbl: ArrowTable): string =
@@ -121,7 +138,7 @@ proc addColumn*(
 ): ArrowTable =
   var err: ptr GError
   let handle =
-    garrow_table_add_column(tbl.handle, idx.guint, field.handle, column.toPtr, addr err)
+    garrow_table_add_column(tbl.handle, idx.guint, field.toPtr, column.toPtr, addr err)
 
   if not isNil(err):
     let msg =
@@ -150,22 +167,26 @@ proc removeColumn*(tbl: ArrowTable, idx: int): ArrowTable =
   result = newArrowTable(handle)
 
 proc removeColumn*(tbl: ArrowTable, key: string): ArrowTable =
-  let idx = tbl.schema.getFieldIndex(key)
-  if idx < 0:
+  try:
+    let idx = tbl.schema.getFieldIndex(key)
+    result = tbl.removeColumn(idx)
+  except IndexError:
     raise newException(KeyError, "Column not found: " & key)
-  result = tbl.removeColumn(idx)
 
 proc replaceColumn*(
     tbl: ArrowTable, idx: int, field: Field, column: ChunkedArray
 ): ArrowTable =
   let handle =
-    check garrow_table_replace_column(tbl.handle, idx.guint, field.handle, column.toPtr)
+    check garrow_table_replace_column(tbl.handle, idx.guint, field.toPtr, column.toPtr)
   result = newArrowTable(handle)
 
 proc equal*(a, b: ArrowTable): bool =
   if a.handle == nil or b.handle == nil:
     return a.handle == b.handle
   garrow_table_equal(a.handle, b.handle).bool
+
+proc `==`*(a, b: ArrowTable): bool =
+  a.equal(b)
 
 proc equalMetadata*(a, b: ArrowTable, checkMetadata: bool): bool =
   if a.handle == nil or b.handle == nil:
@@ -204,48 +225,40 @@ proc validateFull*(tbl: ArrowTable): bool =
     g_error_free(err)
 
 proc concatenate*(tbl: ArrowTable, others: openArray[ArrowTable]): ArrowTable =
-  var tableList: ptr GList = nil
+  var tableList = newGList[ptr GArrowTable]()
+  # var tableList: ptr GList = nil
   for other in others:
-    tableList = g_list_append(tableList, other.handle)
+    tableList.append(other.toPtr)
 
   let options = garrow_table_concatenate_options_new()
+  defer: g_object_unref(options)
 
-  var err: ptr GError
-  let handle = garrow_table_concatenate(tbl.handle, tableList, options, addr err)
-
-  g_list_free(tableList)
-  g_object_unref(options)
-
-  if not isNil(err):
-    let msg =
-      if not isNil(err.message):
-        $err.message
-      else:
-        "Concatenate failed"
-    g_error_free(err)
-    raise newException(OperationError, msg)
-
+  let handle = check garrow_table_concatenate(tbl.handle, tableList.toPtr, options)
   result = newArrowTable(handle)
 
-proc getColumnData*(tbl: ArrowTable, idx: int): ChunkedArray =
+proc getColumnData*[T: ArrowPrimitive](tbl: ArrowTable, idx: int): ChunkedArray[T] =
+  ## Get column data with compile-time type and runtime type validation
+
+  when defined(debug):
+    let schema = tbl.schema
+    let field = schema.getField(idx)
+    let dataType = field.dataType
+    # Runtime type check
+    dataType.checkType(T)
+  
   let handle = garrow_table_get_column_data(tbl.handle, idx.gint)
-  result = newChunkedArray(handle)
+  result = newChunkedArray[T](handle)
 
-proc `[]`*(tbl: ArrowTable, idx: int): ChunkedArray =
-  tbl.getColumnData(idx)
+proc `[]`*(tbl: ArrowTable, idx: int, T: typedesc): ChunkedArray[T] =
+  result = tbl.getColumnData[:T](idx)
 
-proc `[]`*(tbl: ArrowTable, key: string): ChunkedArray =
-  let idx = tbl.schema.getFieldIndex(key)
-  if idx < 0:
+proc `[]`*(tbl: ArrowTable, key: string, T: typedesc): ChunkedArray[T] =
+  try:
+    let idx = tbl.schema.getFieldIndex(key)
+    result = tbl.getColumnData[:T](idx)
+  except IndexError:
     raise newException(KeyError, "Column not found: " & key)
-  tbl.getColumnData(idx)
 
 iterator keys*(tbl: ArrowTable): string =
   for field in tbl.schema:
     yield field.name
-
-iterator columns*(tbl: ArrowTable): (string, ChunkedArray) =
-  for i in 0 ..< tbl.nColumns:
-    let field = tbl.schema.getField(i)
-    let column = tbl.getColumnData(i)
-    yield (field.name, column)

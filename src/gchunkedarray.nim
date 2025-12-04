@@ -25,12 +25,12 @@ proc newChunkedArray*[T](): ChunkedArray[T] {.inline.} =
   let handle = check garrow_chunked_array_new_empty(dataType.toPtr)
   result = ChunkedArray[T](handle: handle)
 
-proc newChunkedArray*(cAbiArrayStream: pointer): ChunkedArray =
+proc newChunkedArray*[T](cAbiArrayStream: pointer): ChunkedArray[T] =
   let handle = check garrow_chunked_array_import(cAbiArrayStream)
-  result = ChunkedArray(handle: handle)
+  result = ChunkedArray[T](handle: handle)
 
-proc newChunkedArray*(rawPtr: ptr GArrowChunkedArray): ChunkedArray =
-  result = ChunkedArray(handle: rawPtr)
+proc newChunkedArray*[T](rawPtr: ptr GArrowChunkedArray): ChunkedArray[T] =
+  result = ChunkedArray[T](handle: rawPtr)
 
 proc `==`*(chunkedArray: ChunkedArray, other: ChunkedArray): bool =
   result = garrow_chunked_array_equal(chunkedArray.toPtr, other.toPtr) != 0

@@ -123,6 +123,7 @@ proc nFields*(schema: Schema): int =
   garrow_schema_n_fields(schema.handle).int
 
 proc getField*(schema: Schema, idx: int): Field =
+  # FIXME: this will segfault with crap idx idx > nFields
   let handle = garrow_schema_get_field(schema.handle, idx.guint)
   result = newField(handle)
 
