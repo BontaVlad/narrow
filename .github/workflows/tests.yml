@@ -20,28 +20,19 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Cache Nim
-      id: cache-nim
-      uses: actions/cache@v4
+      uses: actions/cache@v3
       with:
         path: |
           ~/.nimble
-          ~/.choosenim
-        key: ${{ runner.os }}-nim-${{ matrix.version }}
+          ~/.cache/nim
+        key: ${{ runner.os }}-nim-${{ matrix.version }}-${{ hashFiles('*.nimble') }}
         restore-keys: |
+          ${{ runner.os }}-nim-${{ matrix.version }}-
           ${{ runner.os }}-nim-
 
-    - name: Install Nim
-      if: steps.cache-nim.outputs.cache-hit != 'true'
-      uses: iffy/install-nim@v5
+    - uses: iffy/install-nim@v5
       with:
         version: ${{ matrix.version }}
-
-    - name: Restore Nim to PATH
-      if: steps.cache-nim.outputs.cache-hit == 'true'
-      run: |
-        echo "$HOME/.nimble/bin" >> $GITHUB_PATH
-        CURRENT=$(cat ~/.choosenim/current)
-        echo "$HOME/.choosenim/toolchains/$CURRENT/bin" >> $GITHUB_PATH
 
     - uses: extractions/setup-just@v2
 
