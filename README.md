@@ -2,7 +2,7 @@
   <picture>
     <source media="(prefers-color-scheme: light)" srcset="narrow.svg">
     <source media="(prefers-color-scheme: dark)" srcset="narrow.svg">
-    <img alt="narrow logo" src="narrow.svg" height="200">
+    <img alt="narrow logo" src="narrow.svg" height="100">
   </picture>
   <br>
   <img src="https://github.com/BontaVlad/narrow/actions/workflows/tests.yml/badge.svg" alt="MainBranch">
