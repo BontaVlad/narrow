@@ -1,5 +1,9 @@
 import std/[strformat, options, tables, sets, sequtils, strutils]
-import ./[ffi, filesystem, gtables, error, gtypes, gschema, garray, grecordbatch, gchunkedarray]
+import
+  ./[
+    ffi, filesystem, gtables, error, gtypes, gschema, garray, grecordbatch,
+    gchunkedarray,
+  ]
 
 type
   CsvReadOptions* = object
@@ -13,17 +17,18 @@ type
     nullString*: string
     eol*: string
 
-  Writable* = concept w
-    # w.columnNames is seq[string]
-    w.nRows is int64
-    # for row in w.rows:
-    #   row is seq[string]
+  Writable* =
+    concept w
+        # w.columnNames is seq[string]
+        w.nRows is int64
+        # for row in w.rows:
+        #   row is seq[string]
 
   # RecordBatchWriter* = object
   #   handle*: ptr GArrowRecordBatchWriter
   # RecordBatchStreamWriter* = object
   #   handle*: ptr GArrowRecordBatchStreamWriter
-   
+
 proc newCsvReadOptions*(
     allowNewlinesInValues: Option[bool] = none(bool),
     allowNullStrings: Option[bool] = none(bool),
@@ -381,11 +386,10 @@ proc readCSV*(uri: string): ArrowTable =
   let options = newCsvReadOptions()
   return readCSV(uri, options)
 
-
 # proc garrow_record_batch_writer_write_table*(
 #   writer: ptr GArrowRecordBatchWriter, table: ptr GArrowTable, error: ptr ptr GError
 # ): gboolean {.cdecl, importc: "garrow_record_batch_writer_write_table".}
- 
+
 # proc newRecordBatchStreamWriter(sinkStream: OutputStream, schema: Schema): RecordBatchStreamWriter =
 #   result.handle = check garrow_record_batch_stream_writer_new(sinkStream.handle, schema.toPtr)
 
@@ -393,20 +397,20 @@ proc readCSV*(uri: string): ArrowTable =
 #   ## Safely upcast to parent type using GObject type system
 #   result = cast[ptr GArrowRecordBatchWriter](writer.handle)
 
-proc newWriteOptions*(includeHeader=true, batchSize=1024, delimiter=',', nullString="", eol="\n"): WriteOptions =
+proc newWriteOptions*(
+    includeHeader = true, batchSize = 1024, delimiter = ',', nullString = "", eol = "\n"
+): WriteOptions =
   WriteOptions(
     includeHeader: includeHeader,
     batchSize: batchSize,
     delimiter: delimiter,
     nullString: nullString,
-    eol: eol
+    eol: eol,
   )
 
 proc needsQuoting(value: string, delimiter: char): bool =
   ## Check if a value needs to be quoted in CSV output
-  value.contains(delimiter) or
-    value.contains('"') or
-    value.contains('\n') or
+  value.contains(delimiter) or value.contains('"') or value.contains('\n') or
     value.contains('\r')
 
 proc escapeField(value: string, delimiter: char): string =
@@ -418,9 +422,8 @@ proc escapeField(value: string, delimiter: char): string =
 
 proc formatRow(fields: openArray[string], options: WriteOptions): string =
   ## Format a sequence of fields as a CSV row
-  fields
-    .mapIt(it.escapeField(options.delimiter))
-    .join($options.delimiter) & options.eol
+
+  fields.mapIt(it.escapeField(options.delimiter)).join($options.delimiter) & options.eol
 
 proc columnToStrings*[T](arr: ChunkedArray[T], options: WriteOptions): seq[string] =
   result = newSeq[string](arr.len)
@@ -436,23 +439,23 @@ proc columnToStrings*[T](arr: ChunkedArray[T], options: WriteOptions): seq[strin
 
 proc writeCsv*[T: Writable](writable: T, options: WriteOptions, output: OutputStream) =
   ## Write any Writable type to CSV format
-  
+
   # Write header row if requested
   if options.includeHeader:
     output.write(writable.keys.toSeq.formatRow(options))
 
   let nRows = writable.nRows
   let nCols = writable.nColumns
-  
+
   # Process in batches for memory efficiency
   for offset in countup(0, nRows - 1, options.batchSize):
     let batchEnd = min(offset + options.batchSize, nRows)
     let batchLen = batchEnd - offset
     let tbl = writable.slice(offset, batchLen)
-    
+
     # Pre-allocate string columns for this batch
     var columns = newSeq[seq[string]](nCols)
-    
+
     # Convert each column to strings based on its type
     for colIdx in 0 ..< nCols:
       let dataType = tbl.schema.getField(colIdx).dataType.nimTypeName
@@ -489,7 +492,9 @@ proc writeCsv*[T: Writable](writable: T, options: WriteOptions, output: OutputSt
         rowBuffer[colIdx] = columns[colIdx][rowIdx]
       output.write(rowBuffer.formatRow(options))
 
-proc writeCsv*[T: Writable](uri: string, writable: T, options: WriteOptions = newWriteOptions()) =
+proc writeCsv*[T: Writable](
+    uri: string, writable: T, options: WriteOptions = newWriteOptions()
+) =
   let scheme = g_uri_peek_scheme(uri)
   var fullUri = uri
   if $scheme == "":

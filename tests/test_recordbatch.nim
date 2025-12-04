@@ -16,16 +16,16 @@ suite "RecordBatch - Construction":
     let arr1 = newArray(@[1'i32, 2'i32, 3'i32])
     let arr2 = newArray(@["a", "b", "c"])
     
-    # let rb1 = newRecordBatch(schema, seq1, seq2)
+    let rb1 = newRecordBatch(schema, seq1, seq2)
     let rb2 = newRecordBatch(schema, arr1, arr2)
     
-    # check rb1.nRows() == 3
-    # check rb1.nColumns() == 2
+    check rb1.nRows() == 3
+    check rb1.nColumns() == 2
 
     check rb2.nRows() == 3
     check rb2.nColumns() == 2
 
-    # check rb1 == rb2
+    check rb1 == rb2
   
   test "Create empty record batch":
     let schema = newSchema([
@@ -105,14 +105,20 @@ suite "RecordBatch - Column Access":
   
   test "Access non-existent column raises error":
     let schema = newSchema([
-      newField[int32]("exists")
+      newField[int32]("exists"),
+      newField[int32]("a"),
+      newField[int32]("b"),
+      newField[int32]("c"),
     ])
     
     let arr = newArray[int32](@[1'i32])
-    let rb = newRecordBatch(schema, arr)
+    let arr1 = newArray[int32](@[1'i32])
+    let arr2 = newArray[int32](@[1'i32])
+    let arr3 = newArray[int32](@[1'i32])
+    let rb = newRecordBatch(schema, arr, arr1, arr2, arr3)
     
     expect KeyError:
-      discard rb["doesnotexist", int32]
+      discard rb["nonexistant", int32]
 
 suite "RecordBatch - Equality":
   

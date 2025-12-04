@@ -15,6 +15,8 @@ type
     handle: ptr GArrowRecordBatchReader
 
 proc `=destroy`*(rb: RecordBatch) =
+  # echo "DESTROY ______________________---------------"
+  # echo repr cast[pointer](rb.handle)
   if rb.handle != nil:
     g_object_unref(rb.handle)
 
@@ -48,6 +50,23 @@ proc `=copy`*(dest: var RecordBatchIterator, src: RecordBatchIterator) =
     if src.handle != nil:
       discard g_object_ref(dest.handle)
 
+proc `=destroy`*(rb: RecordBatchBuilder) =
+  if rb.handle != nil:
+    g_object_unref(rb.handle)
+
+proc `=sink`*(dest: var RecordBatchBuilder, src: RecordBatchBuilder) =
+  if dest.handle != nil and dest.handle != src.handle:
+    g_object_unref(dest.handle)
+  dest.handle = src.handle
+
+proc `=copy`*(dest: var RecordBatchBuilder, src: RecordBatchBuilder) =
+  if dest.handle != src.handle:
+    if dest.handle != nil:
+      g_object_unref(dest.handle)
+    dest.handle = src.handle
+    if src.handle != nil:
+      discard g_object_ref(dest.handle)
+
 proc toPtr*(rb: RecordBatch): ptr GArrowRecordBatch {.inline.} =
   rb.handle
 
@@ -55,50 +74,22 @@ proc toPtr*(it: RecordBatchIterator): ptr GArrowRecordBatchIterator {.inline.} =
   it.handle
 
 proc newRecordBatch*(arr: pointer, schema: Schema): RecordBatch =
-  var err: ptr GError
-  let handle = garrow_record_batch_import(arr, schema.handle, addr err)
-
-  if not isNil(err):
-    let msg =
-      if not isNil(err.message):
-        $err.message
-      else:
-        "RecordBatch import failed"
-    g_error_free(err)
-    raise newException(OperationError, msg)
-
+  let handle = check garrow_record_batch_import(arr, schema.handle)
   result.handle = handle
 
 proc newRecordBatch*(handle: ptr GArrowRecordBatch): RecordBatch =
-  if handle != nil:
-    if g_object_is_floating(handle) != 0:
-      discard g_object_ref_sink(handle)
-    else:
-      discard g_object_ref(handle)
   result.handle = handle
 
-# proc newRecordBatch*(schema: Schema, nRows: uint32, columns: seq[Fields]): RecordBatch =
-#   cols = newGList[ptr GArrowField](columns)
-#   let handle = check garrow_record_batch_new(schema.toPtr, nRows.guint32, cols.toPtr)
-#   result = newRecordBatch(handle)
-
 macro newRecordBatch*(schema: Schema, arrays: varargs[typed]): RecordBatch =
-  var stmts = newStmtList()
   let builderSym = genSym(nskLet, "builder")
-  let resultSym = genSym(nskLet, "recordBatch")
 
-  # Create the builder
-  stmts.add quote do:
-    let `builderSym` = newRecordBatchBuilder(`schema`)
+  var bodyStmts = newStmtList()
 
   # For each array, add columnBuilder().appendValues() call
   for i, arr in arrays:
     let idx = newLit(i)
-
-    # Extract the type from Array[T]
     let arrType = arr.getTypeInst()
 
-    # Get the element type T from Array[T]
     var elementType: NimNode
     if arrType.kind == nnkBracketExpr:
       elementType = arrType[1]
@@ -107,18 +98,13 @@ macro newRecordBatch*(schema: Schema, arrays: varargs[typed]): RecordBatch =
 
     let typeDesc = nnkBracketExpr.newTree(ident"typedesc", elementType)
 
-    # Build: builder.columnBuilder(T, i).appendValues(array)
-    stmts.add quote do:
+    bodyStmts.add quote do:
       columnBuilder[`typeDesc`](`builderSym`, `idx`).appendValues(`arr`)
 
-  # Add the flush call
-  stmts.add quote do:
-    let `resultSym` = `builderSym`.flush()
-
-  # Return the record batch
-  stmts.add(resultSym)
-
-  result = newBlockStmt(stmts)
+  result = quote do:
+    let `builderSym` = newRecordBatchBuilder(`schema`)
+    `bodyStmts`
+    `builderSym`.flush()
 
 proc `$`*(rb: RecordBatch): string =
   var err: ptr GError
@@ -137,14 +123,17 @@ proc validate*(rb: RecordBatch): bool =
   var err: ptr GError
   result = garrow_record_batch_validate(rb.toPtr, addr err).bool
   if not err.isNil:
-    raise newException(ValueError, fmt"RecordBatch validation failed, got {err[].message}")
+    raise
+      newException(ValueError, fmt"RecordBatch validation failed, got {err[].message}")
 
 proc validateFull*(rb: RecordBatch): bool =
   ## Perform full validation of the record batch
   var err: ptr GError
   result = garrow_record_batch_validate_full(rb.toPtr, addr err).bool
   if not err.isNil:
-    raise newException(ValueError, fmt"RecordBatch full validation failed, got {err[].message}")
+    raise newException(
+      ValueError, fmt"RecordBatch full validation failed, got {err[].message}"
+    )
 
 proc schema*(rb: RecordBatch): Schema =
   let handle = garrow_record_batch_get_schema(rb.handle)
@@ -163,13 +152,15 @@ proc getColumnData*[T](rb: RecordBatch, idx: int): Array[T] =
   let handle = garrow_record_batch_get_column_data(rb.toPtr, idx.gint)
   result = newArray[T](handle)
 
-template `[]`*(rb: RecordBatch, idx: int, T: typedesc): Array[T] =
-  rb.getColumnData[:T](idx)
+proc `[]`*(rb: RecordBatch, idx: int, T: typedesc): Array[T] =
+  result = getColumnData[T](rb, idx)
 
-template `[]`*(rb: RecordBatch, key: string, T: typedesc): Array[T] =
+proc `[]`*(rb: RecordBatch, key: string, T: typedesc): Array[T] =
+  # try:
+  let schema = rb.schema
   try:
-    let idx = rb.schema.getFieldIndex(key)
-    getColumnData[T](rb, idx)
+    let idx = schema.getFieldIndex(key)
+    result = getColumnData[T](rb, idx)
   except IndexError:
     raise newException(KeyError, "Column not found: " & key)
 
@@ -196,9 +187,8 @@ proc slice*(rb: RecordBatch, offset: int64, length: int64): RecordBatch =
 
 proc addColumn*(rb: RecordBatch, idx: uint, field: Field, column: Array): RecordBatch =
   ## Add a column at the specified index
-  let handle = check garrow_record_batch_add_column(
-    rb.toPtr, idx.guint, field.toPtr, column.toPtr
-  )
+  let handle =
+    check garrow_record_batch_add_column(rb.toPtr, idx.guint, field.toPtr, column.toPtr)
   result = newRecordBatch(handle)
 
 proc removeColumn*(rb: RecordBatch, idx: uint): RecordBatch =
@@ -216,9 +206,9 @@ proc removeColumn*(rb: RecordBatch, idx: uint): RecordBatch =
 #   ## Export to C ABI
 #   var cAbiArray: pointer
 #   var cAbiSchema: pointer
-  
+
 #   check garrow_record_batch_export(rb.toPtr, addr cAbiArray, addr cAbiSchema).bool
-  
+
 #   result = (array: cAbiArray, schema: cAbiSchema)
 
 proc toPtr*(b: RecordBatchBuilder): ptr GArrowRecordBatchBuilder {.inline.} =
@@ -253,7 +243,7 @@ proc newRecordBatchIterator*(recordBatches: seq[RecordBatch]): RecordBatchIterat
   var glist = newGList[ptr GArrowRecordBatch]()
   for rb in recordBatches:
     glist.append(rb.toPtr)
-  
+
   let handle = garrow_record_batch_iterator_new(glist.toPtr)
   result = RecordBatchIterator(handle: handle)
 
@@ -261,14 +251,14 @@ proc next*(it: RecordBatchIterator): Option[RecordBatch] =
   ## Get the next record batch, or none if exhausted
   var err: ptr GError
   let handle = garrow_record_batch_iterator_next(it.toPtr, addr err)
-  
+
   if not isNil(err):
     g_error_free(err)
     return none(RecordBatch)
-  
+
   if handle == nil:
     return none(RecordBatch)
-  
+
   result = some(newRecordBatch(handle))
 
 proc `==`*(it1, it2: RecordBatchIterator): bool =
@@ -283,15 +273,19 @@ proc toList*(it: RecordBatchIterator): seq[RecordBatch] =
   ## Convert iterator to a list of record batches
   var err: ptr GError
   let glist = garrow_record_batch_iterator_to_list(it.toPtr, addr err)
-  
+
   if not isNil(err):
-    let msg = if not isNil(err.message): $err.message else: "Failed to convert iterator to list"
+    let msg =
+      if not isNil(err.message):
+        $err.message
+      else:
+        "Failed to convert iterator to list"
     g_error_free(err)
     raise newException(OperationError, msg)
-  
+
   if glist == nil:
     return @[]
-  
+
   let list = newGList[ptr GArrowRecordBatch](glist)
   result = @[]
   for i in 0 ..< list.len:

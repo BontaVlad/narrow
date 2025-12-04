@@ -315,10 +315,3 @@ suite "ArrowTable String Representation":
     let str = $table
     check str.len > 0
     check "id" in str
-
-  test "columnInfo":
-    let schema = newSchema([newField[int32]("id")])
-    let arr = newArray[int32](@[1'i32, 2'i32, 3'i32])
-    let table = newArrowTable(schema, arr)
-    
-    # table.printColumnInfo(0)
