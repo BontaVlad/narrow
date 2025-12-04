@@ -46,7 +46,8 @@ proc name*(field: Field): string =
     result = $cstr
 
 proc dataType*(field: Field): GADType =
-  result = newGType(garrow_field_get_data_type(field.handle))
+  let handle = garrow_field_get_data_type(field.toPtr)
+  result = newGType(handle)
 
 proc `$`*(field: Field): string =
   let cstr = garrow_field_to_string(field.handle)

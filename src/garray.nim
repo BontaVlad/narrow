@@ -61,7 +61,8 @@ proc `=copy`*[T](dest: var Array[T], src: Array[T]) =
       discard g_object_ref(dest.handle)
 
 proc newArrayBuilder*[T](builderPtr: ptr GArrowArrayBuilder): ArrayBuilder[T] =
-  result = ArrayBuilder[T](handle: builderPtr)
+  let handle = cast[ptr GArrowArrayBuilder](g_object_ref(builderPtr))
+  result = ArrayBuilder[T](handle: handle)
 
 proc newArrayBuilder*[T](): ArrayBuilder[T] =
   var handle: gpointer

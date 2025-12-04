@@ -458,8 +458,10 @@ proc writeCsv*[T: Writable](writable: T, options: WriteOptions, output: OutputSt
 
     # Convert each column to strings based on its type
     for colIdx in 0 ..< nCols:
-      let dataType = tbl.schema.getField(colIdx).dataType.nimTypeName
-      case dataType
+      let schema = tbl.schema
+      let field = schema.getField(colIdx)
+      let dataType = field.dataType
+      case dataType.nimTypeName
       of "bool":
         columns[colIdx] = columnToStrings(tbl[colIdx, bool], options)
       of "int8":

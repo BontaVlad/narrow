@@ -173,4 +173,6 @@ proc newGType*(T: typedesc[ArrowPrimitive]): GADType =
         "newGType: unsupported type for automatic Arrow GType construction."
 
 proc newGType*(pt: ptr GArrowDataType): GADType =
-  result = GADType(handle: pt)
+  let handle = cast[ptr GArrowDataType](g_object_ref(pt))
+  result = GADType(handle: handle)
+
