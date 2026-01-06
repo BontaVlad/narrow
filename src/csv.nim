@@ -1,4 +1,4 @@
-import std/[strformat, options, tables, sets, sequtils, strutils]
+import std/[enumerate, strformat, options, tables, sets, sequtils, strutils]
 import
   ./[
     ffi, filesystem, gtables, error, gtypes, gschema, garray, grecordbatch,
@@ -17,17 +17,12 @@ type
     nullString*: string
     eol*: string
 
+  ColFormatter = proc(rowIdx: int): string
+
   Writable* =
     concept w
-        # w.columnNames is seq[string]
-        w.nRows is int64
-        # for row in w.rows:
-        #   row is seq[string]
-
-  # RecordBatchWriter* = object
-  #   handle*: ptr GArrowRecordBatchWriter
-  # RecordBatchStreamWriter* = object
-  #   handle*: ptr GArrowRecordBatchStreamWriter
+      for col in w.columns:
+        col is Field
 
 proc newCsvReadOptions*(
     allowNewlinesInValues: Option[bool] = none(bool),
@@ -266,18 +261,10 @@ proc getColumnNames*(options: CsvReadOptions): seq[string] =
 proc addColumnType*(options: CsvReadOptions, name: string, dataType: GADType) =
   garrow_csv_read_options_add_column_type(options.handle, name.cstring, dataType.handle)
 
-proc getColumnTypes*(options: CsvReadOptions): Table[string, GADType] =
-  let hashTable = garrow_csv_read_options_get_column_types(options.handle)
-  result = initTable[string, GADType]()
-  # Note: You'll need to implement GHashTable iteration
-  # This is a placeholder showing the structure
-
-# Schema methods
 proc addSchema*(options: var CsvReadOptions, schema: Schema) =
   garrow_csv_read_options_add_schema(options.handle, schema.handle)
   options.schema = some(schema)
 
-# Null values methods
 proc addNullValue*(options: CsvReadOptions, value: string) =
   garrow_csv_read_options_add_null_value(options.handle, value.cstring)
 
@@ -289,14 +276,6 @@ proc setNullValues*(options: CsvReadOptions, values: openArray[string]) =
     options.handle, cast[ptr cstring](cvalues[0].addr), gsize(values.len)
   )
 
-# proc getNullValues*(options: CsvReadOptions): seq[string] =
-#   var nValues: gsize
-#   let cvalues = garrow_csv_read_options_get_null_values(options.handle, addr nValues)
-#   result = newSeq[string](nValues)
-#   for i in 0 ..< nValues:
-#     result[i] = $cvalues[i]
-
-# True values methods
 proc addTrueValue*(options: CsvReadOptions, value: string) =
   garrow_csv_read_options_add_true_value(options.handle, value.cstring)
 
@@ -308,17 +287,6 @@ proc setTrueValues*(options: CsvReadOptions, values: openArray[string]) =
     options.handle, cast[ptr cstring](cvalues[0].addr), gsize(values.len)
   )
 
-# proc getTrueValues*(options: CsvReadOptions): seq[string] =
-#   var nValues: gsize
-#   let cvalues = garrow_csv_read_options_get_true_values(options.handle, addr nValues)
-#   result = newSeq[string](nValues)
-#   for i in 0 ..< nValues:
-#     result[i] = $cvalues[i]
-
-# # False values methods
-# proc addFalseValue*(options: CsvReadOptions, value: string) =
-#   discard garrow_csv_read_options_add_false_value(options.handle, value.cstring)
-
 proc setFalseValues*(options: CsvReadOptions, values: openArray[string]) =
   var cvalues = newSeq[cstring](values.len)
   for i, value in values:
@@ -326,32 +294,6 @@ proc setFalseValues*(options: CsvReadOptions, values: openArray[string]) =
   garrow_csv_read_options_set_false_values(
     options.handle, cast[ptr cstring](cvalues[0].addr), gsize(values.len)
   )
-
-# proc getFalseValues*(options: CsvReadOptions): seq[string] =
-#   var nValues: gsize
-#   let cvalues = garrow_csv_read_options_get_false_values(options.handle, addr nValues)
-#   result = newSeq[string](nValues)
-#   for i in 0 ..< nValues:
-#     result[i] = $cvalues[i]
-
-# # Timestamp parsers methods
-# proc addTimestampParser*(options: CsvReadOptions, parser: string) =
-#   discard garrow_csv_read_options_add_timestamp_parser(options.handle, parser.cstring)
-
-# proc setTimestampParsers*(options: CsvReadOptions, parsers: openArray[string]) =
-#   var cparsers = newSeq[cstring](parsers.len)
-#   for i, parser in parsers:
-#     cparsers[i] = parser.cstring
-#   garrow_csv_read_options_set_timestamp_parsers(options.handle, 
-#                                                 cast[ptr cstring](cparsers[0].addr), 
-#                                                 gsize(parsers.len))
-
-# proc getTimestampParsers*(options: CsvReadOptions): seq[string] =
-#   var nParsers: gsize
-#   let cparsers = garrow_csv_read_options_get_timestamp_parsers(options.handle, addr nParsers)
-#   result = newSeq[string](nParsers)
-#   for i in 0 ..< nParsers:
-#     result[i] = $cparsers[i]
 
 proc readCSV*(uri: string, options: CsvReadOptions): ArrowTable =
   let scheme = g_uri_peek_scheme(uri)
@@ -386,17 +328,6 @@ proc readCSV*(uri: string): ArrowTable =
   let options = newCsvReadOptions()
   return readCSV(uri, options)
 
-# proc garrow_record_batch_writer_write_table*(
-#   writer: ptr GArrowRecordBatchWriter, table: ptr GArrowTable, error: ptr ptr GError
-# ): gboolean {.cdecl, importc: "garrow_record_batch_writer_write_table".}
-
-# proc newRecordBatchStreamWriter(sinkStream: OutputStream, schema: Schema): RecordBatchStreamWriter =
-#   result.handle = check garrow_record_batch_stream_writer_new(sinkStream.handle, schema.toPtr)
-
-# proc asRecordBatchWriter*(writer: RecordBatchStreamWriter): ptr GArrowRecordBatchWriter =
-#   ## Safely upcast to parent type using GObject type system
-#   result = cast[ptr GArrowRecordBatchWriter](writer.handle)
-
 proc newWriteOptions*(
     includeHeader = true, batchSize = 1024, delimiter = ',', nullString = "", eol = "\n"
 ): WriteOptions =
@@ -420,78 +351,59 @@ proc escapeField(value: string, delimiter: char): string =
   else:
     value
 
-proc formatRow(fields: openArray[string], options: WriteOptions): string =
+proc formatRow(columns: openArray[string], options: WriteOptions): string =
   ## Format a sequence of fields as a CSV row
 
-  fields.mapIt(it.escapeField(options.delimiter)).join($options.delimiter) & options.eol
+  columns.mapIt(it.escapeField(options.delimiter)).join($options.delimiter) & options.eol
 
-proc columnToStrings*[T](arr: ChunkedArray[T], options: WriteOptions): seq[string] =
-  result = newSeq[string](arr.len)
-  var idx = 0
-  for chunk in arr.chunks:
-    for i in 0 ..< chunk.len:
-      if chunk.isNull(i):
-        result[idx] = options.nullString
-      else:
-        # result[idx] = toCSVString(chunk[i], options)
-        result[idx] = $chunk[i]
-      inc idx
+template createFormatter(tbl, idx, T): ColFormatter {.inject.} =
+  let col = tbl[idx, T]
+  proc(r: int): string =
+    if col.isValid(r): $col[r] else: ""
 
 proc writeCsv*[T: Writable](writable: T, options: WriteOptions, output: OutputStream) =
-  ## Write any Writable type to CSV format
-
-  # Write header row if requested
+  let columns = writable.columns.toSeq
   if options.includeHeader:
-    output.write(writable.keys.toSeq.formatRow(options))
+    var columnNames = newSeq[string]()
+    for c in columns:
+      columnNames.add(c.name)
+    output.write(columnNames.formatRow(options))
 
   let nRows = writable.nRows
   let nCols = writable.nColumns
 
-  # Process in batches for memory efficiency
   for offset in countup(0, nRows - 1, options.batchSize):
-    let batchEnd = min(offset + options.batchSize, nRows)
-    let batchLen = batchEnd - offset
-    let tbl = writable.slice(offset, batchLen)
+    let
+      batchEnd = min(offset + options.batchSize, nRows)
+      batchLen = batchEnd - offset
+      tbl = writable.slice(offset, batchLen)
 
-    # Pre-allocate string columns for this batch
-    var columns = newSeq[seq[string]](nCols)
+    var formatters = newSeq[ColFormatter](nCols)
+    
+    for i in 0 ..< nCols:
+      let colMeta = columns[i]
+      # Mapping Arrow types to Nim types
+      case colMeta.dataType.nimTypeName
+      of "int", "int64":   formatters[i] = createFormatter(tbl, i, int64)
+      of "int32":          formatters[i] = createFormatter(tbl, i, int32)
+      of "int16":          formatters[i] = createFormatter(tbl, i, int16)
+      of "int8":           formatters[i] = createFormatter(tbl, i, int8)
+      of "uint64":         formatters[i] = createFormatter(tbl, i, uint64)
+      of "uint32":         formatters[i] = createFormatter(tbl, i, uint32)
+      of "float64", "float": formatters[i] = createFormatter(tbl, i, float64)
+      of "float32":        formatters[i] = createFormatter(tbl, i, float32)
+      of "bool":           formatters[i] = createFormatter(tbl, i, bool)
+      of "string", "utf8": formatters[i] = createFormatter(tbl, i, string)
+      
+      else:
+        # Generic fallback for unsupported types
+        formatters[i] = proc(r: int): string = ""
 
-    # Convert each column to strings based on its type
-    for colIdx in 0 ..< nCols:
-      let schema = tbl.schema
-      let field = schema.getField(colIdx)
-      let dataType = field.dataType
-      case dataType.nimTypeName
-      of "bool":
-        columns[colIdx] = columnToStrings(tbl[colIdx, bool], options)
-      of "int8":
-        columns[colIdx] = columnToStrings(tbl[colIdx, int8], options)
-      of "uint8":
-        columns[colIdx] = columnToStrings(tbl[colIdx, uint8], options)
-      of "int16":
-        columns[colIdx] = columnToStrings(tbl[colIdx, int16], options)
-      of "uint16":
-        columns[colIdx] = columnToStrings(tbl[colIdx, uint16], options)
-      of "int32":
-        columns[colIdx] = columnToStrings(tbl[colIdx, int32], options)
-      of "uint32":
-        columns[colIdx] = columnToStrings(tbl[colIdx, uint32], options)
-      of "int64":
-        columns[colIdx] = columnToStrings(tbl[colIdx, int64], options)
-      of "uint64":
-        columns[colIdx] = columnToStrings(tbl[colIdx, uint64], options)
-      of "float32":
-        columns[colIdx] = columnToStrings(tbl[colIdx, float32], options)
-      of "float64":
-        columns[colIdx] = columnToStrings(tbl[colIdx, float64], options)
-      of "string":
-        columns[colIdx] = columnToStrings(tbl[colIdx, string], options)
-
-    # Write rows from the columnar data
+    # Iterating over the batch rows
     var rowBuffer = newSeq[string](nCols)
-    for rowIdx in 0 ..< batchLen:
-      for colIdx in 0 ..< nCols:
-        rowBuffer[colIdx] = columns[colIdx][rowIdx]
+    for r in 0 ..< batchLen: # Important: Iterate to batchLen, not nRows
+      for c in 0 ..< nCols:
+        rowBuffer[c] = formatters[c](r)
       output.write(rowBuffer.formatRow(options))
 
 proc writeCsv*[T: Writable](

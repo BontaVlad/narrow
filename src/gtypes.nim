@@ -1,5 +1,5 @@
 import std/[macros]
-import ./[ffi]
+import ./[ffi, error]
 
 type
   GADType* = object
@@ -26,7 +26,6 @@ proc `=destroy`*(s: GString) =
     gFree(s.handle)
 
 proc `=sink`*(dest: var GADType, src: GADType) =
-  # Clean up destination if different
   if not isNil(dest.toPtr) and dest.toPtr != src.toPtr:
     g_object_unref(dest.toPtr)
   # Transfer ownership (move semantics)
@@ -68,7 +67,7 @@ proc `$`*(tp: GADType): string =
   result = $newGString(namePtr)
 
 proc `id`*(tp: GADType): GArrowType =
-  result = garrow_data_type_get_id(tp.toPtr)
+  garrow_data_type_get_id(tp.toPtr)
 
 proc nimTypeName*(tp: GADType): string =
   ## Returns the Nim type name corresponding to an Arrow data type
@@ -173,6 +172,7 @@ proc newGType*(T: typedesc[ArrowPrimitive]): GADType =
         "newGType: unsupported type for automatic Arrow GType construction."
 
 proc newGType*(pt: ptr GArrowDataType): GADType =
+  if pt.isNil:
+    raise newException(OperationError, "Failed to create GADType, got nil")
   let handle = cast[ptr GArrowDataType](g_object_ref(pt))
   result = GADType(handle: handle)
-

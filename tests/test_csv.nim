@@ -1,6 +1,6 @@
 import std/[os, options, sets, sequtils]
 import unittest2
-import ../src/[ffi, filesystem, gtables, csv, gtypes, gschema, garray]
+import ../src/[ffi, filesystem, gtables, csv, gtypes, gschema, garray, grecordbatch]
 
 suite "Reading CSV":
 
@@ -36,21 +36,29 @@ suite "Reading CSV":
     check "Last name" in tblKeys
 
 suite "Writing CSV":
+  let uri = getCurrentDir() & "/tests/written.csv"
+  let schema = newSchema([
+    newField[bool]("alive"),
+    newField[string]("name")
+  ])
+  
+  let
+    alive = newArray(@[true, true, false])
+    name = newArray(@["a", "b", "c"])
+    opt = newWriteOptions(batchSize=1)
 
-  test "writet table to csv file localFileSystem":
-    let uri = getCurrentDir() & "/tests/written.csv"
-    let schema = newSchema([
-      newField[bool]("alive"),
-      newField[string]("name")
-    ])
-    
-    let
-      alive = newArray(@[true, true, false])
-      name = newArray(@["a", "b", "c"])
-      table = newArrowTable(schema, alive, name)
+  test "write table to csv file localFileSystem":
+    let table = newArrowTable(schema, alive, name)
 
-    writeCsv(uri, table)
+    writeCsv(uri, table, opt)
     let inTable = readCSV(uri)
     check table.equal(inTable)
     check table == inTable
+
+  # test "write record batch to csv file localFileSystem":
+  #   let rb = newRecordBatch(schema, alive, name)
+
+  #   writeCsv(uri, rb, opt)
+  #   let inTable = readCSV(uri)
+  #   check rb == inTable
 

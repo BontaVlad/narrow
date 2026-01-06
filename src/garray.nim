@@ -8,22 +8,10 @@ type
   Array*[T] = object
     handle: ptr GArrowArray
 
-  AnyArray* = object
-    handle*: ptr GArrowArray
-
-proc toAnyArray*[T](a: Array[T]): AnyArray {.inline.} =
-  AnyArray(handle: a.handle)
-
-converter toAny*[T](a: Array[T]): AnyArray {.inline.} =
-  AnyArray(handle: a.handle)
-
 proc toPtr*[T](b: ArrayBuilder[T]): ptr GArrowArrayBuilder {.inline.} =
   b.handle
 
 proc toPtr*[T](a: Array[T]): ptr GArrowArray {.inline.} =
-  a.handle
-
-proc toPtr*(a: AnyArray): ptr GArrowArray {.inline.} =
   a.handle
 
 proc `=destroy`*[T](builder: ArrayBuilder[T]) =
@@ -395,7 +383,7 @@ proc newArray*[T](handle: ptr GArrowArray): Array[T] =
   # Increment reference count since we're taking ownership
   result = Array[T](handle: handle)
 
-proc `==`*[T](a, b: Array[T]): bool =
+proc `==`*(a, b: Array): bool =
   if a.handle == nil or b.handle == nil:
     return a.handle == b.handle
   garrow_array_equal(a.handle, b.handle).bool
@@ -458,14 +446,14 @@ iterator items*[T](arr: Array[T]): T =
   for i in 0 ..< arr.len:
     yield arr[i]
 
-proc isNull*[T](arr: Array[T], i: int): bool =
+proc isNull*(arr: Array, i: int): bool =
   if i < 0:
     raise newException(IndexDefect, "Negative indexes are not supported")
   if i > len(arr):
     raise newException(IndexDefect, fmt"index {i} not in 0 .. {len(arr)}")
   return garrow_array_is_null(arr.handle, i) != 0
 
-proc isValid*[T](arr: Array[T], i: int): bool =
+proc isValid*(arr: Array, i: int): bool =
   if i < 0:
     raise newException(IndexDefect, "Negative indexes are not supported")
   if i > len(arr):
@@ -487,6 +475,6 @@ proc toSeq*[T](arr: Array[T]): seq[T] =
 proc `@`*[T](arr: Array[T]): seq[T] =
   arr.toSeq
 
-proc `$`*[T](arr: Array[T]): string =
+proc `$`*(arr: Array): string =
   let cStr = check garrow_array_to_string(arr.handle)
   result = $newGString(cStr)

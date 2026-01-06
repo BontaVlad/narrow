@@ -1,4 +1,4 @@
-import std/[macros]
+import std/[macros, enumerate, sequtils]
 import ./[ffi, gchunkedarray, garray, glist, gtypes, gschema, grecordbatch, error]
 
 type ArrowTable* = object
@@ -243,7 +243,7 @@ proc concatenate*(tbl: ArrowTable, others: openArray[ArrowTable]): ArrowTable =
   let handle = check garrow_table_concatenate(tbl.handle, tableList.toPtr, options)
   result = newArrowTable(handle)
 
-proc getColumnData*[T: ArrowPrimitive](tbl: ArrowTable, idx: int): ChunkedArray[T] =
+proc getColumnData*[T](tbl: ArrowTable, idx: int): ChunkedArray[T] =
   ## Get column data with compile-time type and runtime type validation
 
   when defined(debug):
@@ -255,6 +255,9 @@ proc getColumnData*[T: ArrowPrimitive](tbl: ArrowTable, idx: int): ChunkedArray[
 
   let handle = garrow_table_get_column_data(tbl.handle, idx.gint)
   result = newChunkedArray[T](handle)
+
+proc `[]`*(tbl: ArrowTable, idx: int): ChunkedArray[void] =
+  result = getColumnData[void](tbl, idx)
 
 proc `[]`*(tbl: ArrowTable, idx: int, T: typedesc): ChunkedArray[T] =
   result = getColumnData[T](tbl, idx)
@@ -270,3 +273,7 @@ proc `[]`*(tbl: ArrowTable, key: string, T: typedesc): ChunkedArray[T] =
 iterator keys*(tbl: ArrowTable): string =
   for field in tbl.schema:
     yield field.name
+
+iterator columns*(tbl: ArrowTable): Field =
+  for field in tbl.schema:
+    yield field

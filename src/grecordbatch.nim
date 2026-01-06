@@ -14,6 +14,21 @@ type
   RecordBatchReader* = object
     handle: ptr GArrowRecordBatchReader
 
+  WriteOptions* = object
+    handle: ptr GArrowWriteOptions
+
+  GBuffer* = object
+    handle: ptr GArrowBuffer
+
+proc newBuffer*(data: pointer, size: int64): GBuffer =
+  return GBuffer(handle: garrow_buffer_new(cast[ptr uint8](data), size.gint64))
+
+proc toPtr*(opt: WriteOptions): ptr GArrowWriteOptions =
+  opt.handle
+
+proc newWriteOptions(): WriteOptions =
+  discard
+
 proc `=destroy`*(rb: RecordBatch) =
   # echo "DESTROY ______________________---------------"
   # echo repr cast[pointer](rb.handle)
@@ -101,7 +116,7 @@ macro newRecordBatch*(schema: Schema, arrays: varargs[typed]): RecordBatch =
     bodyStmts.add quote do:
       columnBuilder[`typeDesc`](`builderSym`, `idx`).appendValues(`arr`)
 
-  result = quote do:
+  result = quote:
     let `builderSym` = newRecordBatchBuilder(`schema`)
     `bodyStmts`
     `builderSym`.flush()
@@ -196,21 +211,6 @@ proc removeColumn*(rb: RecordBatch, idx: uint): RecordBatch =
   let handle = check garrow_record_batch_remove_column(rb.toPtr, idx.guint)
   result = newRecordBatch(handle)
 
-# proc serialize*(rb: RecordBatch, options: WriteOptions = nil): Buffer =
-#   ## Serialize the record batch to a buffer
-#   let optionsPtr = if options.isNil: nil else: options.toPtr
-#   let handle = check garrow_record_batch_serialize(rb.toPtr, optionsPtr)
-#   result = newBuffer(handle)
-
-# proc exportBatch*(rb: RecordBatch): tuple[array: pointer, schema: pointer] =
-#   ## Export to C ABI
-#   var cAbiArray: pointer
-#   var cAbiSchema: pointer
-
-#   check garrow_record_batch_export(rb.toPtr, addr cAbiArray, addr cAbiSchema).bool
-
-#   result = (array: cAbiArray, schema: cAbiSchema)
-
 proc toPtr*(b: RecordBatchBuilder): ptr GArrowRecordBatchBuilder {.inline.} =
   b.handle
 
@@ -298,3 +298,7 @@ iterator items*(it: RecordBatchIterator): RecordBatch =
   while maybeRb.isSome:
     yield maybeRb.get()
     maybeRb = it.next()
+
+iterator columns*(rb: RecordBatch): Field =
+  for field in rb.schema:
+    yield field
