@@ -14,16 +14,26 @@
 
 The library exposes Arrow's language-independent, columnar memory format to the Nim ecosystem. It is designed to map Nim's memory management and syntax to the underlying GObject/Arrow C++ primitives.
 
-Core Objectives:
+## Core Objectives
 
-Interoperability: Facilitate zero-copy data exchange with other Arrow-enabled languages (Python/PyArrow, R, C++) via shared memory and IPC.
-Storage I/O: Provide interfaces for reading and writing standard columnar formats (CSV, Parquet, ORC) and filesystem operations.
-Memory Management: implementation of safe wrappers around GLib reference counting to ensure correct resource handling within Nim's scope.
+**Interoperability**  
+Facilitate zero-copy data exchange with other Arrow-enabled languages (Python/PyArrow, R, C++) via shared memory and IPC.
+
+**Storage I/O**  
+Provide interfaces for reading and writing standard columnar formats (CSV, Parquet, ORC) and filesystem operations.
+
+**Memory Management**  
+implementation of safe wrappers around GLib reference counting to ensure correct resource handling within Nim's scope.
+
+## Status
 
 The library is currently in a pre-alpha state, APIs may change significantly until an initial alpha release. Functionality encompasses:
 
-Data Types: Construction and manipulation of Arrays, ChunkedArrays, Structs, and RecordBatches.
+### Data Types
+Construction and manipulation of Arrays, ChunkedArrays, Structs, and RecordBatches.
 
-IO: CSV reading/writing and FileSystem abstractions.
+### IO
+CSV reading/writing and FileSystem abstractions.
 
-Compute: Basic Arrow compute kernel bindings (in progress).
+### Compute
+Basic Arrow compute kernel bindings (in progress).
