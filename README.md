@@ -12,15 +12,23 @@
 
 # narrow
 
-Apache Arrow is a universal columnar format and multi-language toolbox for fast data interchange and in-memory analytics.
+narrow provides Nim bindings for Apache Arrow, specifically wrapping the Arrow C GLib interface.
 
-The project specifies a language-independent column-oriented memory format for flat and hierarchical data, organized for efficient analytic operations on modern hardware. 
+The library exposes Arrow's language-independent, columnar memory format to the Nim ecosystem, enabling efficient data interchange and in-memory analytics. It is designed to map Nim's memory management and syntax to the underlying GObject/Arrow C++ primitives.
+Core Objectives
 
-The project houses an actively developed lybrary written in Nim for solving problems related to data transfer and in-memory analytical processing. This includes such topics as:
+    Interoperability: Facilitate zero-copy data exchange with other Arrow-enabled languages (Python/PyArrow, R, C++) via shared memory and IPC.
 
-    Zero-copy shared memory and RPC-based data movement
+    Storage I/O: Provide interfaces for reading and writing standard columnar formats (CSV, Parquet, ORC) and filesystem operations.
 
-    Reading and writing file formats (like CSV, Apache ORC, and Apache Parquet)
+    Memory Management: implementation of safe wrappers around GLib reference counting to ensure correct resource handling within Nim's scope.
 
-    In-memory analytics and query processing
+Current Implementation Status
 
+The library is currently in a pre-alpha state. Functionality encompasses:
+
+    Data Types: Construction and manipulation of Arrays, ChunkedArrays, Structs, and RecordBatches.
+
+    IO: CSV reading/writing and FileSystem abstractions.
+
+    Compute: Basic Arrow compute kernel bindings (in progress).
