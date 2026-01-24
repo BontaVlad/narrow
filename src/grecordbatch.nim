@@ -173,11 +173,8 @@ proc `[]`*(rb: RecordBatch, idx: int, T: typedesc): Array[T] =
 proc `[]`*(rb: RecordBatch, key: string, T: typedesc): Array[T] =
   # try:
   let schema = rb.schema
-  try:
-    let idx = schema.getFieldIndex(key)
-    result = getColumnData[T](rb, idx)
-  except IndexError:
-    raise newException(KeyError, "Column not found: " & key)
+  let idx = schema.getFieldIndex(key)
+  result = getColumnData[T](rb, idx)
 
 proc `==`*(rb1, rb2: RecordBatch): bool =
   ## Check equality without metadata

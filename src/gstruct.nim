@@ -1,4 +1,4 @@
-import std/[macros, strformat, strutils, sequtils]
+import std/[macros, strutils, sequtils]
 import ./[ffi, gschema, glist]
 
 {.experimental: "dotOperators".}

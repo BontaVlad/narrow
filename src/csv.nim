@@ -1,4 +1,4 @@
-import std/[enumerate, strformat, options, tables, sets, sequtils, strutils]
+import std/[strformat, options, tables, sets, sequtils, strutils]
 import
   ./[
     ffi, filesystem, gtables, error, gtypes, gschema, garray, grecordbatch,

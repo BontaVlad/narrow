@@ -1,4 +1,4 @@
-import std/[macros, enumerate, sequtils]
+import std/[macros]
 import ./[ffi, gchunkedarray, garray, glist, gtypes, gschema, grecordbatch, error]
 
 type ArrowTable* = object
@@ -173,11 +173,8 @@ proc removeColumn*(tbl: ArrowTable, idx: int): ArrowTable =
   result = newArrowTable(handle)
 
 proc removeColumn*(tbl: ArrowTable, key: string): ArrowTable =
-  try:
-    let idx = tbl.schema.getFieldIndex(key)
-    result = tbl.removeColumn(idx)
-  except IndexError:
-    raise newException(KeyError, "Column not found: " & key)
+  let idx = tbl.schema.getFieldIndex(key)
+  result = tbl.removeColumn(idx)
 
 proc replaceColumn*(
     tbl: ArrowTable, idx: int, field: Field, column: ChunkedArray
@@ -264,11 +261,8 @@ proc `[]`*(tbl: ArrowTable, idx: int, T: typedesc): ChunkedArray[T] =
 
 proc `[]`*(tbl: ArrowTable, key: string, T: typedesc): ChunkedArray[T] =
   let schema = tbl.schema
-  try:
-    let idx = schema.getFieldIndex(key)
-    result = getColumnData[T](tbl, idx)
-  except IndexError:
-    raise newException(KeyError, "Column not found: " & key)
+  let idx = schema.getFieldIndex(key)
+  result = getColumnData[T](tbl, idx)
 
 iterator keys*(tbl: ArrowTable): string =
   for field in tbl.schema:

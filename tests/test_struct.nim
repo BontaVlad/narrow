@@ -1,5 +1,5 @@
 import unittest2
-import ../src/[ffi, gschema, gstruct, glist]
+import ../src/[ffi, gschema, gstruct]
 
 suite "Struct - Basic Creation":
   

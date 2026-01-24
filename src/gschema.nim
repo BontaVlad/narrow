@@ -131,13 +131,13 @@ proc getField*(schema: Schema, idx: int): Field =
 proc getFieldByName*(schema: Schema, name: string): Field =
   let handle = garrow_schema_get_field_by_name(schema.handle, name.cstring)
   if handle.isNil:
-    raise newException(IndexError, fmt"Field with name: [{name}] does not exist")
+    raise newException(KeyError, fmt"Field with name: [{name}] does not exist")
   result = newField(handle)
 
 proc getFieldIndex*(schema: Schema, name: string): int =
   result = garrow_schema_get_field_index(schema.handle, name.cstring).int
   if result < 0:
-    raise newException(IndexError, fmt"Field with name: [{name}] does not exist")
+    raise newException(KeyError, fmt"Field with name: [{name}] does not exist")
 
 proc ffields*(schema: Schema): seq[Field] =
   let glistPtr = garrow_schema_get_fields(schema.handle)

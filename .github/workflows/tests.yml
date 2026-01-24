@@ -19,6 +19,8 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - uses: extractions/setup-just@v2
+
     - name: Cache Nim
       uses: actions/cache@v3
       with:
