@@ -3,12 +3,6 @@ import ./[ffi, gtypes, error]
 
 # Time units mapping
 type
-  TimeUnit* = enum
-    tuSecond = 0
-    tuMilli = 1
-    tuMicro = 2
-    tuNano = 3
-
   Date32* = object
     value*: int32
   
@@ -17,12 +11,12 @@ type
   
   Timestamp* = object
     value*: int64
-    unit*: TimeUnit
+    unit*: GArrowTimeUnit
     tz*: string
   
   Duration* = object
     value*: int64
-    unit*: TimeUnit
+    unit*: GArrowTimeUnit
   
   Time32* = object
     value*: int32
@@ -49,28 +43,28 @@ type
   
   Time32Array* = object
     handle: ptr GArrowTime32Array
-    unit*: TimeUnit
+    unit*: GArrowTimeUnit
   
   Time32ArrayBuilder* = object
     handle: ptr GArrowTime32ArrayBuilder
-    unit*: TimeUnit
+    unit*: GArrowTimeUnit
   
   Time64Array* = object
     handle: ptr GArrowTime64Array
-    unit*: TimeUnit
+    unit*: GArrowTimeUnit
   
   Time64ArrayBuilder* = object
     handle: ptr GArrowTime64ArrayBuilder
-    unit*: TimeUnit
+    unit*: GArrowTimeUnit
   
   TimestampArray* = object
     handle: ptr GArrowTimestampArray
-    unit*: TimeUnit
+    unit*: GArrowTimeUnit
     tz*: string
   
   TimestampArrayBuilder* = object
     handle: ptr GArrowTimestampArrayBuilder
-    unit*: TimeUnit
+    unit*: GArrowTimeUnit
     tz*: string
   
   Date32Array* = object
@@ -119,10 +113,10 @@ proc toDateTime*(ts: Timestamp): DateTime {.inline.} =
   ## Convert Timestamp to DateTime
   let baseTime = dateTime(1970, mJan, 1)
   let nanos = case ts.unit
-    of tuSecond: ts.value * 1_000_000_000
-    of tuMilli: ts.value * 1_000_000
-    of tuMicro: ts.value * 1_000
-    of tuNano: ts.value
+    of GArrowTimeUnit.GARROW_TIME_UNIT_SECOND: ts.value * 1_000_000_000
+    of GArrowTimeUnit.GARROW_TIME_UNIT_MILLI: ts.value * 1_000_000
+    of GArrowTimeUnit.GARROW_TIME_UNIT_MICRO: ts.value * 1_000
+    of GArrowTimeUnit.GARROW_TIME_UNIT_NANO: ts.value
   let durMillis = nanos div 1_000_000
   baseTime + initDuration(milliseconds=durMillis)
 
@@ -155,31 +149,31 @@ proc `$`*(d: Date64): string =
   $d.toDateTime()
 
 # Timestamp constructors
-proc newTimestamp*(val: int64, unit: TimeUnit = tuNano, tz: string = "UTC"): Timestamp =
+proc newTimestamp*(val: int64, unit: GArrowTimeUnit = GARROW_TIME_UNIT_NANO, tz: string = "UTC"): Timestamp =
   Timestamp(value: val, unit: unit, tz: tz)
 
-proc newTimestamp*(dt: DateTime, unit: TimeUnit = tuNano, tz: string = "UTC"): Timestamp =
+proc newTimestamp*(dt: DateTime, unit: GArrowTimeUnit = GARROW_TIME_UNIT_NANO, tz: string = "UTC"): Timestamp =
   let unixNano = dt.toTime.toUnixFloat.int64 * 1_000_000_000
   let scaled = case unit
-    of tuSecond: unixNano div 1_000_000_000
-    of tuMilli: unixNano div 1_000_000
-    of tuMicro: unixNano div 1_000
-    of tuNano: unixNano
+    of GARROW_TIME_UNIT_SECOND: unixNano div 1_000_000_000
+    of GARROW_TIME_UNIT_MILLI: unixNano div 1_000_000
+    of GARROW_TIME_UNIT_MICRO: unixNano div 1_000
+    of GARROW_TIME_UNIT_NANO: unixNano
   Timestamp(value: scaled, unit: unit, tz: tz)
 
 proc `$`*(ts: Timestamp): string =
   $ts.toDateTime() & " [" & ts.tz & "]"
 
 # Duration - time intervals
-proc newDuration*(val: int64, unit: TimeUnit = tuNano): Duration =
+proc newDuration*(val: int64, unit: GArrowTimeUnit = GARROW_TIME_UNIT_NANO): Duration =
   Duration(value: val, unit: unit)
 
 proc toNanos*(d: Duration): int64 =
   case d.unit
-  of tuSecond: d.value * 1_000_000_000
-  of tuMilli: d.value * 1_000_000
-  of tuMicro: d.value * 1_000
-  of tuNano: d.value
+  of GARROW_TIME_UNIT_SECOND: d.value * 1_000_000_000
+  of GARROW_TIME_UNIT_MILLI: d.value * 1_000_000
+  of GARROW_TIME_UNIT_MICRO: d.value * 1_000
+  of GARROW_TIME_UNIT_NANO: d.value
 
 proc `$`*(d: Duration): string =
   let nanos = d.toNanos()
@@ -348,14 +342,14 @@ proc `=copy`*(dest: var Time64ArrayBuilder, src: Time64ArrayBuilder) =
       discard g_object_ref(cast[ptr GObject](dest.handle))
 
 # TimestampArray creators
-proc newTimestampArray*(handle: ptr GArrowTimestampArray, unit: TimeUnit, tz: string): TimestampArray =
+proc newTimestampArray*(handle: ptr GArrowTimestampArray, unit: GArrowTimeUnit, tz: string): TimestampArray =
   TimestampArray(
     handle: cast[ptr GArrowTimestampArray](g_object_ref(cast[ptr GObject](handle))),
     unit: unit,
     tz: tz
   )
 
-proc newTimestampArrayBuilder*(unit: TimeUnit, tz: string = "UTC"): TimestampArrayBuilder =
+proc newTimestampArrayBuilder*(unit: GArrowTimeUnit, tz: string = "UTC"): TimestampArrayBuilder =
   # Create a GTimeZone from the timezone string
   let tzCstr = tz.cstring
   let gTz = g_time_zone_new(tzCstr)
@@ -363,7 +357,7 @@ proc newTimestampArrayBuilder*(unit: TimeUnit, tz: string = "UTC"): TimestampArr
     raise newException(OperationError, "Failed to create timezone")
   
   # Create a timestamp data type
-  let tsType = garrow_timestamp_data_type_new(GArrowTimeUnit(unit.ord), gTz)
+  let tsType = garrow_timestamp_data_type_new(unit, gTz)
   g_time_zone_unref(gTz)  # Release timezone reference as data type owns it
   
   if tsType.isNil:
@@ -511,9 +505,9 @@ proc `$`*(t: Time64): string =
   $millis & " ms"
 
 # Time32Array builders and operations
-proc newTime32ArrayBuilder*(unit: TimeUnit = tuSecond): Time32ArrayBuilder =
+proc newTime32ArrayBuilder*(unit: GArrowTimeUnit = GARROW_TIME_UNIT_SECOND): Time32ArrayBuilder =
   var err: ptr GError
-  let tsType = garrow_time32_data_type_new(GArrowTimeUnit(unit.ord), addr err)
+  let tsType = garrow_time32_data_type_new(unit, addr err)
   
   if not isNil(err):
     let msg = if not isNil(err.message): $err.message else: "Failed to create time32 data type"
@@ -554,9 +548,9 @@ proc finish*(t32ab: Time32ArrayBuilder): Time32Array =
   Time32Array(handle: cast[ptr GArrowTime32Array](handle), unit: t32ab.unit)
 
 # Time64Array builders and operations
-proc newTime64ArrayBuilder*(unit: TimeUnit = tuMicro): Time64ArrayBuilder =
+proc newTime64ArrayBuilder*(unit: GArrowTimeUnit = GARROW_TIME_UNIT_MICRO): Time64ArrayBuilder =
   var err: ptr GError
-  let tsType = garrow_time64_data_type_new(GArrowTimeUnit(unit.ord), addr err)
+  let tsType = garrow_time64_data_type_new(unit, addr err)
   
   if not isNil(err):
     let msg = if not isNil(err.message): $err.message else: "Failed to create time64 data type"

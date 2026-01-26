@@ -1,6 +1,6 @@
 import unittest2
 import std/[options, strutils]
-import ../src/[gtemporal]
+import ../src/[ffi, gtemporal]
 
 suite "Time32 - Creation and Operations":
 
@@ -35,18 +35,18 @@ suite "Time64 - Creation and Operations":
 suite "Time32Array - Building and Operations":
 
   test "Create Time32ArrayBuilder":
-    let builder = newTime32ArrayBuilder(tuSecond)
-    check builder.unit == tuSecond
+    let builder = newTime32ArrayBuilder(GARROW_TIME_UNIT_SECOND)
+    check builder.unit == GARROW_TIME_UNIT_SECOND
 
   test "Append to Time32Array":
-    var builder = newTime32ArrayBuilder(tuSecond)
+    var builder = newTime32ArrayBuilder(GARROW_TIME_UNIT_SECOND)
     builder.append(3661'i32)
     builder.append(7322'i32)
     let arr = builder.finish()
     check arr.len == 2
 
   test "Append Time32 objects":
-    var builder = newTime32ArrayBuilder(tuSecond)
+    var builder = newTime32ArrayBuilder(GARROW_TIME_UNIT_SECOND)
     let t1 = newTime32(1000'i32)
     let t2 = newTime32(2000'i32)
     builder.append(t1)
@@ -55,7 +55,7 @@ suite "Time32Array - Building and Operations":
     check arr.len == 2
 
   test "Append Option[Time32]":
-    var builder = newTime32ArrayBuilder(tuSecond)
+    var builder = newTime32ArrayBuilder(GARROW_TIME_UNIT_SECOND)
     let t = newTime32(3661'i32)
     builder.append(some(t))
     builder.append(none(Time32))
@@ -64,7 +64,7 @@ suite "Time32Array - Building and Operations":
     check arr.len == 3
 
   test "Time32Array string representation":
-    var builder = newTime32ArrayBuilder(tuSecond)
+    var builder = newTime32ArrayBuilder(GARROW_TIME_UNIT_SECOND)
     builder.append(1000'i32)
     builder.append(2000'i32)
     let arr = builder.finish()
@@ -74,11 +74,11 @@ suite "Time32Array - Building and Operations":
 suite "Time64Array - Building and Operations":
 
   test "Create Time64ArrayBuilder":
-    let builder = newTime64ArrayBuilder(tuMicro)
-    check builder.unit == tuMicro
+    let builder = newTime64ArrayBuilder(GARROW_TIME_UNIT_MICRO)
+    check builder.unit == GARROW_TIME_UNIT_MICRO
 
   test "Append to Time64Array":
-    var builder = newTime64ArrayBuilder(tuMicro)
+    var builder = newTime64ArrayBuilder(GARROW_TIME_UNIT_MICRO)
     builder.append(1000000'i64)
     builder.append(2000000'i64)
     let arr = builder.finish()
@@ -87,7 +87,7 @@ suite "Time64Array - Building and Operations":
     check arr[1] == 2000000'i64
 
   test "Append Time64 objects":
-    var builder = newTime64ArrayBuilder(tuMicro)
+    var builder = newTime64ArrayBuilder(GARROW_TIME_UNIT_MICRO)
     let t1 = newTime64(1000000'i64)
     let t2 = newTime64(2000000'i64)
     builder.append(t1)
@@ -97,7 +97,7 @@ suite "Time64Array - Building and Operations":
     check arr[0] == 1000000'i64
 
   test "Append Option[Time64]":
-    var builder = newTime64ArrayBuilder(tuMicro)
+    var builder = newTime64ArrayBuilder(GARROW_TIME_UNIT_MICRO)
     let t = newTime64(1000000'i64)
     builder.append(some(t))
     builder.append(none(Time64))
@@ -106,7 +106,7 @@ suite "Time64Array - Building and Operations":
     check arr.len == 3
 
   test "Time64Array string representation":
-    var builder = newTime64ArrayBuilder(tuMicro)
+    var builder = newTime64ArrayBuilder(GARROW_TIME_UNIT_MICRO)
     builder.append(1000000'i64)
     builder.append(2000000'i64)
     let arr = builder.finish()
@@ -116,22 +116,22 @@ suite "Time64Array - Building and Operations":
 suite "Duration - Operations and Conversions":
 
   test "Duration creation and conversions":
-    let d1 = newDuration(1'i64, tuSecond)
-    let d2 = newDuration(1000'i64, tuMilli)
-    let d3 = newDuration(1000000'i64, tuMicro)
+    let d1 = newDuration(1'i64, GARROW_TIME_UNIT_SECOND)
+    let d2 = newDuration(1000'i64, GARROW_TIME_UNIT_MILLI)
+    let d3 = newDuration(1000000'i64, GARROW_TIME_UNIT_MICRO)
     check d1.toNanos() == d2.toNanos()
     check d2.toNanos() == d3.toNanos()
 
   test "Duration between time values":
-    let d = newDuration(5000'i64, tuMilli)  # 5 seconds
+    let d = newDuration(5000'i64, GARROW_TIME_UNIT_MILLI)  # 5 seconds
     check d.toNanos() == 5_000_000_000
 
   test "Duration string formatting":
-    let d1 = newDuration(1000'i64, tuSecond)
+    let d1 = newDuration(1000'i64, GARROW_TIME_UNIT_SECOND)
     let str1 = d1.toDuration()
     check str1.contains("s")
 
-    let d2 = newDuration(500'i64, tuMilli)
+    let d2 = newDuration(500'i64, GARROW_TIME_UNIT_MILLI)
     let str2 = d2.toDuration()
     check str2.len > 0
 
@@ -171,17 +171,17 @@ suite "Interval Types - Creation and Operations":
 suite "Time Array Edge Cases":
 
   test "Empty Time32Array":
-    var builder = newTime32ArrayBuilder(tuSecond)
+    var builder = newTime32ArrayBuilder(GARROW_TIME_UNIT_SECOND)
     let arr = builder.finish()
     check arr.len == 0
 
   test "Empty Time64Array":
-    var builder = newTime64ArrayBuilder(tuMicro)
+    var builder = newTime64ArrayBuilder(GARROW_TIME_UNIT_MICRO)
     let arr = builder.finish()
     check arr.len == 0
 
   test "Time32Array with all nulls":
-    var builder = newTime32ArrayBuilder(tuSecond)
+    var builder = newTime32ArrayBuilder(GARROW_TIME_UNIT_SECOND)
     builder.appendNull()
     builder.appendNull()
     builder.appendNull()
@@ -189,14 +189,14 @@ suite "Time Array Edge Cases":
     check arr.len == 3
 
   test "Time64Array with all nulls":
-    var builder = newTime64ArrayBuilder(tuMicro)
+    var builder = newTime64ArrayBuilder(GARROW_TIME_UNIT_MICRO)
     builder.appendNull()
     builder.appendNull()
     let arr = builder.finish()
     check arr.len == 2
 
   test "Time32Array out of bounds":
-    var builder = newTime32ArrayBuilder(tuSecond)
+    var builder = newTime32ArrayBuilder(GARROW_TIME_UNIT_SECOND)
     builder.append(1000'i32)
     let arr = builder.finish()
     expect(IndexDefect):
@@ -205,7 +205,7 @@ suite "Time Array Edge Cases":
       discard arr[-1]
 
   test "Time64Array out of bounds":
-    var builder = newTime64ArrayBuilder(tuMicro)
+    var builder = newTime64ArrayBuilder(GARROW_TIME_UNIT_MICRO)
     builder.append(1000000'i64)
     let arr = builder.finish()
     expect(IndexDefect):
@@ -216,7 +216,7 @@ suite "Time Array Edge Cases":
 suite "Time Array Memory Management":
 
   test "Time32Array copies":
-    var builder = newTime32ArrayBuilder(tuSecond)
+    var builder = newTime32ArrayBuilder(GARROW_TIME_UNIT_SECOND)
     builder.append(1000'i32)
     let arr1 = builder.finish()
     let arr2 = arr1
@@ -226,7 +226,7 @@ suite "Time Array Memory Management":
     check arr3.len == 1
 
   test "Time64Array copies":
-    var builder = newTime64ArrayBuilder(tuMicro)
+    var builder = newTime64ArrayBuilder(GARROW_TIME_UNIT_MICRO)
     builder.append(1000000'i64)
     let arr1 = builder.finish()
     let arr2 = arr1
@@ -235,14 +235,14 @@ suite "Time Array Memory Management":
 
   test "Rapid Time32Array allocation":
     for i in 0..100:
-      var builder = newTime32ArrayBuilder(tuSecond)
+      var builder = newTime32ArrayBuilder(GARROW_TIME_UNIT_SECOND)
       builder.append(int32(i * 100))
       let arr = builder.finish()
       check arr.len == 1
 
   test "Rapid Time64Array allocation":
     for i in 0..100:
-      var builder = newTime64ArrayBuilder(tuMicro)
+      var builder = newTime64ArrayBuilder(GARROW_TIME_UNIT_MICRO)
       builder.append(int64(i * 1000000))
       let arr = builder.finish()
       check arr.len == 1
@@ -250,25 +250,25 @@ suite "Time Array Memory Management":
 suite "Time Unit Consistency":
 
   test "Time32 builder respects unit":
-    let builder1 = newTime32ArrayBuilder(tuSecond)
-    let builder2 = newTime32ArrayBuilder(tuMilli)
-    check builder1.unit == tuSecond
-    check builder2.unit == tuMilli
+    let builder1 = newTime32ArrayBuilder(GARROW_TIME_UNIT_SECOND)
+    let builder2 = newTime32ArrayBuilder(GARROW_TIME_UNIT_MILLI)
+    check builder1.unit == GARROW_TIME_UNIT_SECOND
+    check builder2.unit == GARROW_TIME_UNIT_MILLI
 
   test "Time64 builder respects unit":
-    let builder1 = newTime64ArrayBuilder(tuMicro)
-    let builder2 = newTime64ArrayBuilder(tuNano)
-    check builder1.unit == tuMicro
-    check builder2.unit == tuNano
+    let builder1 = newTime64ArrayBuilder(GARROW_TIME_UNIT_MICRO)
+    let builder2 = newTime64ArrayBuilder(GARROW_TIME_UNIT_NANO)
+    check builder1.unit == GARROW_TIME_UNIT_MICRO
+    check builder2.unit == GARROW_TIME_UNIT_NANO
 
   test "Time32 array preserves unit":
-    var builder = newTime32ArrayBuilder(tuMilli)
+    var builder = newTime32ArrayBuilder(GARROW_TIME_UNIT_MILLI)
     builder.append(1000'i32)
     let arr = builder.finish()
-    check arr.unit == tuMilli
+    check arr.unit == GARROW_TIME_UNIT_MILLI
 
   test "Time64 array preserves unit":
-    var builder = newTime64ArrayBuilder(tuNano)
+    var builder = newTime64ArrayBuilder(GARROW_TIME_UNIT_NANO)
     builder.append(1000000000'i64)
     let arr = builder.finish()
-    check arr.unit == tuNano
+    check arr.unit == GARROW_TIME_UNIT_NANO
