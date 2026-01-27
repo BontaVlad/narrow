@@ -41,7 +41,7 @@ suite "Writing CSV":
     newField[bool]("alive"),
     newField[string]("name")
   ])
-  
+
   let
     alive = newArray(@[true, true, false])
     name = newArray(@["a", "b", "c"])

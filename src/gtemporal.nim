@@ -24,11 +24,6 @@ type
   Time64* = object
     value*: int64
   
-  IntervalType* = enum
-    itMonth = 0
-    itDayTime = 1
-    itMonthDayNano = 2
-  
   MonthInterval* = object
     months*: int32
   
