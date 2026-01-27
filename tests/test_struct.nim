@@ -1,7 +1,8 @@
 import unittest2
 import std/[strutils]
-import ../src/[ffi, gschema, gstruct, garray]
+import ../src/[gschema, gstruct, garray]
 
+# TODO: append is crap, does nothing useful yet
 suite "Struct - Basic Creation and Field Access":
   
   test "Create struct with multiple fields":
@@ -94,9 +95,8 @@ suite "StructArray - Creation and Operations":
     let idArray = newArray[int32](@[1'i32, 2, 3])
     let nameArray = newArray[string](@["Alice", "Bob", "Charlie"])
     let structArray = newStructArray(structType, idArray.toPtr, nameArray.toPtr)
-    let idFieldPtr = structArray.getField(0)
-    let len = garrow_array_get_length(idFieldPtr)
-    check len == 3
+    let idValues = structArray.getField[:int32](0)
+    check idValues.len == 3
 
 suite "StructBuilder - Building Struct Arrays":
 

@@ -5,66 +5,66 @@ import ./[ffi, gtypes, error]
 type
   Date32* = object
     value*: int32
-  
+
   Date64* = object
     value*: int64
-  
+
   Timestamp* = object
     value*: int64
     unit*: GArrowTimeUnit
     tz*: string
-  
+
   Duration* = object
     value*: int64
     unit*: GArrowTimeUnit
-  
+
   Time32* = object
     value*: int32
-  
+
   Time64* = object
     value*: int64
-  
+
   MonthInterval* = object
     months*: int32
-  
+
   DayTimeInterval* = object
     days*: int32
     millis*: int32
-  
+
   MonthDayNanoInterval* = object
     months*: int32
     days*: int32
     nanos*: int64
-  
+
   Time32Array* = object
     handle: ptr GArrowTime32Array
     unit*: GArrowTimeUnit
-  
+
   Time32ArrayBuilder* = object
     handle: ptr GArrowTime32ArrayBuilder
     unit*: GArrowTimeUnit
-  
+
   Time64Array* = object
     handle: ptr GArrowTime64Array
     unit*: GArrowTimeUnit
-  
+
   Time64ArrayBuilder* = object
     handle: ptr GArrowTime64ArrayBuilder
     unit*: GArrowTimeUnit
-  
+
   TimestampArray* = object
     handle: ptr GArrowTimestampArray
     unit*: GArrowTimeUnit
     tz*: string
-  
+
   TimestampArrayBuilder* = object
     handle: ptr GArrowTimestampArrayBuilder
     unit*: GArrowTimeUnit
     tz*: string
-  
+
   Date32Array* = object
     handle: ptr GArrowDate32Array
-  
+
   Date32ArrayBuilder* = object
     handle: ptr GArrowDate32ArrayBuilder
 
@@ -97,23 +97,28 @@ proc toPtr*(t64ab: Time64ArrayBuilder): ptr GArrowTime64ArrayBuilder {.inline.} 
 proc toDateTime*(d: Date32): DateTime {.inline.} =
   ## Convert Date32 (days since epoch) to DateTime
   let baseTime = dateTime(1970, mJan, 1)
-  baseTime + initDuration(days=d.value)
+  baseTime + initDuration(days = d.value)
 
 proc toDateTime*(d: Date64): DateTime {.inline.} =
   ## Convert Date64 (milliseconds since epoch) to DateTime
   let baseTime = dateTime(1970, mJan, 1)
-  baseTime + initDuration(milliseconds=d.value)
+  baseTime + initDuration(milliseconds = d.value)
 
 proc toDateTime*(ts: Timestamp): DateTime {.inline.} =
   ## Convert Timestamp to DateTime
   let baseTime = dateTime(1970, mJan, 1)
-  let nanos = case ts.unit
-    of GArrowTimeUnit.GARROW_TIME_UNIT_SECOND: ts.value * 1_000_000_000
-    of GArrowTimeUnit.GARROW_TIME_UNIT_MILLI: ts.value * 1_000_000
-    of GArrowTimeUnit.GARROW_TIME_UNIT_MICRO: ts.value * 1_000
-    of GArrowTimeUnit.GARROW_TIME_UNIT_NANO: ts.value
+  let nanos =
+    case ts.unit
+    of GArrowTimeUnit.GARROW_TIME_UNIT_SECOND:
+      ts.value * 1_000_000_000
+    of GArrowTimeUnit.GARROW_TIME_UNIT_MILLI:
+      ts.value * 1_000_000
+    of GArrowTimeUnit.GARROW_TIME_UNIT_MICRO:
+      ts.value * 1_000
+    of GArrowTimeUnit.GARROW_TIME_UNIT_NANO:
+      ts.value
   let durMillis = nanos div 1_000_000
-  baseTime + initDuration(milliseconds=durMillis)
+  baseTime + initDuration(milliseconds = durMillis)
 
 # Date32 constructors
 proc newDate32*(days: int32): Date32 =
@@ -144,16 +149,25 @@ proc `$`*(d: Date64): string =
   $d.toDateTime()
 
 # Timestamp constructors
-proc newTimestamp*(val: int64, unit: GArrowTimeUnit = GARROW_TIME_UNIT_NANO, tz: string = "UTC"): Timestamp =
+proc newTimestamp*(
+    val: int64, unit: GArrowTimeUnit = GARROW_TIME_UNIT_NANO, tz: string = "UTC"
+): Timestamp =
   Timestamp(value: val, unit: unit, tz: tz)
 
-proc newTimestamp*(dt: DateTime, unit: GArrowTimeUnit = GARROW_TIME_UNIT_NANO, tz: string = "UTC"): Timestamp =
+proc newTimestamp*(
+    dt: DateTime, unit: GArrowTimeUnit = GARROW_TIME_UNIT_NANO, tz: string = "UTC"
+): Timestamp =
   let unixNano = dt.toTime.toUnixFloat.int64 * 1_000_000_000
-  let scaled = case unit
-    of GARROW_TIME_UNIT_SECOND: unixNano div 1_000_000_000
-    of GARROW_TIME_UNIT_MILLI: unixNano div 1_000_000
-    of GARROW_TIME_UNIT_MICRO: unixNano div 1_000
-    of GARROW_TIME_UNIT_NANO: unixNano
+  let scaled =
+    case unit
+    of GARROW_TIME_UNIT_SECOND:
+      unixNano div 1_000_000_000
+    of GARROW_TIME_UNIT_MILLI:
+      unixNano div 1_000_000
+    of GARROW_TIME_UNIT_MICRO:
+      unixNano div 1_000
+    of GARROW_TIME_UNIT_NANO:
+      unixNano
   Timestamp(value: scaled, unit: unit, tz: tz)
 
 proc `$`*(ts: Timestamp): string =
@@ -165,10 +179,14 @@ proc newDuration*(val: int64, unit: GArrowTimeUnit = GARROW_TIME_UNIT_NANO): Dur
 
 proc toNanos*(d: Duration): int64 =
   case d.unit
-  of GARROW_TIME_UNIT_SECOND: d.value * 1_000_000_000
-  of GARROW_TIME_UNIT_MILLI: d.value * 1_000_000
-  of GARROW_TIME_UNIT_MICRO: d.value * 1_000
-  of GARROW_TIME_UNIT_NANO: d.value
+  of GARROW_TIME_UNIT_SECOND:
+    d.value * 1_000_000_000
+  of GARROW_TIME_UNIT_MILLI:
+    d.value * 1_000_000
+  of GARROW_TIME_UNIT_MICRO:
+    d.value * 1_000
+  of GARROW_TIME_UNIT_NANO:
+    d.value
 
 proc `$`*(d: Duration): string =
   let nanos = d.toNanos()
@@ -337,34 +355,38 @@ proc `=copy`*(dest: var Time64ArrayBuilder, src: Time64ArrayBuilder) =
       discard g_object_ref(cast[ptr GObject](dest.handle))
 
 # TimestampArray creators
-proc newTimestampArray*(handle: ptr GArrowTimestampArray, unit: GArrowTimeUnit, tz: string): TimestampArray =
+proc newTimestampArray*(
+    handle: ptr GArrowTimestampArray, unit: GArrowTimeUnit, tz: string
+): TimestampArray =
   TimestampArray(
-    handle: cast[ptr GArrowTimestampArray](g_object_ref(cast[ptr GObject](handle))),
+    handle: handle,
     unit: unit,
-    tz: tz
+    tz: tz,
   )
 
-proc newTimestampArrayBuilder*(unit: GArrowTimeUnit, tz: string = "UTC"): TimestampArrayBuilder =
+proc newTimestampArrayBuilder*(
+    unit: GArrowTimeUnit, tz: string = "UTC"
+): TimestampArrayBuilder =
   # Create a GTimeZone from the timezone string
   let tzCstr = tz.cstring
   let gTz = g_time_zone_new(tzCstr)
   if gTz.isNil:
     raise newException(OperationError, "Failed to create timezone")
-  
+
   # Create a timestamp data type
   let tsType = garrow_timestamp_data_type_new(unit, gTz)
-  g_time_zone_unref(gTz)  # Release timezone reference as data type owns it
-  
+  g_time_zone_unref(gTz) # Release timezone reference as data type owns it
+
   if tsType.isNil:
     raise newException(OperationError, "Failed to create timestamp data type")
-  
+
   let handle = garrow_timestamp_array_builder_new(tsType)
   if handle.isNil:
     g_object_unref(tsType)
     raise newException(OperationError, "Failed to create TimestampArrayBuilder")
-  
-  g_object_unref(tsType)  # release reference as builder owns it
-  
+
+  g_object_unref(tsType) # release reference as builder owns it
+
   if g_object_is_floating(handle) != 0:
     discard g_object_ref_sink(handle)
   TimestampArrayBuilder(handle: handle, unit: unit, tz: tz)
@@ -389,7 +411,6 @@ proc len*(t32a: Time32Array): int =
 proc len*(t64a: Time64Array): int =
   garrow_array_get_length(cast[ptr GArrowArray](t64a.handle))
 
-
 proc append*(tab: TimestampArrayBuilder, val: int64) =
   check garrow_timestamp_array_builder_append_value(tab.handle, val)
 
@@ -410,7 +431,8 @@ proc append*(tab: TimestampArrayBuilder, val: Option[Timestamp]) =
     tab.appendNull()
 
 proc finish*(tab: TimestampArrayBuilder): TimestampArray =
-  let handle = check garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](tab.handle))
+  let handle =
+    check garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](tab.handle))
   newTimestampArray(cast[ptr GArrowTimestampArray](handle), tab.unit, tab.tz)
 
 # Date32Array operations
@@ -430,7 +452,8 @@ proc append*(d32ab: Date32ArrayBuilder, val: Option[Date32]) =
     d32ab.appendNull()
 
 proc finish*(d32ab: Date32ArrayBuilder): Date32Array =
-  let handle = check garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](d32ab.handle))
+  let handle =
+    check garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](d32ab.handle))
   Date32Array(handle: cast[ptr GArrowDate32Array](handle))
 
 # Array operations
@@ -500,25 +523,31 @@ proc `$`*(t: Time64): string =
   $millis & " ms"
 
 # Time32Array builders and operations
-proc newTime32ArrayBuilder*(unit: GArrowTimeUnit = GARROW_TIME_UNIT_SECOND): Time32ArrayBuilder =
+proc newTime32ArrayBuilder*(
+    unit: GArrowTimeUnit = GARROW_TIME_UNIT_SECOND
+): Time32ArrayBuilder =
   var err: ptr GError
   let tsType = garrow_time32_data_type_new(unit, addr err)
-  
+
   if not isNil(err):
-    let msg = if not isNil(err.message): $err.message else: "Failed to create time32 data type"
+    let msg =
+      if not isNil(err.message):
+        $err.message
+      else:
+        "Failed to create time32 data type"
     g_error_free(err)
     raise newException(OperationError, msg)
-  
+
   if tsType.isNil:
     raise newException(OperationError, "Failed to create time32 data type")
-  
+
   let handle = garrow_time32_array_builder_new(tsType)
   if handle.isNil:
     g_object_unref(tsType)
     raise newException(OperationError, "Failed to create Time32ArrayBuilder")
-  
+
   g_object_unref(tsType)
-  
+
   if g_object_is_floating(handle) != 0:
     discard g_object_ref_sink(handle)
   Time32ArrayBuilder(handle: handle, unit: unit)
@@ -539,29 +568,36 @@ proc append*(t32ab: Time32ArrayBuilder, val: Option[Time32]) =
     t32ab.appendNull()
 
 proc finish*(t32ab: Time32ArrayBuilder): Time32Array =
-  let handle = check garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](t32ab.handle))
+  let handle =
+    check garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](t32ab.handle))
   Time32Array(handle: cast[ptr GArrowTime32Array](handle), unit: t32ab.unit)
 
 # Time64Array builders and operations
-proc newTime64ArrayBuilder*(unit: GArrowTimeUnit = GARROW_TIME_UNIT_MICRO): Time64ArrayBuilder =
+proc newTime64ArrayBuilder*(
+    unit: GArrowTimeUnit = GARROW_TIME_UNIT_MICRO
+): Time64ArrayBuilder =
   var err: ptr GError
   let tsType = garrow_time64_data_type_new(unit, addr err)
-  
+
   if not isNil(err):
-    let msg = if not isNil(err.message): $err.message else: "Failed to create time64 data type"
+    let msg =
+      if not isNil(err.message):
+        $err.message
+      else:
+        "Failed to create time64 data type"
     g_error_free(err)
     raise newException(OperationError, msg)
-  
+
   if tsType.isNil:
     raise newException(OperationError, "Failed to create time64 data type")
-  
+
   let handle = garrow_time64_array_builder_new(tsType)
   if handle.isNil:
     g_object_unref(tsType)
     raise newException(OperationError, "Failed to create Time64ArrayBuilder")
-  
+
   g_object_unref(tsType)
-  
+
   if g_object_is_floating(handle) != 0:
     discard g_object_ref_sink(handle)
   Time64ArrayBuilder(handle: handle, unit: unit)
@@ -582,7 +618,8 @@ proc append*(t64ab: Time64ArrayBuilder, val: Option[Time64]) =
     t64ab.appendNull()
 
 proc finish*(t64ab: Time64ArrayBuilder): Time64Array =
-  let handle = check garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](t64ab.handle))
+  let handle =
+    check garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](t64ab.handle))
   Time64Array(handle: cast[ptr GArrowTime64Array](handle), unit: t64ab.unit)
 
 # Duration operations (scalar only, array support via Time64 or Timestamp)
@@ -609,7 +646,9 @@ proc newMonthInterval*(months: int32): MonthInterval =
 proc newDayTimeInterval*(days: int32, millis: int32): DayTimeInterval =
   DayTimeInterval(days: days, millis: millis)
 
-proc newMonthDayNanoInterval*(months: int32, days: int32, nanos: int64): MonthDayNanoInterval =
+proc newMonthDayNanoInterval*(
+    months: int32, days: int32, nanos: int64
+): MonthDayNanoInterval =
   MonthDayNanoInterval(months: months, days: days, nanos: nanos)
 
 proc `$`*(mi: MonthInterval): string =

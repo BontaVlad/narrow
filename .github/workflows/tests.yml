@@ -67,5 +67,5 @@ jobs:
       run: nimble install -y
 
     - name: Test
-      # run: LSAN_OPTIONS=suppressions=lsan.supp nimble test -d:useSanitizers
-      run: just test-debug-par
+      run: LSAN_OPTIONS=suppressions=lsan.supp nimble test -d:useSanitizers
+      # run: just test-debug-par

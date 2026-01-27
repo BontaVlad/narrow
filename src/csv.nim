@@ -21,8 +21,8 @@ type
 
   Writable* =
     concept w
-      for col in w.columns:
-        col is Field
+        for col in w.columns:
+          col is Field
 
 proc newCsvReadOptions*(
     allowNewlinesInValues: Option[bool] = none(bool),
@@ -359,7 +359,10 @@ proc formatRow(columns: openArray[string], options: WriteOptions): string =
 template createFormatter(tbl, idx, T): ColFormatter {.inject.} =
   let col = tbl[idx, T]
   proc(r: int): string =
-    if col.isValid(r): $col[r] else: ""
+    if col.isValid(r):
+      $col[r]
+    else:
+      ""
 
 proc writeCsv*[T: Writable](writable: T, options: WriteOptions, output: OutputStream) =
   let columns = writable.columns.toSeq
@@ -379,25 +382,35 @@ proc writeCsv*[T: Writable](writable: T, options: WriteOptions, output: OutputSt
       tbl = writable.slice(offset, batchLen)
 
     var formatters = newSeq[ColFormatter](nCols)
-    
+
     for i in 0 ..< nCols:
       let colMeta = columns[i]
       # Mapping Arrow types to Nim types
       case colMeta.dataType.nimTypeName
-      of "int", "int64":   formatters[i] = createFormatter(tbl, i, int64)
-      of "int32":          formatters[i] = createFormatter(tbl, i, int32)
-      of "int16":          formatters[i] = createFormatter(tbl, i, int16)
-      of "int8":           formatters[i] = createFormatter(tbl, i, int8)
-      of "uint64":         formatters[i] = createFormatter(tbl, i, uint64)
-      of "uint32":         formatters[i] = createFormatter(tbl, i, uint32)
-      of "float64", "float": formatters[i] = createFormatter(tbl, i, float64)
-      of "float32":        formatters[i] = createFormatter(tbl, i, float32)
-      of "bool":           formatters[i] = createFormatter(tbl, i, bool)
-      of "string", "utf8": formatters[i] = createFormatter(tbl, i, string)
-      
+      of "int", "int64":
+        formatters[i] = createFormatter(tbl, i, int64)
+      of "int32":
+        formatters[i] = createFormatter(tbl, i, int32)
+      of "int16":
+        formatters[i] = createFormatter(tbl, i, int16)
+      of "int8":
+        formatters[i] = createFormatter(tbl, i, int8)
+      of "uint64":
+        formatters[i] = createFormatter(tbl, i, uint64)
+      of "uint32":
+        formatters[i] = createFormatter(tbl, i, uint32)
+      of "float64", "float":
+        formatters[i] = createFormatter(tbl, i, float64)
+      of "float32":
+        formatters[i] = createFormatter(tbl, i, float32)
+      of "bool":
+        formatters[i] = createFormatter(tbl, i, bool)
+      of "string", "utf8":
+        formatters[i] = createFormatter(tbl, i, string)
       else:
         # Generic fallback for unsupported types
-        formatters[i] = proc(r: int): string = ""
+        formatters[i] = proc(r: int): string =
+          ""
 
     # Iterating over the batch rows
     var rowBuffer = newSeq[string](nCols)

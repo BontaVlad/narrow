@@ -38,7 +38,6 @@ proc newField*[T](name: string): Field =
   result.handle = handle
 
 proc newField*(handle: ptr GArrowField): Field =
-  discard g_object_ref(handle)
   result.handle = handle
 
 proc name*(field: Field): string =

@@ -3,7 +3,7 @@ import ./[ffi, gschema, glist, gtypes, garray, error]
 
 {.experimental: "dotOperators".}
 
-type 
+type
   Struct = object
     handle*: ptr GArrowStructDataType
 
@@ -12,7 +12,6 @@ type
 
   StructBuilder* = object
     handle: ptr GArrowStructArrayBuilder
-    fieldBuilders: seq[ptr GArrowArrayBuilder]
 
 proc toPtr*(s: Struct): ptr GArrowStructDataType {.inline.} =
   s.handle
@@ -68,14 +67,12 @@ proc `=sink`*(dest: var StructBuilder, src: StructBuilder) =
   if not isNil(dest.toPtr) and dest.toPtr != src.toPtr:
     g_object_unref(dest.toPtr)
   dest.handle = src.handle
-  dest.fieldBuilders = src.fieldBuilders
 
 proc `=copy`*(dest: var StructBuilder, src: StructBuilder) =
   if dest.toPtr != src.toPtr:
     if not isNil(dest.toPtr):
       g_object_unref(dest.toPtr)
     dest.handle = src.handle
-    dest.fieldBuilders = src.fieldBuilders
     if not isNil(dest.toPtr):
       discard g_object_ref(dest.toPtr)
 
@@ -90,7 +87,9 @@ proc newStruct*(fields: openArray[Field]): Struct =
   newStruct(gFields)
 
 # StructArray creators - construct from individual arrays
-proc newStructArray*(structType: Struct, fields: varargs[ptr GArrowArray]): StructArray =
+proc newStructArray*(
+    structType: Struct, fields: varargs[ptr GArrowArray]
+): StructArray =
   if fields.len == 0:
     raise newException(ValueError, "Cannot create struct array with no fields")
   # Determine array length from first field
@@ -99,34 +98,18 @@ proc newStructArray*(structType: Struct, fields: varargs[ptr GArrowArray]): Stru
   for f in fields:
     fieldList.append(f)
   result.handle = garrow_struct_array_new(
-    cast[ptr GArrowDataType](structType.toPtr),
-    length,
-    fieldList.toPtr,
-    nil,
-    0
+    cast[ptr GArrowDataType](structType.toPtr), length, fieldList.toPtr, nil, 0
   )
   if result.handle.isNil:
     raise newException(OperationError, "Failed to create StructArray")
 
 # StructBuilder creators
 proc newStructBuilder*(structType: Struct): StructBuilder =
-  var err: ptr GError
-  let handle = garrow_struct_array_builder_new(structType.toPtr, addr err)
-  if not isNil(err):
-    let msg = if not isNil(err.message): $err.message else: "Failed to create StructArrayBuilder"
-    g_error_free(err)
-    raise newException(OperationError, msg)
+  let handle = check garrow_struct_array_builder_new(structType.toPtr)
   if handle.isNil:
     raise newException(OperationError, "Failed to create StructArrayBuilder")
-  if g_object_is_floating(handle) != 0:
-    discard g_object_ref_sink(handle)
-  
+
   result.handle = handle
-  let fieldBuilders = garrow_struct_array_builder_get_field_builders(handle)
-  var current = fieldBuilders
-  while current != nil:
-    result.fieldBuilders.add(cast[ptr GArrowArrayBuilder](current.data))
-    current = current.next
 
 # Struct field access - define fields first
 proc fields*(s: Struct): seq[Field] =
@@ -155,7 +138,12 @@ macro `.`*(s: Struct, name: untyped): untyped =
     `s`[`nameStr`]
 
 proc hasField*(s: Struct, name: string): bool =
-  not garrow_struct_data_type_get_field_by_name(s.toPtr, name.cstring).isNil
+  let fieldHandle = garrow_struct_data_type_get_field_by_name(s.toPtr, name.cstring)
+  if fieldHandle.isNil:
+    return false
+  else:
+    g_object_unref(fieldHandle)
+    return true
 
 proc fieldIndex*(s: Struct, name: string): int =
   ## Get the index of a field by name, or -1 if not found
@@ -176,17 +164,17 @@ proc len*(sa: StructArray): int =
 proc `[]`*(sa: StructArray, idx: int): StructArray =
   if idx < 0 or idx >= sa.len:
     raise newException(IndexDefect, "Index out of bounds")
-  result.handle = cast[ptr GArrowStructArray](
-    garrow_array_slice(cast[ptr GArrowArray](sa.toPtr), idx.gint64, 1)
-  )
+  result.handle = cast[ptr GArrowStructArray](garrow_array_slice(
+    cast[ptr GArrowArray](sa.toPtr), idx.gint64, 1
+  ))
 
-proc getField*(sa: StructArray, idx: int): ptr GArrowArray =
+proc getField*[T](sa: StructArray, idx: int): Array[T] =
   if idx < 0:
     raise newException(IndexDefect, "Field index cannot be negative")
   let handle = garrow_struct_array_get_field(sa.toPtr, idx.gint)
   if handle.isNil:
     raise newException(KeyError, "Field index " & $idx & " not found")
-  handle
+  result = newArray[T](handle)
 
 # StructBuilder operations
 proc append*(sb: StructBuilder) =

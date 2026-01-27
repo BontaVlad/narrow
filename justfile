@@ -140,7 +140,7 @@ test-debug-no-leaks:
     just _test false 4 orc debug false false
 
 test-debug-par:
-    just _test true 8 orc debug false false
+    just _test true 8 orc debug false true
 
 test-release:
     just _test false 4 orc release false false
