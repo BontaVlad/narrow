@@ -67,5 +67,16 @@ jobs:
       run: nimble install -y
 
     - name: Test
-      run: LSAN_OPTIONS=suppressions=lsan.supp nimble test -d:useSanitizers
-      # run: just test-debug-par
+      # run: LSAN_OPTIONS=suppressions=lsan.supp nimble test -d:useSanitizers
+      run: LSAN_OPTIONS=suppressions=lsan.supp just test-debug-par | awk '
+      /\[Summary\]/ {
+          total += $2;
+          ok += $6;
+          fail += $8;
+          skip += $10;
+          print $0
+      }
+      END {
+          printf "\n-----------------------------------------------------\n";
+          printf "[TOTAL] %d tests run: %d OK, %d FAILED, %d SKIPPED\n", total, ok, fail, skip
+      }'

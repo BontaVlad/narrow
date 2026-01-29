@@ -94,8 +94,7 @@ _test parallel cores mm mode coverage leaks:
         fi
 
         echo "==> $file"
-        LSAN_OPTIONS=suppressions=lsan.supp \
-            nim c \
+        nim c \
             "${flags[@]}" \
             -o:"$outdir/$name" \
             "$file"
