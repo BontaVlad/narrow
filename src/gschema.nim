@@ -40,6 +40,14 @@ proc newField*[T](name: string): Field =
 proc newField*(handle: ptr GArrowField): Field =
   result.handle = handle
 
+proc newField*(name: string, dataType: GADType): Field =
+  let handle = garrow_field_new(name.cstring, dataType.handle)
+  if handle.isNil:
+    raise newException(OperationError, "Failed to create field")
+  if g_object_is_floating(handle) != 0:
+    discard g_object_ref_sink(handle)
+  result.handle = handle
+
 proc name*(field: Field): string =
   let cstr = garrow_field_get_name(field.handle)
   if cstr != nil:
