@@ -67,21 +67,5 @@ jobs:
       run: nimble install -y
 
     - name: Test
-      run: |
-        LSAN_OPTIONS=suppressions=lsan.supp just test-debug-par | tee test_output.log
-        exit_code=${PIPESTATUS[0]}
-        echo ""
-        echo "=================================================="
-        echo "Test Summary"
-        echo "=================================================="
-        if [ -f test_output.log ]; then
-          total=$(grep -c "^  \[" test_output.log 2>/dev/null || echo "0")
-          passed=$(grep -c "^  \[OK\]" test_output.log 2>/dev/null || echo "0")
-          failed=$(grep -c "^  \[FAILED\]" test_output.log 2>/dev/null || echo "0")
-          skipped=$(grep -c "^  \[SKIPPED\]" test_output.log 2>/dev/null || echo "0")
-          echo "Total tests found: $total"
-          echo "Passed: $passed"
-          echo "Failed: $failed"
-          echo "Skipped: $skipped"
-        fi
-        exit $exit_code
+      # run: LSAN_OPTIONS=suppressions=lsan.supp nimble test -d:useSanitizers
+      run: LSAN_OPTIONS=suppressions=lsan.supp just test-debug-par
