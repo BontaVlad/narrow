@@ -32,7 +32,11 @@ proc newChunkedArray*[T](cAbiArrayStream: pointer): ChunkedArray[T] =
 proc newChunkedArray*[T](rawPtr: ptr GArrowChunkedArray): ChunkedArray[T] =
   result = ChunkedArray[T](handle: rawPtr)
 
-proc `==`*(chunkedArray: ChunkedArray, other: ChunkedArray): bool =
+# TODO: find a way to deal with typed untyped stuff
+proc `==`*(chunkedArray: ChunkedArray, other: ChunkedArray): bool {.inline.} =
+  result = garrow_chunked_array_equal(chunkedArray.toPtr, other.toPtr) != 0
+
+proc `==`*[T](chunkedArray: ChunkedArray, other: ChunkedArray[T]): bool {.inline.} =
   result = garrow_chunked_array_equal(chunkedArray.toPtr, other.toPtr) != 0
 
 proc getValueDataType*(chunkedArray: ChunkedArray): GADType =

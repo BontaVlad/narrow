@@ -59,8 +59,15 @@ proc newArrowTableFromChunkedArrays*(
 
   result.handle = handle
 
-# FIXME: THIS SHOULD USE CONCEPTS BECAUSE THERE IS AN EXPECTATION THAT ALL TYPES HAVE toPtr
-# FIXME: this relies on name checks, no bueno
+template dispatchNewTable(schema: Schema, ptrs: openArray[ptr GArrowRecordBatch]): ArrowTable =
+  newArrowTableFromRecordBatches(schema, ptrs)
+
+template dispatchNewTable(schema: Schema, ptrs: openArray[ptr GArrowArray]): ArrowTable =
+  newArrowTableFromArrays(schema, ptrs)
+
+template dispatchNewTable(schema: Schema, ptrs: openArray[ptr GArrowChunkedArray]): ArrowTable =
+  newArrowTableFromChunkedArrays(schema, ptrs)
+
 macro newArrowTable*(schema: Schema, args: varargs[typed]): ArrowTable =
   ## Creates a new ArrowTable from a schema and either:
   ## - RecordBatch objects
@@ -69,47 +76,136 @@ macro newArrowTable*(schema: Schema, args: varargs[typed]): ArrowTable =
   if args.len == 0:
     error("newArrowTable requires at least one argument after schema")
 
-  let firstArg = args[0]
-  let arrType = firstArg.getTypeInst()
+  var bracket = newNimNode(nnkBracket)
+  for arg in args:
+    bracket.add quote do:
+      `arg`.toPtr
 
-  var typeName: string
-  if arrType.kind == nnkBracketExpr:
-    typeName = arrType[0].strVal
-  elif arrType.kind == nnkSym:
-    typeName = arrType.strVal
+  result = quote:
+    dispatchNewTable(`schema`, `bracket`)
+
+macro newArrowTable*(rows: typed): ArrowTable =
+  ## Creates a new ArrowTable from a sequence of named tuples.
+  ##
+  ## The tuple field names become column names and types are inferred.
+  ## Only named tuples like `(col1: 1, col2: "a")` are supported.
+  ##
+  ## Example:
+  ##   let data = @[
+  ##     (col1: 1, col2: "a"),
+  ##     (col1: 2, col2: "b")
+  ##   ]
+  ##   let table = newArrowTable(data)
+
+  let rowsType = rows.getTypeInst()
+
+  # Extract element type from seq[T]
+  if rowsType.kind != nnkBracketExpr or rowsType.len < 2:
+    error("Expected seq of tuples, got: " & rowsType.repr, rows)
+
+  let elemType = rowsType[1]
+
+  # Extract field names and types from TupleTy
+  var fieldInfo: seq[tuple[name: string, typ: NimNode]] = @[]
+
+  if elemType.kind == nnkTupleTy:
+    for identDef in elemType:
+      if identDef.kind == nnkIdentDefs and identDef.len >= 2:
+        let nameNode = identDef[0]
+        let typeNode = identDef[1]
+
+        if nameNode.kind == nnkSym:
+          fieldInfo.add(($nameNode, typeNode))
+        else:
+          error("Expected named tuple field, got: " & nameNode.repr, rows)
   else:
-    error("Unexpected type node kind: " & $arrType.kind)
+    error("Expected named tuple type (tuple[field: Type, ...]), got: " & elemType.repr, rows)
 
-  # Check if it's a RecordBatch
-  if typeName == "RecordBatch":
-    var bracket = newNimNode(nnkBracket)
-    for arg in args:
-      bracket.add quote do:
-        `arg`.toPtr
-    result = quote:
-      newArrowTableFromRecordBatches(`schema`, `bracket`)
+  if fieldInfo.len == 0:
+    error("No fields found in tuple type. Anonymous tuples are not supported.", rows)
 
-  # Check if it's an Array[T]
-  elif typeName == "Array":
-    var bracket = newNimNode(nnkBracket)
-    for arg in args:
-      bracket.add quote do:
-        `arg`.toPtr
-    result = quote:
-      newArrowTableFromArrays(`schema`, `bracket`)
+  # Build all statements in the result directly
+  result = newStmtList()
 
-  # Check if it's a ChunkedArray[T]
-  elif typeName == "ChunkedArray":
-    var bracket = newNimNode(nnkBracket)
-    for arg in args:
-      bracket.add quote do:
-        `arg`.toPtr
-    result = quote:
-      newArrowTableFromChunkedArrays(`schema`, `bracket`)
-  else:
-    error(
-      "newArrowTable expects RecordBatch, Array[T], or ChunkedArray[T], got: " & typeName
+  # let data = rows
+  let dataSym = genSym(nskLet, "data")
+  result.add newLetStmt(dataSym, rows)
+
+  # if data.len == 0: raise ValueError
+  let checkEmpty = quote do:
+    if `dataSym`.len == 0:
+      raise newException(ValueError, "Cannot create ArrowTable from empty data")
+  result.add checkEmpty
+
+  # var schemaFields = newSeq[Field]()
+  let schemaFieldsSym = genSym(nskVar, "schemaFields")
+  result.add newVarStmt(schemaFieldsSym, quote do: newSeq[Field]())
+
+  # Add field creation for each field
+  for (name, typ) in fieldInfo:
+    let nameLit = newLit(name)
+    let fieldStmt = quote do:
+      `schemaFieldsSym`.add(newField[`typ`](`nameLit`))
+    result.add fieldStmt
+
+  # let schema = newSchema(schemaFields)
+  let schemaSym = genSym(nskLet, "schema")
+  result.add newLetStmt(schemaSym, quote do: newSchema(`schemaFieldsSym`))
+
+  # Create a ChunkedArray for each column and collect their pointers
+  let chunkedArraysSym = genSym(nskVar, "chunkedArrays")
+  result.add newVarStmt(chunkedArraysSym, quote do: newSeq[ptr GArrowChunkedArray]())
+
+  # Add column extraction for each field
+  for (name, typ) in fieldInfo:
+    let fieldName = ident(name)
+    let colSym = genSym(nskVar, "colData")
+    let arrSym = genSym(nskLet, "arr")
+    let chunkedSym = genSym(nskLet, "chunkedArray")
+
+    # var colData = newSeq[Typ](data.len)
+    let newSeqCall = newNimNode(nnkCall).add(
+      newNimNode(nnkBracketExpr).add(bindSym"newSeq", typ),
+      newDotExpr(dataSym, ident"len")
     )
+    result.add newVarStmt(colSym, newSeqCall)
+
+    # for rowIdx in 0 ..< data.len: colData[rowIdx] = data[rowIdx].fieldName
+    let rowIdxSym = genSym(nskForVar, "rowIdx")
+    let rowLoop = newNimNode(nnkForStmt)
+    rowLoop.add rowIdxSym
+    rowLoop.add newNimNode(nnkInfix).add(ident"..<", newLit(0), newDotExpr(dataSym, ident"len"))
+    let rowLoopBody = newStmtList()
+    let assignStmt = newAssignment(
+      newNimNode(nnkBracketExpr).add(colSym, rowIdxSym),
+      newDotExpr(
+        newNimNode(nnkBracketExpr).add(dataSym, rowIdxSym),
+        fieldName
+      )
+    )
+    rowLoopBody.add assignStmt
+    rowLoop.add rowLoopBody
+    result.add rowLoop
+
+    # let arr = newArray(colData)
+    result.add newLetStmt(arrSym, newCall(bindSym"newArray", colSym))
+
+    # let chunkedArray = newChunkedArray[Typ]([arr])
+    let chunkedCall = newNimNode(nnkCall).add(
+      newNimNode(nnkBracketExpr).add(bindSym"newChunkedArray", typ),
+      newNimNode(nnkBracket).add(arrSym)
+    )
+    result.add newLetStmt(chunkedSym, chunkedCall)
+
+    # chunkedArrays.add(chunkedArray.toPtr)
+    result.add newCall(
+      newDotExpr(chunkedArraysSym, ident"add"),
+      newDotExpr(chunkedSym, ident"toPtr")
+    )
+
+  # newArrowTableFromChunkedArrays(schema, chunkedArrays)
+  result.add quote do:
+    newArrowTableFromChunkedArrays(`schemaSym`, `chunkedArraysSym`)
 
 proc newArrowTable*(handle: ptr GArrowTable): ArrowTable =
   result.handle = handle
@@ -263,6 +359,11 @@ proc `[]`*(tbl: ArrowTable, key: string, T: typedesc): ChunkedArray[T] =
   let schema = tbl.schema
   let idx = schema.getFieldIndex(key)
   result = getColumnData[T](tbl, idx)
+
+proc `[]`*(tbl: ArrowTable, key: string): ChunkedArray[void] =
+  let schema = tbl.schema
+  let idx = schema.getFieldIndex(key)
+  result = getColumnData[void](tbl, idx)
 
 iterator keys*(tbl: ArrowTable): string =
   for field in tbl.schema:

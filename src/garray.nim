@@ -136,7 +136,7 @@ proc append*[T](builder: ArrayBuilder[T], val: sink T) =
         cast[ptr GArrowUInt32ArrayBuilder](builder.handle), val
       )
     )
-  elif T is int64:
+  elif T is int64 or T is int:
     check(
       garrow_int64_array_builder_append_value(
         cast[ptr GArrowInt64ArrayBuilder](builder.handle), val
@@ -229,7 +229,7 @@ proc appendValues*[T](builder: ArrayBuilder[T], values: openArray[T]) =
       nil,
       0,
     )
-  elif T is int64:
+  elif T is int64 or T is int:
     check garrow_int64_array_builder_append_values(
       cast[ptr GArrowInt64ArrayBuilder](builder.handle),
       cast[ptr gint64](values[0].addr),
@@ -270,7 +270,7 @@ proc appendValues*[T](builder: ArrayBuilder[T], values: Array[T]) =
     check garrow_int32_array_builder_append_values(
       cast[ptr GArrowInt32ArrayBuilder](builder.handle), data, values.len.gint64, nil, 0
     )
-  elif T is int64:
+  elif T is int64 or T is int:
     var length: gint64
     let data = garrow_int64_array_get_values(
       cast[ptr GArrowInt64Array](values.handle), addr length
@@ -374,6 +374,15 @@ proc newArray*[T](values: sink seq[T]): Array[T] =
     builder.appendValues(values)
   result = builder.finish()
 
+proc newArray*[T](values: sink seq[T], mask: openArray[bool]): Array[T] =
+  let builder = newArrayBuilder[T]()
+  for i in 0 ..< values.len:
+    if mask[i]:
+      builder.appendNull()
+    else:
+      builder.append(values[i])
+  result = builder.finish()
+
 proc newArray*[T](gptr: pointer): Array[T] =
   let gTp = newGType(T)
   let rawPtr = check garrow_array_import(gptr, gTp.toPtr)
@@ -387,6 +396,15 @@ proc `==`*(a, b: Array): bool =
   if a.handle == nil or b.handle == nil:
     return a.handle == b.handle
   garrow_array_equal(a.handle, b.handle).bool
+
+proc `==`*[T](a: Array[T], b: openArray[T]): bool =
+  if a.len != b.len:
+    return false
+
+  for i in a:
+    if not i in b:
+      return false
+  return true
 
 proc len*(ar: Array): int =
   return garrow_array_get_length(ar.handle)
@@ -415,7 +433,7 @@ proc `[]`*[T](arr: Array[T], i: int): T =
     return garrow_int32_array_get_value(cast[ptr GArrowInt32Array](arr.handle), i)
   elif T is uint32:
     return garrow_uint32_array_get_value(cast[ptr GArrowUInt32Array](arr.handle), i)
-  elif T is int64:
+  elif T is int64 or T is int:
     return garrow_int64_array_get_value(cast[ptr GArrowInt64Array](arr.handle), i)
   elif T is uint64:
     return garrow_uint64_array_get_value(cast[ptr GArrowUInt64Array](arr.handle), i)
