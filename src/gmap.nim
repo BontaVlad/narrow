@@ -34,12 +34,14 @@ proc keyType*(m: MapType): GADType =
   if handle.isNil:
     raise newException(OperationError, "Failed to get key type from MapType")
   result = newGType(handle)
+  g_object_unref(handle)
 
 proc itemType*(m: MapType): GADType =
   let handle = garrow_map_data_type_get_item_type(m.handle)
   if handle.isNil:
     raise newException(OperationError, "Failed to get item type from MapType")
   result = newGType(handle)
+  g_object_unref(handle)
 
 proc toGADType*(m: MapType): GADType =
   if m.handle.isNil:

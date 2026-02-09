@@ -45,6 +45,7 @@ proc extensionName*(u: UUIDType): string =
   if isNil(namePtr):
     return ""
   result = $namePtr
+  g_object_unref(namePtr)
 
 proc toGADType*(u: UUIDType): GADType =
   if u.handle.isNil:

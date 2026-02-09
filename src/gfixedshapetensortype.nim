@@ -129,6 +129,8 @@ proc extensionName*(t: FixedShapeTensorType): string =
   )
   if isNil(namePtr):
     return ""
+
+  g_object_unref(namePtr)
   result = $namePtr
 
 proc toGADType*(t: FixedShapeTensorType): GADType =
