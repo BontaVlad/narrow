@@ -1,552 +1,294 @@
+import std/[options, strutils]
 import unittest2
 import ../src/[ffi, gschema, gtypes]
 
-suite "Field - Basic Creation":
-  
-  test "Create int32 field":
+suite "Field - Creation and Properties":
+  test "Create field with primitive types":
+    let intField = newField[int32]("id")
+    let floatField = newField[float64]("value")
+    let stringField = newField[string]("name")
+    let boolField = newField[bool]("active")
+    
+    check intField.name == "id"
+    check floatField.name == "value"
+    check stringField.name == "name"
+    check boolField.name == "active"
+
+  test "Field data type retrieval":
+    let intField = newField[int32]("count")
+    let floatField = newField[float64]("price")
+    let stringField = newField[string]("description")
+    
+    check $intField.dataType == "int32"
+    check $floatField.dataType == "double"
+    check $stringField.dataType == "utf8"
+
+  test "Field equality":
+    let field1 = newField[int32]("id")
+    let field2 = newField[int32]("id")
+    let field3 = newField[int64]("id")
+    let field4 = newField[int32]("other")
+    
+    check field1 == field2
+    check field1 != field3  # Different types
+    check field1 != field4  # Different names
+
+  test "Field string representation":
     let field = newField[int32]("age")
-    check field.name == "age"
-  
-  test "Create int64 field":
-    let field = newField[int64]("count")
-    check field.name == "count"
-  
-  test "Create float64 field":
-    let field = newField[float64]("price")
-    check field.name == "price"
-  
-  test "Create string field":
-    let field = newField[string]("name")
-    check field.name == "name"
-  
-  test "Create boolean field":
-    let field = newField[bool]("is_active")
-    check field.name == "is_active"
-  
-  test "Create uint32 field":
-    let field = newField[uint32]("id")
-    check field.name == "id"
-  
-  test "Create float32 field":
-    let field = newField[float32]("temperature")
-    check field.name == "temperature"
+    let repr = $field
+    check "age" in repr
+    check "int32" in repr
 
-suite "Field - Properties":
-  
-  test "Field name property":
-    let field = newField[int32]("user_id")
-    check field.name == "user_id"
-  
-  test "Field with empty name":
-    let field = newField[int32]("")
-    check field.name == ""
-  
+  test "Field with GADType":
+    let gtype = newGType(int64)
+    let field = newField("timestamp", gtype)
+    check field.name == "timestamp"
+    check $field.dataType == "int64"
+
+suite "Schema - Creation and Basic Operations":
+  test "Create schema with multiple fields":
+    let schema = newSchema([
+      newField[int32]("id"),
+      newField[string]("name"),
+      newField[float64]("score")
+    ])
+    check schema.nFields == 3
+    check schema.len == 3
+
+  test "Create empty schema":
+    let schema = newSchema([])
+    check schema.nFields == 0
+    check schema.len == 0
+
+  test "Duplicate field names rejected":
+    expect(ValueError):
+      discard newSchema([
+        newField[int32]("id"),
+        newField[string]("id")
+      ])
+
+  test "Schema string representation":
+    let schema = newSchema([
+      newField[int32]("x"),
+      newField[float64]("y")
+    ])
+    let repr = $schema
+    check "x" in repr
+    check "y" in repr
+
+  test "Schema equality":
+    let schema1 = newSchema([
+      newField[int32]("a"),
+      newField[string]("b")
+    ])
+    let schema2 = newSchema([
+      newField[int32]("a"),
+      newField[string]("b")
+    ])
+    let schema3 = newSchema([
+      newField[int64]("a"),
+      newField[string]("b")
+    ])
+    
+    check schema1 == schema2
+    check schema1 != schema3
+
+suite "Schema - Field Access":
+  test "Get field by index":
+    let schema = newSchema([
+      newField[int32]("first"),
+      newField[string]("second"),
+      newField[bool]("third")
+    ])
+    
+    check schema.getField(0).name == "first"
+    check schema.getField(1).name == "second"
+    check schema.getField(2).name == "third"
+    check schema[0].name == "first"
+    check schema[1].name == "second"
+
+  test "Get field by name":
+    let schema = newSchema([
+      newField[int32]("user_id"),
+      newField[string]("username"),
+      newField[float64]("rating")
+    ])
+    
+    check schema.getFieldByName("user_id").name == "user_id"
+    check schema.getFieldByName("username").name == "username"
+    check schema["user_id"].name == "user_id"
+    check schema["rating"].name == "rating"
+
+  test "Field not found raises KeyError":
+    let schema = newSchema([newField[int32]("only_field")])
+    expect(KeyError):
+      discard schema.getFieldByName("missing")
+    expect(KeyError):
+      discard schema["missing"]
+
+  test "Safe field access with Option":
+    let schema = newSchema([
+      newField[int32]("existing")
+    ])
+    
+    let found = schema.tryGetField("existing")
+    let notFound = schema.tryGetField("nonexistent")
+    let outOfBounds = schema.tryGetField(5)
+    
+    check found.isSome
+    check found.get().name == "existing"
+    check notFound.isNone
+    check outOfBounds.isNone
+
+  test "Get field index":
+    let schema = newSchema([
+      newField[int32]("alpha"),
+      newField[string]("beta"),
+      newField[bool]("gamma")
+    ])
+    
+    check schema.getFieldIndex("alpha") == 0
+    check schema.getFieldIndex("beta") == 1
+    check schema.getFieldIndex("gamma") == 2
+
+  test "Get field index for nonexistent field raises":
+    let schema = newSchema([newField[int32]("lonely")])
+    expect(KeyError):
+      discard schema.getFieldIndex("ghost")
+
+suite "Schema - Collection Operations":
+  test "Get all fields as sequence":
+    let schema = newSchema([
+      newField[int32]("one"),
+      newField[int64]("two"),
+      newField[float32]("three")
+    ])
+    
+    let fields = schema.ffields
+    check fields.len == 3
+    check fields[0].name == "one"
+    check fields[1].name == "two"
+    check fields[2].name == "three"
+
+  test "Iterate over schema fields":
+    let schema = newSchema([
+      newField[int32]("a"),
+      newField[string]("b"),
+      newField[bool]("c")
+    ])
+    
+    var names: seq[string]
+    for field in schema:
+      names.add(field.name)
+    
+    check names == @["a", "b", "c"]
+
+  test "Iterate over empty schema":
+    let schema = newSchema([])
+    var count = 0
+    for _ in schema:
+      count += 1
+    check count == 0
+
+suite "Schema - Complex Types":
+  test "Schema with various primitive types":
+    let schema = newSchema([
+      newField[bool]("flag"),
+      newField[int8]("tiny"),
+      newField[int16]("small"),
+      newField[int32]("medium"),
+      newField[int64]("large"),
+      newField[uint8]("utiny"),
+      newField[uint16]("usmall"),
+      newField[uint32]("umedium"),
+      newField[uint64]("ularge"),
+      newField[float32]("single"),
+      newField[float64]("double"),
+      newField[string]("text")
+    ])
+    
+    check schema.nFields == 12
+    check schema["flag"].dataType.isCompatible(bool)
+    check schema["large"].dataType.isCompatible(int64)
+    check schema["double"].dataType.isCompatible(float64)
+    check schema["text"].dataType.isCompatible(string)
+
+suite "Schema - Memory Management":
+  test "Schema copy semantics":
+    let original = newSchema([
+      newField[int32]("x"),
+      newField[string]("y")
+    ])
+    
+    var copy = original
+    check copy == original
+    check copy.nFields == original.nFields
+
+  test "Multiple schemas from same field definitions":
+    let idField = newField[int32]("id")
+    let nameField = newField[string]("name")
+    
+    let schema1 = newSchema([idField, nameField])
+    let schema2 = newSchema([idField, nameField])
+    
+    check schema1 == schema2
+
+  test "Create and destroy many schemas":
+    for i in 0..<1000:
+      let schema = newSchema([
+        newField[int32]("id"),
+        newField[string]("name"),
+        newField[float64]("value")
+      ])
+      check schema.nFields == 3
+
+suite "Schema - Error Handling":
+  test "Access field at negative index":
+    let schema = newSchema([newField[int32]("solo")])
+    # Note: getField with negative index may cause segfault per FIXME comment
+    check schema.tryGetField(-1).isNone
+
+  test "Access field beyond bounds":
+    let schema = newSchema([
+      newField[int32]("first"),
+      newField[string]("second")
+    ])
+    check schema.tryGetField(10).isNone
+
+  test "Empty schema field access":
+    let schema = newSchema([])
+    check schema.tryGetField(0).isNone
+    check schema.tryGetField("anything").isNone
+
+  test "Schema with many fields":
+    var fields: seq[Field]
+    for i in 0..<100:
+      fields.add(newField[int32]("field_" & $i))
+    
+    let schema = newSchema(fields)
+    check schema.nFields == 100
+    check schema["field_50"].name == "field_50"
+    check schema.getFieldIndex("field_99") == 99
+
+suite "Field - Edge Cases":
   test "Field with special characters in name":
-    let field = newField[int32]("user-id_123")
-    check field.name == "user-id_123"
-  
-  test "Field with unicode in name":
-    let field = newField[int32]("用户ID")
-    check field.name == "用户ID"
-  
-  test "Field data type property":
-    let field = newField[int32]("count")
-    let dataType = field.dataType()
-    check dataType.id == GArrowType.GARROW_TYPE_INT32
+    let field1 = newField[int32]("field_with_underscores")
+    let field2 = newField[string]("Field.With.Dots")
+    let field3 = newField[float64]("field-with-dashes")
+    
+    check field1.name == "field_with_underscores"
+    check field2.name == "Field.With.Dots"
+    check field3.name == "field-with-dashes"
 
-# suite "Field - String Representation":
-  
-#   test "String representation of int32 field":
-#     let field = newField[int32]("age")
-#     let str = $field
-#     check str.len > 0
-#     check "age" in str
-  
-#   test "String representation of string field":
-#     let field = newField[string]("name")
-#     let str = $field
-#     check str.len > 0
-#     check "name" in str
-  
-#   test "String representation of float64 field":
-#     let field = newField[float64]("price")
-#     let str = $field
-#     check str.len > 0
-#     check "price" in str
-  
-#   test "String representation of boolean field":
-#     let field = newField[bool]("active")
-#     let str = $field
-#     check str.len > 0
-#     check "active" in str
+  test "Field with unicode name":
+    let field = newField[int32]("字段")
+    check field.name == "字段"
 
-# suite "Field - Equality":
-  
-#   test "Equal fields with same name and type":
-#     let field1 = newField[int32]("age")
-#     let field2 = newField[int32]("age")
-#     check field1 == field2
-  
-#   test "Not equal fields with different names":
-#     let field1 = newField[int32]("age")
-#     let field2 = newField[int32]("count")
-#     check field1 != field2
-  
-#   test "Not equal fields with different types":
-#     let field1 = newField[int32]("value")
-#     let field2 = newField[float64]("value")
-#     check field1 != field2
-  
-#   test "Not equal fields with different names and types":
-#     let field1 = newField[int32]("age")
-#     let field2 = newField[string]("name")
-#     check field1 != field2
-  
-#   test "Field equality with same instance":
-#     let field = newField[int32]("age")
-#     check field == field
-
-# suite "Field - Memory Management":
-  
-#   test "Create and destroy many fields":
-#     for i in 0..1000:
-#       let field = newField[int32]("field_" & $i)
-#       check field.name == "field_" & $i
-  
-#   test "Field copying":
-#     let original = newField[int32]("original")
-#     for i in 0..1000:
-#       let copy1 = original
-#       let copy2 = copy1
-#       check copy2.name == "original"
-  
-#   test "Multiple fields of different types":
-#     for i in 0..100:
-#       let intField = newField[int32]("int_field")
-#       let floatField = newField[float64]("float_field")
-#       let strField = newField[string]("str_field")
-#       let boolField = newField[bool]("bool_field")
-      
-#       check intField.name == "int_field"
-#       check floatField.name == "float_field"
-#       check strField.name == "str_field"
-#       check boolField.name == "bool_field"
-
-# suite "Schema - Basic Creation":
-  
-#   test "Create empty schema":
-#     let schema = newSchema([])
-#     check schema.nFields == 0
-  
-#   test "Create schema with single field":
-#     let field = newField[int32]("age")
-#     let schema = newSchema([field])
-#     check schema.nFields == 1
-  
-#   test "Create schema with multiple fields":
-#     let fields = [
-#       newField[int32]("id"),
-#       newField[string]("name"),
-#       newField[float64]("price")
-#     ]
-#     let schema = newSchema(fields)
-#     check schema.nFields == 3
-  
-#   test "Create schema with many fields":
-#     var fields: seq[Field]
-#     for i in 0..99:
-#       fields.add(newField[int32]("field_" & $i))
-#     let schema = newSchema(fields)
-#     check schema.nFields == 100
-  
-#   test "Create schema with different types":
-#     let fields = [
-#       newField[int8]("int8_field"),
-#       newField[int16]("int16_field"),
-#       newField[int32]("int32_field"),
-#       newField[int64]("int64_field"),
-#       newField[uint8]("uint8_field"),
-#       newField[uint16]("uint16_field"),
-#       newField[uint32]("uint32_field"),
-#       newField[uint64]("uint64_field"),
-#       newField[float32]("float32_field"),
-#       newField[float64]("float64_field"),
-#       newField[bool]("bool_field"),
-#       newField[string]("string_field")
-#     ]
-#     let schema = newSchema(fields)
-#     check schema.nFields == 12
-
-# suite "Schema - Field Access":
-  
-#   test "Get field by index":
-#     let fields = [
-#       newField[int32]("id"),
-#       newField[string]("name"),
-#       newField[float64]("price")
-#     ]
-#     let schema = newSchema(fields)
+  test "Field preservation through schema operations":
+    let originalField = newField[int32]("preserved")
+    let schema = newSchema([originalField])
+    let retrievedField = schema["preserved"]
     
-#     let field0 = schema.getField(0)
-#     let field1 = schema.getField(1)
-#     let field2 = schema.getField(2)
-    
-#     check field0.name == "id"
-#     check field1.name == "name"
-#     check field2.name == "price"
-  
-#   test "Get field by name":
-#     let fields = [
-#       newField[int32]("id"),
-#       newField[string]("name"),
-#       newField[float64]("price")
-#     ]
-#     let schema = newSchema(fields)
-    
-#     let idField = schema.getFieldByName("id")
-#     let nameField = schema.getFieldByName("name")
-#     let priceField = schema.getFieldByName("price")
-    
-#     check idField.name == "id"
-#     check nameField.name == "name"
-#     check priceField.name == "price"
-  
-#   test "Get field index by name":
-#     let fields = [
-#       newField[int32]("id"),
-#       newField[string]("name"),
-#       newField[float64]("price")
-#     ]
-#     let schema = newSchema(fields)
-    
-#     check schema.getFieldIndex("id") == 0
-#     check schema.getFieldIndex("name") == 1
-#     check schema.getFieldIndex("price") == 2
-  
-#   test "Get field by name - non-existent":
-#     let fields = [
-#       newField[int32]("id"),
-#       newField[string]("name")
-#     ]
-#     let schema = newSchema(fields)
-    
-
-#     expect(IndexDefect):
-#       discard schema.getFieldByName("nonexistent")
-  
-#   test "Get field index - non-existent":
-#     let fields = [
-#       newField[int32]("id"),
-#       newField[string]("name")
-#     ]
-#     let schema = newSchema(fields)
-    
-#     expect(IndexDefect):
-#       discard schema.getFieldIndex("nonexistent")
-
-# suite "Schema - Field Collection":
-  
-#   test "Get all fields":
-#     let fields = [
-#       newField[int32]("id"),
-#       newField[string]("name"),
-#       newField[float64]("price")
-#     ]
-#     let schema = newSchema(fields)
-    
-#     let allFields = schema.ffields
-#     check allFields.len == 3
-#     check allFields[0].name == "id"
-#     check allFields[1].name == "name"
-#     check allFields[2].name == "price"
-  
-#   test "Get fields from empty schema":
-#     let schema = newSchema([])
-#     let allFields = schema.ffields
-#     check allFields.len == 0
-  
-#   test "Get fields from large schema":
-#     var fields: seq[Field]
-#     for i in 0..99:
-#       fields.add(newField[int32]("field_" & $i))
-#     let schema = newSchema(fields)
-    
-#     let allFields = schema.ffields
-#     check allFields.len == 100
-#     for i in 0..99:
-#       check allFields[i].name == "field_" & $i
-
-# suite "Schema - Iteration":
-  
-#   test "Iterate over schema fields":
-#     let fields = [
-#       newField[int32]("id"),
-#       newField[string]("name"),
-#       newField[float64]("price")
-#     ]
-#     let schema = newSchema(fields)
-    
-#     var names: seq[string]
-#     for field in schema:
-#       names.add(field.name)
-    
-#     check names == @["id", "name", "price"]
-  
-#   test "Iterate over empty schema":
-#     let schema = newSchema([])
-    
-#     var count = 0
-#     for field in schema:
-#       count += 1
-    
-#     check count == 0
-  
-# suite "Schema - String Representation":
-  
-#   test "String representation of simple schema":
-#     let fields = [
-#       newField[int32]("id"),
-#       newField[string]("name")
-#     ]
-#     let schema = newSchema(fields)
-#     let str = $schema
-    
-#     check str.len > 0
-#     check "id" in str
-#     check "name" in str
-  
-#   test "String representation of empty schema":
-#     let schema = newSchema([])
-#     let str = $schema
-#     check str.len == 0
-#     check str == ""
-
-# suite "Schema - Equality":
-  
-#   test "Equal schemas with same fields":
-#     let fields1 = [
-#       newField[int32]("id"),
-#       newField[string]("name")
-#     ]
-#     let fields2 = [
-#       newField[int32]("id"),
-#       newField[string]("name")
-#     ]
-    
-#     let schema1 = newSchema(fields1)
-#     let schema2 = newSchema(fields2)
-    
-#     check schema1 == schema2
-  
-#   test "Not equal schemas with different field count":
-#     let fields1 = [
-#       newField[int32]("id"),
-#       newField[string]("name")
-#     ]
-#     let fields2 = [
-#       newField[int32]("id")
-#     ]
-    
-#     let schema1 = newSchema(fields1)
-#     let schema2 = newSchema(fields2)
-    
-#     check schema1 != schema2
-  
-#   test "Not equal schemas with different field names":
-#     let fields1 = [
-#       newField[int32]("id"),
-#       newField[string]("name")
-#     ]
-#     let fields2 = [
-#       newField[int32]("id"),
-#       newField[string]("title")
-#     ]
-    
-#     let schema1 = newSchema(fields1)
-#     let schema2 = newSchema(fields2)
-    
-#     check schema1 != schema2
-  
-#   test "Not equal schemas with different field types":
-#     let fields1 = [
-#       newField[int32]("id"),
-#       newField[string]("name")
-#     ]
-#     let fields2 = [
-#       newField[int32]("id"),
-#       newField[int32]("name")
-#     ]
-    
-#     let schema1 = newSchema(fields1)
-#     let schema2 = newSchema(fields2)
-    
-#     check schema1 != schema2
-  
-#   test "Not equal schemas with different field order":
-#     let fields1 = [
-#       newField[int32]("id"),
-#       newField[string]("name")
-#     ]
-#     let fields2 = [
-#       newField[string]("name"),
-#       newField[int32]("id")
-#     ]
-    
-#     let schema1 = newSchema(fields1)
-#     let schema2 = newSchema(fields2)
-    
-#     check schema1 != schema2
-  
-#   test "Schema equality with same instance":
-#     let fields = [
-#       newField[int32]("id"),
-#       newField[string]("name")
-#     ]
-#     let schema = newSchema(fields)
-    
-#     check schema == schema
-  
-#   test "Equal empty schemas":
-#     let schema1 = newSchema([])
-#     let schema2 = newSchema([])
-    
-#     check schema1 == schema2
-
-# suite "Schema - Memory Management":
-  
-#   test "Create and destroy many schemas":
-#     for i in 0..1000:
-#       let fields = [
-#         newField[int32]("id"),
-#         newField[string]("name")
-#       ]
-#       let schema = newSchema(fields)
-#       check schema.nFields == 2
-  
-#   test "Schema copying":
-#     let fields = [
-#       newField[int32]("id"),
-#       newField[string]("name")
-#     ]
-#     let original = newSchema(fields)
-    
-#     for i in 0..1000:
-#       let copy1 = original
-#       let copy2 = copy1
-#       check copy2.nFields == 2
-  
-#   test "Field reuse across schemas":
-#     let idField = newField[int32]("id")
-#     let nameField = newField[string]("name")
-    
-#     let schema1 = newSchema([idField, nameField])
-#     let schema2 = newSchema([idField])
-#     let schema3 = newSchema([nameField])
-    
-#     check schema1.nFields == 2
-#     check schema2.nFields == 1
-#     check schema3.nFields == 1
-  
-# suite "Schema - Edge Cases":
-  
-#   test "Schema with single field":
-#     let schema = newSchema([newField[int32]("id")])
-#     check schema.nFields == 1
-#     check schema.getField(0).name == "id"
-  
-#   test "Schema with duplicate field names":
-#     let fields = [
-#       newField[int32]("id"),
-#       newField[string]("id"),  # Same name, different type
-#     ]
-#     expect(ValueError):
-#       discard newSchema(fields)
-  
-#   test "Schema with empty field names":
-#     let fields = [
-#       newField[int32](""),
-#       newField[string](""),
-#     ]
-#     expect(ValueError):
-#       discard newSchema(fields)
-  
-# suite "Schema - Field Access Edge Cases":
-  
-#   test "Access first field":
-#     let fields = [
-#       newField[int32]("first"),
-#       newField[string]("second"),
-#       newField[float64]("third")
-#     ]
-#     let schema = newSchema(fields)
-    
-#     let first = schema.getField(0)
-#     check first.name == "first"
-  
-#   test "Access last field":
-#     let fields = [
-#       newField[int32]("first"),
-#       newField[string]("second"),
-#       newField[float64]("third")
-#     ]
-#     let schema = newSchema(fields)
-    
-#     let last = schema.getField(2)
-#     check last.name == "third"
-  
-#   test "Access middle field":
-#     let fields = [
-#       newField[int32]("first"),
-#       newField[string]("second"),
-#       newField[float64]("third")
-#     ]
-#     let schema = newSchema(fields)
-    
-#     let middle = schema.getField(1)
-#     check middle.name == "second"
-  
-#   test "Get field by name case sensitivity":
-#     let fields = [
-#       newField[int32]("Name"),
-#       newField[string]("name"),
-#       newField[float64]("NAME")
-#     ]
-#     let schema = newSchema(fields)
-    
-#     # Each should be treated as different field
-#     check schema.getFieldByName("Name").name == "Name"
-#     check schema.getFieldByName("name").name == "name"
-#     check schema.getFieldByName("NAME").name == "NAME"
-
-# suite "Schema - Complex Scenarios":
-  
-#   test "User table schema":
-#     let schema = newSchema([
-#       newField[int32]("id"),
-#       newField[string]("username"),
-#       newField[string]("email"),
-#       newField[int64]("created_at"),
-#       newField[bool]("is_active")
-#     ])
-    
-#     check schema.nFields == 5
-#     check schema.getFieldByName("username").name == "username"
-#     check schema.getFieldIndex("email") == 2
-  
-# suite "Schema - Integration with Fields":
-  
-#   test "Multiple schemas sharing same fields":
-#     let field1 = newField[int32]("id")
-#     let field2 = newField[string]("name")
-    
-#     let schema1 = newSchema([field1, field2])
-#     let schema2 = newSchema([field1])
-#     let schema3 = newSchema([field2])
-    
-#     check schema1.nFields == 2
-#     check schema2.nFields == 1
-#     check schema3.nFields == 1
-    
-#     check schema1.getField(0).name == "id"
-#     check schema2.getField(0).name == "id"
-#     check schema3.getField(0).name == "name"
+    check retrievedField.name == "preserved"
+    check $retrievedField.dataType == "int32"
+    check retrievedField == originalField

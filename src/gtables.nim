@@ -229,16 +229,8 @@ proc newArrowTable*(handle: ptr GArrowTable): ArrowTable =
   result.handle = handle
 
 proc `$`*(tbl: ArrowTable): string =
-  var err: ptr GError
-  let cstr = garrow_table_to_string(tbl.handle, addr err)
-
-  if not isNil(err):
-    g_error_free(err)
-    return "<Table: error>"
-
-  if cstr != nil:
-    result = $cstr
-    g_free(cstr)
+  let cstr = check garrow_table_to_string(tbl.handle)
+  result = $newGString(cstr)
 
 proc isValid*(tbl: ArrowTable): bool {.inline.} =
   tbl.handle != nil
@@ -247,10 +239,10 @@ proc schema*(tbl: ArrowTable): Schema =
   let handle = garrow_table_get_schema(tbl.handle)
   result = newSchema(handle)
 
-proc nColumns*(tbl: ArrowTable): int =
+proc nColumns*(tbl: ArrowTable): int {.inline.} =
   garrow_table_get_n_columns(tbl.handle).int
 
-proc nRows*(tbl: ArrowTable): int64 =
+proc nRows*(tbl: ArrowTable): int64 {.inline.} =
   garrow_table_get_n_rows(tbl.handle).int64
 
 proc addColumn*(
@@ -297,17 +289,13 @@ proc replaceColumn*(
     check garrow_table_replace_column(tbl.handle, idx.guint, field.toPtr, column.toPtr)
   result = newArrowTable(handle)
 
-proc equal*(a, b: ArrowTable): bool =
-  if a.handle == nil or b.handle == nil:
-    return a.handle == b.handle
+proc equal*(a, b: ArrowTable): bool {.inline.} =
   garrow_table_equal(a.handle, b.handle).bool
 
-proc `==`*(a, b: ArrowTable): bool =
+proc `==`*(a, b: ArrowTable): bool {.inline.} =
   a.equal(b)
 
-proc equalMetadata*(a, b: ArrowTable, checkMetadata: bool): bool =
-  if a.handle == nil or b.handle == nil:
-    return a.handle == b.handle
+proc equalMetadata*(a, b: ArrowTable, checkMetadata: bool): bool {.inline.} =
   garrow_table_equal_metadata(a.handle, b.handle, checkMetadata.gboolean).bool
 
 proc slice*(tbl: ArrowTable, offset, length: int64): ArrowTable =
@@ -343,7 +331,6 @@ proc validateFull*(tbl: ArrowTable): bool =
 
 proc concatenate*(tbl: ArrowTable, others: openArray[ArrowTable]): ArrowTable =
   var tableList = newGList[ptr GArrowTable]()
-  # var tableList: ptr GList = nil
   for other in others:
     tableList.append(other.toPtr)
 
@@ -367,22 +354,20 @@ proc getColumnData*[T](tbl: ArrowTable, idx: int): ChunkedArray[T] =
   let handle = garrow_table_get_column_data(tbl.handle, idx.gint)
   result = newChunkedArray[T](handle)
 
-proc `[]`*(tbl: ArrowTable, idx: int): ChunkedArray[byte] =
+proc `[]`*(tbl: ArrowTable, idx: int): ChunkedArray[void] =
   ## Get column by index without specifying type (returns ChunkedArray[byte])
-  ## This avoids ARC destructor issues with ChunkedArray[void]
   let handle = garrow_table_get_column_data(tbl.handle, idx.gint)
-  result = newChunkedArray[byte](handle)
+  result = newChunkedArray[void](handle)
 
 proc `[]`*(tbl: ArrowTable, idx: int, T: typedesc): ChunkedArray[T] =
   result = getColumnData[T](tbl, idx)
 
-proc `[]`*(tbl: ArrowTable, key: string): ChunkedArray[byte] =
+proc `[]`*(tbl: ArrowTable, key: string): ChunkedArray[void] =
   ## Get column by name without specifying type (returns ChunkedArray[byte])
-  ## This avoids ARC destructor issues with ChunkedArray[void]
   let schema = tbl.schema
   let idx = schema.getFieldIndex(key)
   let handle = garrow_table_get_column_data(tbl.handle, idx.gint)
-  result = newChunkedArray[byte](handle)
+  result = newChunkedArray[void](handle)
 
 proc `[]`*(tbl: ArrowTable, key: string, T: typedesc): ChunkedArray[T] =
   let schema = tbl.schema
@@ -406,7 +391,7 @@ proc isNull*(tbl: ArrowTable, rowIdx: int, colIdx: int): bool =
     raise newException(IndexDefect, "Column index out of bounds: " & $colIdx)
 
   let handle = garrow_table_get_column_data(tbl.handle, colIdx.gint)
-  let colArray = newChunkedArray[int8](handle) # Type doesn't matter for null checking
+  let colArray = newChunkedArray[void](handle) # Type doesn't matter for null checking
   result = colArray.isNull(rowIdx)
 
 proc isNull*(tbl: ArrowTable, rowIdx: int, colName: string): bool =

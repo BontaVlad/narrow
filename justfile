@@ -43,8 +43,10 @@ _test parallel cores mm mode coverage leaks:
 
     if [ "$LEAKS" = "true" ]; then
         ASAN_OPTIONS="detect_leaks=1"
+        LSAN_OPTIONS="suppressions=lsan.supp:print_suppressions=0"
     else
         ASAN_OPTIONS="detect_leaks=0"
+        LSAN_OPTIONS=""
     fi
 
     run_test() {
@@ -100,6 +102,7 @@ _test parallel cores mm mode coverage leaks:
             "$file"
 
         ASAN_OPTIONS="$ASAN_OPTIONS" \
+        LSAN_OPTIONS="$LSAN_OPTIONS" \
         LLVM_PROFILE_FILE="$outdir/$name.profraw" \
             "$outdir/$name"
 
@@ -116,7 +119,7 @@ _test parallel cores mm mode coverage leaks:
     }
 
     export -f run_test
-    export OUT_ROOT MM MODE COVERAGE CC ASAN_OPTIONS
+    export OUT_ROOT MM MODE COVERAGE CC ASAN_OPTIONS LSAN_OPTIONS
 
     if [ "$PARALLEL" = "true" ]; then
         printf '%s\n' "${TEST_FILES[@]}" \

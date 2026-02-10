@@ -57,15 +57,10 @@ proc dataType*(field: Field): GADType =
   let handle = garrow_field_get_data_type(field.toPtr)
   result = newGType(handle)
 
-proc `$`*(field: Field): string =
-  let cstr = garrow_field_to_string(field.handle)
-  if cstr != nil:
-    result = $cstr
-    g_free(cstr)
+proc `$`*(field: Field): string {.inline.} =
+  $newGSTring(garrow_field_to_string(field.handle))
 
-proc `==`*(a, b: Field): bool =
-  if a.handle == nil or b.handle == nil:
-    return a.handle == b.handle
+proc `==`*(a, b: Field): bool {.inline.} =
   garrow_field_equal(a.handle, b.handle).bool
 
 proc `=destroy`*(schema: Schema) =
@@ -122,18 +117,15 @@ proc newSchema*(gptr: pointer): Schema =
 proc newSchema*(handle: ptr GArrowSchema): Schema =
   result.handle = handle
 
-proc `$`*(schema: Schema): string =
-  let cstr = garrow_schema_to_string(schema.handle)
-  if cstr != nil:
-    result = $cstr
-    g_free(cstr)
+proc `$`*(schema: Schema): string {.inline.} =
+  $newGSTring(garrow_schema_to_string(schema.handle))
 
 proc nFields*(schema: Schema): int =
   garrow_schema_n_fields(schema.handle).int
 
 proc len*(schema: Schema): int {.inline.} =
   ## Number of fields in the schema (alias for nFields)
-  result = schema.nFields
+  schema.nFields
 
 proc getField*(schema: Schema, idx: int): Field =
   # FIXME: this will segfault with crap idx idx > nFields
@@ -159,13 +151,13 @@ proc tryGetField*(schema: Schema, name: string): Option[Field] =
     return none(Field)
   result = some(newField(handle))
 
-proc `[]`*(schema: Schema, idx: int): Field =
+proc `[]`*(schema: Schema, idx: int): Field {.inline.} =
   ## Get field by index
-  result = schema.getField(idx)
+  schema.getField(idx)
 
-proc `[]`*(schema: Schema, name: string): Field =
+proc `[]`*(schema: Schema, name: string): Field {.inline.} =
   ## Get field by name
-  result = schema.getFieldByName(name)
+  schema.getFieldByName(name)
 
 proc getFieldIndex*(schema: Schema, name: string): int =
   result = garrow_schema_get_field_index(schema.handle, name.cstring).int
@@ -173,27 +165,18 @@ proc getFieldIndex*(schema: Schema, name: string): int =
     raise newException(KeyError, fmt"Field with name: [{name}] does not exist")
 
 proc ffields*(schema: Schema): seq[Field] =
-  let glistPtr = garrow_schema_get_fields(schema.handle)
-
-  if glistPtr == nil:
-    return @[]
-
+  let gFields = newGList[ptr GArrowField](garrow_schema_get_fields(schema.handle))
   result = newSeq[Field]()
-  var current = glistPtr
-  while current != nil:
-    let item = current.data
-    if item != nil:
-      let fieldPtr = cast[ptr GArrowField](item)
-      result.add(newField(fieldPtr))
-    current = current.next
 
-  g_list_free(glistPtr)
+  if gFields.len == 0:
+    return result
+
+  for gField in gFields:
+    result.add(newField(gField))
 
 iterator items*(schema: Schema): Field =
   for field in schema.ffields:
     yield field
 
-proc `==`*(a, b: Schema): bool =
-  if a.handle == nil or b.handle == nil:
-    return a.handle == b.handle
+proc `==`*(a, b: Schema): bool {.inline.} =
   garrow_schema_equal(a.handle, b.handle).bool

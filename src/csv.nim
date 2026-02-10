@@ -19,6 +19,9 @@ type
 
   Writable* =
     concept w
+        w.nRows is int64
+        w.nColumns is int
+        slice(w, int64, int64) is typed
         for col in w.columns:
           col is Field
 
@@ -355,7 +358,7 @@ proc formatRow(columns: openArray[string], options: WriteOptions): string =
   columns.mapIt(it.escapeField(options.delimiter)).join($options.delimiter) & options.eol
 
 # Helper to format a cell value without closures to avoid ARC issues
-template formatCell[T](tbl: ArrowTable, colIdx, rowIdx: int): string =
+template formatCell[T](tbl: typed, colIdx, rowIdx: int): string =
   let col = tbl[colIdx, T]
   if col.isValid(rowIdx):
     $col[rowIdx]

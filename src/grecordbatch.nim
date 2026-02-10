@@ -26,12 +26,7 @@ proc newBuffer*(data: pointer, size: int64): GBuffer =
 proc toPtr*(opt: WriteOptions): ptr GArrowWriteOptions =
   opt.handle
 
-proc newWriteOptions(): WriteOptions =
-  discard
-
 proc `=destroy`*(rb: RecordBatch) =
-  # echo "DESTROY ______________________---------------"
-  # echo repr cast[pointer](rb.handle)
   if rb.handle != nil:
     g_object_unref(rb.handle)
 
@@ -122,17 +117,10 @@ macro newRecordBatch*(schema: Schema, arrays: varargs[typed]): RecordBatch =
     `builderSym`.flush()
 
 proc `$`*(rb: RecordBatch): string =
-  var err: ptr GError
-  let cstr = garrow_record_batch_to_string(rb.handle, addr err)
+  let cstr = check garrow_record_batch_to_string(rb.handle)
+  result = $newGstring(cstr)
 
-  if not isNil(err):
-    g_error_free(err)
-    return "<RecordBatch: error>"
-
-  if cstr != nil:
-    result = $cstr
-    g_free(cstr)
-
+# TODO: check does not like to much that the function validate return a bool
 proc validate*(rb: RecordBatch): bool =
   ## Validate the record batch
   var err: ptr GError
@@ -141,6 +129,7 @@ proc validate*(rb: RecordBatch): bool =
     raise
       newException(ValueError, fmt"RecordBatch validation failed, got {err[].message}")
 
+# TODO: same as above, but for full validation
 proc validateFull*(rb: RecordBatch): bool =
   ## Perform full validation of the record batch
   var err: ptr GError
@@ -161,35 +150,26 @@ proc nRows*(rb: RecordBatch): int64 =
   garrow_record_batch_get_n_rows(rb.handle).int64
 
 proc getColumnName*(rb: RecordBatch, idx: int): string =
+  # this should not be wrapped by newGString because it will be cleaned by RecordBatch, and we don't want to double free it
   result = $garrow_record_batch_get_column_name(rb.toPtr, idx.gint)
 
 proc getColumnData*[T](rb: RecordBatch, idx: int): Array[T] =
-  let handle = garrow_record_batch_get_column_data(rb.toPtr, idx.gint)
-  result = newArray[T](handle)
+  result = newArray[T](garrow_record_batch_get_column_data(rb.toPtr, idx.gint))
 
 proc `[]`*[T](rb: RecordBatch, idx: int, _: typedesc[T]): Array[T] =
   result = getColumnData[T](rb, idx)
 
 proc `[]`*[T](rb: RecordBatch, key: string, _: typedesc[T]): Array[T] =
-  # try:
   let schema = rb.schema
   let idx = schema.getFieldIndex(key)
   result = getColumnData[T](rb, idx)
 
-proc `==`*(rb1, rb2: RecordBatch): bool =
+proc `==`*(rb1, rb2: RecordBatch): bool {.inline.} =
   ## Check equality without metadata
-  if rb1.handle == rb2.handle:
-    return true
-  if rb1.handle == nil or rb2.handle == nil:
-    return false
   garrow_record_batch_equal(rb1.toPtr, rb2.toPtr).bool
 
-proc equalMetadata*(rb1, rb2: RecordBatch, checkMetadata: bool = true): bool =
+proc equalMetadata*(rb1, rb2: RecordBatch, checkMetadata: bool = true): bool {.inline.} =
   ## Check equality with optional metadata checking
-  if rb1.handle == rb2.handle:
-    return true
-  if rb1.handle == nil or rb2.handle == nil:
-    return false
   garrow_record_batch_equal_metadata(rb1.toPtr, rb2.toPtr, checkMetadata.gboolean).bool
 
 proc slice*(rb: RecordBatch, offset: int64, length: int64): RecordBatch =
@@ -258,12 +238,8 @@ proc next*(it: RecordBatchIterator): Option[RecordBatch] =
 
   result = some(newRecordBatch(handle))
 
-proc `==`*(it1, it2: RecordBatchIterator): bool =
+proc `==`*(it1, it2: RecordBatchIterator): bool {.inline.} =
   ## Check if two iterators are equal
-  if it1.handle == it2.handle:
-    return true
-  if it1.handle == nil or it2.handle == nil:
-    return false
   garrow_record_batch_iterator_equal(it1.toPtr, it2.toPtr).bool
 
 proc toList*(it: RecordBatchIterator): seq[RecordBatch] =

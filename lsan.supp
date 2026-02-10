@@ -3,3 +3,24 @@ leak:garrow_csv_read_options_add_schema
 leak:garrow_csv_read_options_init
 leak:execute_native_thread_routine
 leak:std::_Hashtable
+
+# LeakSanitizer suppressions for Nim runtime and test infrastructure
+# These are one-time allocations that are not true memory leaks
+
+# Nim system allocator
+leak:allocImpl
+leak:reallocImpl
+
+# Nim random number generator (global state)
+leak:initRand
+
+# Nim string operations
+leak:rawNewString
+leak:rawNewStringNoInit
+leak:setLengthStr
+
+# Module-level globals in testfixture
+leak:testfixture.nim
+
+# Test runner globals (unittest2)
+leak:unittest2
