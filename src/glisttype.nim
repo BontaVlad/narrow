@@ -1,8 +1,7 @@
 import ./[ffi, gschema, gtypes, error]
 
-type
-  ListType* = object
-    handle*: ptr GArrowListDataType
+type ListType* = object
+  handle*: ptr GArrowListDataType
 
 proc toPtr*(l: ListType): ptr GArrowListDataType {.inline.} =
   l.handle

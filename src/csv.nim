@@ -356,13 +356,13 @@ proc formatRow(columns: openArray[string], options: WriteOptions): string =
 
   columns.mapIt(it.escapeField(options.delimiter)).join($options.delimiter) & options.eol
 
-template createFormatter(tbl, idx, T): ColFormatter {.inject.} =
-  let col = tbl[idx, T]
-  proc(r: int): string =
-    if col.isValid(r):
-      $col[r]
-    else:
-      ""
+# Helper to format a cell value without closures to avoid ARC issues
+template formatCell[T](tbl: ArrowTable, colIdx, rowIdx: int): string =
+  let col = tbl[colIdx, T]
+  if col.isValid(rowIdx):
+    $col[rowIdx]
+  else:
+    ""
 
 proc writeCsv*[T: Writable](writable: T, options: WriteOptions, output: OutputStream) =
   let columns = writable.columns.toSeq
@@ -381,42 +381,37 @@ proc writeCsv*[T: Writable](writable: T, options: WriteOptions, output: OutputSt
       batchLen = batchEnd - offset
       tbl = writable.slice(offset, batchLen)
 
-    var formatters = newSeq[ColFormatter](nCols)
-
-    for i in 0 ..< nCols:
-      let colMeta = columns[i]
-      # Mapping Arrow types to Nim types
-      case colMeta.dataType.nimTypeName
-      of "int", "int64":
-        formatters[i] = createFormatter(tbl, i, int64)
-      of "int32":
-        formatters[i] = createFormatter(tbl, i, int32)
-      of "int16":
-        formatters[i] = createFormatter(tbl, i, int16)
-      of "int8":
-        formatters[i] = createFormatter(tbl, i, int8)
-      of "uint64":
-        formatters[i] = createFormatter(tbl, i, uint64)
-      of "uint32":
-        formatters[i] = createFormatter(tbl, i, uint32)
-      of "float64", "float":
-        formatters[i] = createFormatter(tbl, i, float64)
-      of "float32":
-        formatters[i] = createFormatter(tbl, i, float32)
-      of "bool":
-        formatters[i] = createFormatter(tbl, i, bool)
-      of "string", "utf8":
-        formatters[i] = createFormatter(tbl, i, string)
-      else:
-        # Generic fallback for unsupported types
-        formatters[i] = proc(r: int): string =
-          ""
-
     # Iterating over the batch rows
     var rowBuffer = newSeq[string](nCols)
-    for r in 0 ..< batchLen: # Important: Iterate to batchLen, not nRows
+    for r in 0 ..< batchLen.int:
       for c in 0 ..< nCols:
-        rowBuffer[c] = formatters[c](r)
+        let colMeta = columns[c]
+        let rowIdx = r
+        # Direct formatting without closures to avoid ARC issues
+        rowBuffer[c] =
+          case colMeta.dataType.nimTypeName
+          of "int", "int64":
+            formatCell[int64](tbl, c, rowIdx)
+          of "int32":
+            formatCell[int32](tbl, c, rowIdx)
+          of "int16":
+            formatCell[int16](tbl, c, rowIdx)
+          of "int8":
+            formatCell[int8](tbl, c, rowIdx)
+          of "uint64":
+            formatCell[uint64](tbl, c, rowIdx)
+          of "uint32":
+            formatCell[uint32](tbl, c, rowIdx)
+          of "float64", "float":
+            formatCell[float64](tbl, c, rowIdx)
+          of "float32":
+            formatCell[float32](tbl, c, rowIdx)
+          of "bool":
+            formatCell[bool](tbl, c, rowIdx)
+          of "string", "utf8":
+            formatCell[string](tbl, c, rowIdx)
+          else:
+            ""
       output.write(rowBuffer.formatRow(options))
 
 proc writeCsv*[T: Writable](

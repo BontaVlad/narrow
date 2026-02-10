@@ -299,3 +299,96 @@ iterator items*(it: RecordBatchIterator): RecordBatch =
 iterator columns*(rb: RecordBatch): Field =
   for field in rb.schema:
     yield field
+
+# Row-level access methods
+proc isNull*(rb: RecordBatch, rowIdx: int, colIdx: int): bool =
+  ## Check if cell at (rowIdx, colIdx) is null
+  if rowIdx < 0 or rowIdx >= rb.nRows:
+    raise newException(IndexDefect, "Row index out of bounds: " & $rowIdx)
+  if colIdx < 0 or colIdx >= rb.nColumns:
+    raise newException(IndexDefect, "Column index out of bounds: " & $colIdx)
+
+  let handle = garrow_record_batch_get_column_data(rb.toPtr, colIdx.gint)
+  let colArray = newArray[void](handle)
+  result = colArray.isNull(rowIdx)
+
+proc isNull*(rb: RecordBatch, rowIdx: int, colName: string): bool =
+  ## Check if cell at (rowIdx, colName) is null
+  let schema = rb.schema
+  let colIdx = schema.getFieldIndex(colName)
+  result = rb.isNull(rowIdx, colIdx)
+
+proc isValid*(rb: RecordBatch, rowIdx: int, colIdx: int): bool {.inline.} =
+  ## Check if cell at (rowIdx, colIdx) is valid (not null)
+  result = not rb.isNull(rowIdx, colIdx)
+
+proc isValid*(rb: RecordBatch, rowIdx: int, colName: string): bool {.inline.} =
+  ## Check if cell at (rowIdx, colName) is valid (not null)
+  result = not rb.isNull(rowIdx, colName)
+
+proc tryGet*[T](rb: RecordBatch, rowIdx: int, colIdx: int): Option[T] =
+  ## Safely get value at (rowIdx, colIdx), returns none if out of bounds or null
+  if rowIdx < 0 or rowIdx >= rb.nRows or colIdx < 0 or colIdx >= rb.nColumns:
+    return none(T)
+
+  let colData = rb.getColumnData[T](colIdx)
+  if colData.isNull(rowIdx):
+    return none(T)
+
+  result = some(colData[rowIdx])
+
+proc tryGet*[T](rb: RecordBatch, rowIdx: int, colName: string): Option[T] =
+  ## Safely get value at (rowIdx, colName), returns none if out of bounds or null
+  if rowIdx < 0 or rowIdx >= rb.nRows:
+    return none(T)
+
+  let schema = rb.schema
+  let colIdx = schema.getFieldIndex(colName)
+  if colIdx < 0:
+    return none(T)
+
+  result = rb.tryGet[T](rowIdx, colIdx)
+
+type RecordBatchRow* = object ## Represents a single row in a RecordBatch for iteration
+  batch*: RecordBatch
+  index*: int
+
+proc len*(row: RecordBatchRow): int {.inline.} =
+  ## Number of columns in the row
+  result = row.batch.nColumns
+
+proc isNull*(row: RecordBatchRow, idx: int): bool =
+  ## Check if column idx in this row is null
+  result = row.batch.isNull(row.index, idx)
+
+proc isValid*(row: RecordBatchRow, idx: int): bool {.inline.} =
+  ## Check if column idx in this row is valid
+  result = not row.isNull(idx)
+
+proc `$`*(row: RecordBatchRow): string =
+  ## String representation of a row
+  result = "Row " & $row.index & ": ["
+  for i in 0 ..< row.batch.nColumns:
+    if i > 0:
+      result &= ", "
+    if row.isNull(i):
+      result &= "null"
+    else:
+      result &= "?" # Cannot easily convert without type info
+  result &= "]"
+
+iterator items*(rb: RecordBatch): RecordBatchRow =
+  ## Iterate over rows in the record batch
+  for i in 0 ..< rb.nRows:
+    yield RecordBatchRow(batch: rb, index: i.int)
+
+proc nNulls*(rb: RecordBatch): int64 =
+  ## Total number of null values across all columns
+  result = 0
+  for i in 0 ..< rb.nColumns:
+    let handle = garrow_record_batch_get_column_data(rb.toPtr, i.gint)
+    let colArray = newArray[int8](handle) # Type doesn't matter for null checking
+    # We need to count nulls manually since Array doesn't expose this directly
+    for j in 0 ..< rb.nRows:
+      if colArray.isNull(j):
+        result += 1

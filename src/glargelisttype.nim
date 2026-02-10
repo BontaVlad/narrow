@@ -1,8 +1,7 @@
 import ./[ffi, gschema, gtypes, error]
 
-type
-  LargeListType* = object
-    handle*: ptr GArrowLargeListDataType
+type LargeListType* = object
+  handle*: ptr GArrowLargeListDataType
 
 proc toPtr*(l: LargeListType): ptr GArrowLargeListDataType {.inline.} =
   l.handle

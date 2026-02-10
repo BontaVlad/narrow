@@ -48,10 +48,22 @@ proc getValueType*(chunkedArray: ChunkedArray): GArrowType =
 proc len*(chunkedArray: ChunkedArray): int =
   result = int(garrow_chunked_array_get_length(chunkedArray.toPtr))
 
-proc getNRows*(chunkedArray: ChunkedArray): uint64 =
+proc nRows*(chunkedArray: ChunkedArray): int64 {.inline.} =
+  ## Number of rows in the chunked array
+  result = garrow_chunked_array_get_n_rows(chunkedArray.toPtr).int64
+
+proc nNulls*(chunkedArray: ChunkedArray): int64 {.inline.} =
+  ## Number of null values in the chunked array
+  result = garrow_chunked_array_get_n_nulls(chunkedArray.toPtr).int64
+
+proc getNRows*(chunkedArray: ChunkedArray): uint64 {.deprecated: "Use nRows instead".} =
+  ## Deprecated: Use nRows instead
   result = garrow_chunked_array_get_n_rows(chunkedArray.toPtr)
 
-proc getNNulls*(chunkedArray: ChunkedArray): uint64 =
+proc getNNulls*(
+    chunkedArray: ChunkedArray
+): uint64 {.deprecated: "Use nNulls instead".} =
+  ## Deprecated: Use nNulls instead
   result = garrow_chunked_array_get_n_nulls(chunkedArray.toPtr)
 
 proc nChunks*(chunkedArray: ChunkedArray): uint =

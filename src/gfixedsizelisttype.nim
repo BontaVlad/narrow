@@ -1,8 +1,7 @@
 import ./[ffi, gschema, gtypes, error]
 
-type
-  FixedSizeListType* = object
-    handle*: ptr GArrowFixedSizeListDataType
+type FixedSizeListType* = object
+  handle*: ptr GArrowFixedSizeListDataType
 
 proc toPtr*(f: FixedSizeListType): ptr GArrowFixedSizeListDataType {.inline.} =
   f.handle
@@ -24,25 +23,29 @@ proc `=copy`*(dest: var FixedSizeListType, src: FixedSizeListType) =
     if not isNil(dest.handle):
       discard g_object_ref(dest.handle)
 
-proc newFixedSizeListType*(valueType: GADType; listSize: int32): FixedSizeListType =
-  result.handle = garrow_fixed_size_list_data_type_new_data_type(valueType.handle, listSize)
+proc newFixedSizeListType*(valueType: GADType, listSize: int32): FixedSizeListType =
+  result.handle =
+    garrow_fixed_size_list_data_type_new_data_type(valueType.handle, listSize)
   if result.handle.isNil:
     raise newException(OperationError, "Failed to create FixedSizeListType")
 
-proc newFixedSizeListType*(valueField: Field; listSize: int32): FixedSizeListType =
+proc newFixedSizeListType*(valueField: Field, listSize: int32): FixedSizeListType =
   result.handle = garrow_fixed_size_list_data_type_new_field(valueField.toPtr, listSize)
   if result.handle.isNil:
     raise newException(OperationError, "Failed to create FixedSizeListType")
 
 proc valueField*(f: FixedSizeListType): Field =
-  let handle = garrow_base_list_data_type_get_field(cast[ptr GArrowBaseListDataType](f.handle))
+  let handle =
+    garrow_base_list_data_type_get_field(cast[ptr GArrowBaseListDataType](f.handle))
   if handle.isNil:
-    raise newException(OperationError, "Failed to get value field from FixedSizeListType")
+    raise
+      newException(OperationError, "Failed to get value field from FixedSizeListType")
   result = newField(handle)
 
 proc toGADType*(f: FixedSizeListType): GADType =
   if f.handle.isNil:
-    raise newException(OperationError, "Cannot convert nil FixedSizeListType to GADType")
+    raise
+      newException(OperationError, "Cannot convert nil FixedSizeListType to GADType")
   discard g_object_ref(f.handle)
   result = GADType(handle: cast[ptr GArrowDataType](f.handle))
 

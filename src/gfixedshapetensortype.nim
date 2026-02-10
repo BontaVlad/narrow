@@ -1,8 +1,7 @@
 import ./[ffi, gtypes, error]
 
-type
-  FixedShapeTensorType* = object
-    handle*: ptr GArrowFixedShapeTensorDataType
+type FixedShapeTensorType* = object
+  handle*: ptr GArrowFixedShapeTensorDataType
 
 proc toPtr*(t: FixedShapeTensorType): ptr GArrowFixedShapeTensorDataType {.inline.} =
   t.handle
@@ -31,21 +30,21 @@ proc newFixedShapeTensorType*(
     dimNames: seq[string] = @[],
 ): FixedShapeTensorType =
   var err: ptr GError
-  
+
   # Convert shape array
   var shapePtr: ptr gint64 = nil
   var shapeLen: gsize = 0
   if shape.len > 0:
     shapePtr = cast[ptr gint64](addr shape[0])
     shapeLen = shape.len.gsize
-  
+
   # Convert permutation array
   var permPtr: ptr gint64 = nil
   var permLen: gsize = 0
   if permutation.len > 0:
     permPtr = cast[ptr gint64](addr permutation[0])
     permLen = permutation.len.gsize
-  
+
   # Convert dimension names
   var dimNamesPtr: ptr cstring = nil
   var nDimNames: gsize = 0
@@ -56,7 +55,7 @@ proc newFixedShapeTensorType*(
       cstrings[i] = name.cstring
     dimNamesPtr = cast[ptr cstring](addr cstrings[0])
     nDimNames = dimNames.len.gsize
-  
+
   result.handle = garrow_fixed_shape_tensor_data_type_new(
     valueType.handle,
     shapePtr,
@@ -65,9 +64,9 @@ proc newFixedShapeTensorType*(
     permLen,
     dimNamesPtr,
     nDimNames,
-    addr err
+    addr err,
   )
-  
+
   if not isNil(err):
     let msg =
       if not isNil(err.message):
@@ -76,7 +75,7 @@ proc newFixedShapeTensorType*(
         "Failed to create FixedShapeTensorType"
     g_error_free(err)
     raise newException(OperationError, msg)
-  
+
   if result.handle.isNil:
     raise newException(OperationError, "Failed to create FixedShapeTensorType")
 
@@ -129,10 +128,10 @@ proc extensionName*(t: FixedShapeTensorType): string =
   )
   result = $newGstring(namePtr)
 
-
 proc toGADType*(t: FixedShapeTensorType): GADType =
   if t.handle.isNil:
-    raise newException(OperationError, "Cannot convert nil FixedShapeTensorType to GADType")
+    raise
+      newException(OperationError, "Cannot convert nil FixedShapeTensorType to GADType")
   discard g_object_ref(t.handle)
   result = GADType(handle: cast[ptr GArrowDataType](t.handle))
 

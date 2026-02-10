@@ -358,11 +358,7 @@ proc `=copy`*(dest: var Time64ArrayBuilder, src: Time64ArrayBuilder) =
 proc newTimestampArray*(
     handle: ptr GArrowTimestampArray, unit: GArrowTimeUnit, tz: string
 ): TimestampArray =
-  TimestampArray(
-    handle: handle,
-    unit: unit,
-    tz: tz,
-  )
+  TimestampArray(handle: handle, unit: unit, tz: tz)
 
 proc newTimestampArrayBuilder*(
     unit: GArrowTimeUnit, tz: string = "UTC"

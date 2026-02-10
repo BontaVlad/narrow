@@ -1,8 +1,7 @@
 import ./[ffi, gtypes, error]
 
-type
-  UUIDType* = object
-    handle*: ptr GArrowUUIDDataType
+type UUIDType* = object
+  handle*: ptr GArrowUUIDDataType
 
 proc toPtr*(u: UUIDType): ptr GArrowUUIDDataType {.inline.} =
   u.handle

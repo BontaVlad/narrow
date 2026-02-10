@@ -1,8 +1,7 @@
 import ./[ffi, gtypes, error]
 
-type
-  MapType* = object
-    handle*: ptr GArrowMapDataType
+type MapType* = object
+  handle*: ptr GArrowMapDataType
 
 proc toPtr*(m: MapType): ptr GArrowMapDataType {.inline.} =
   m.handle
