@@ -127,11 +127,8 @@ proc extensionName*(t: FixedShapeTensorType): string =
   let namePtr = garrow_extension_data_type_get_extension_name(
     cast[ptr GArrowExtensionDataType](t.handle)
   )
-  if isNil(namePtr):
-    return ""
+  result = $newGstring(namePtr)
 
-  g_object_unref(namePtr)
-  result = $namePtr
 
 proc toGADType*(t: FixedShapeTensorType): GADType =
   if t.handle.isNil:
