@@ -7,18 +7,18 @@ import ../src/[ffi, garray, gtypes]
 suite "Array - Equality":
   
   test "Equal arrays":
-    let arr1 = newArray[bool](@[true, false])
-    let arr2 = newArray[bool](@[true, false])
+    let arr1 = newArray(@[true, false])
+    let arr2 = newArray(@[true, false])
     check arr1 == arr2
   
   test "Not equal arrays - different values":
-    let arr1 = newArray[int32](@[1'i32, 2, 3])
-    let arr2 = newArray[int32](@[1'i32, 2, 4])
+    let arr1 = newArray(@[1'i32, 2, 3])
+    let arr2 = newArray(@[1'i32, 2, 4])
     check arr1 != arr2
   
   test "Not equal arrays - different lengths":
-    let arr1 = newArray[int32](@[1'i32, 2, 3])
-    let arr2 = newArray[int32](@[1'i32, 2])
+    let arr1 = newArray(@[1'i32, 2, 3])
+    let arr2 = newArray(@[1'i32, 2])
     check arr1 != arr2
 
 suite "Array - Null Checking":
@@ -91,13 +91,13 @@ suite "Array - Slicing":
     check subArray[1] == true
   
   test "Slice with single element":
-    let arr = newArray[int32](@[1'i32, 2, 3, 4, 5])
+    let arr = newArray(@[1'i32, 2, 3, 4, 5])
     let subArray = arr[2..2]
     check subArray.len == 1
     check subArray[0] == 3
   
   test "Slice full array":
-    let arr = newArray[int32](@[1'i32, 2, 3])
+    let arr = newArray(@[1'i32, 2, 3])
     let subArray = arr[0..2]
     check subArray.len == 3
     check subArray[0] == 1
@@ -106,17 +106,17 @@ suite "Array - Slicing":
 suite "Array - String Representation":
   
   test "to_s for boolean array":
-    let arr = newArray[bool](@[true, false, true])
+    let arr = newArray(@[true, false, true])
     let str = $arr
     check str.len > 0
   
   test "to_s for int array":
-    let arr = newArray[int32](@[1'i32, 2, 3])
+    let arr = newArray(@[1'i32, 2, 3])
     let str = $arr
     check str.len > 0
   
   test "to_s for string array":
-    let arr = newArray[string](@["Start", "Shutdown", "Reboot"])
+    let arr = newArray(@["Start", "Shutdown", "Reboot"])
     let str = $arr
     check str.len > 0
   
@@ -128,7 +128,7 @@ suite "Array - String Representation":
 suite "Array - Type Conversions":
   
   test "Array to seq conversion":
-    let arr = newArray[int32](@[1'i32, 2, 3])
+    let arr = newArray(@[1'i32, 2, 3])
     let s = @arr
     check s.len == 3
     check s == @[1'i32, 2, 3]

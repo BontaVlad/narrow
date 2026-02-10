@@ -167,10 +167,10 @@ proc getColumnData*[T](rb: RecordBatch, idx: int): Array[T] =
   let handle = garrow_record_batch_get_column_data(rb.toPtr, idx.gint)
   result = newArray[T](handle)
 
-proc `[]`*(rb: RecordBatch, idx: int, T: typedesc): Array[T] =
+proc `[]`*[T](rb: RecordBatch, idx: int, _: typedesc[T]): Array[T] =
   result = getColumnData[T](rb, idx)
 
-proc `[]`*(rb: RecordBatch, key: string, T: typedesc): Array[T] =
+proc `[]`*[T](rb: RecordBatch, key: string, _: typedesc[T]): Array[T] =
   # try:
   let schema = rb.schema
   let idx = schema.getFieldIndex(key)

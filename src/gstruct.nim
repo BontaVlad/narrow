@@ -1,4 +1,4 @@
-import std/[macros, strutils, sequtils]
+import std/[macros, strutils, sequtils, options]
 import ./[ffi, gschema, glist, gtypes, garray, error]
 
 {.experimental: "dotOperators".}
@@ -161,6 +161,23 @@ proc fieldCount*(s: Struct): int =
 proc len*(sa: StructArray): int =
   garrow_array_get_length(cast[ptr GArrowArray](sa.toPtr))
 
+proc structType*(sa: StructArray): Struct =
+  ## Get the struct data type for this array
+  let dataType = garrow_array_get_value_data_type(cast[ptr GArrowArray](sa.toPtr))
+  result.handle = cast[ptr GArrowStructDataType](dataType)
+
+proc fields*(sa: StructArray): seq[Field] =
+  ## Get the fields of the struct
+  result = sa.structType.fields
+
+proc fieldCount*(sa: StructArray): int {.inline.} =
+  ## Get the number of fields
+  result = sa.fields.len
+
+proc fieldIndex*(sa: StructArray, name: string): int {.inline.} =
+  ## Get field index by name
+  result = sa.structType.fieldIndex(name)
+
 proc `[]`*(sa: StructArray, idx: int): StructArray =
   if idx < 0 or idx >= sa.len:
     raise newException(IndexDefect, "Index out of bounds")
@@ -175,6 +192,101 @@ proc getField*[T](sa: StructArray, idx: int): Array[T] =
   if handle.isNil:
     raise newException(KeyError, "Field index " & $idx & " not found")
   result = newArray[T](handle)
+
+# Null handling
+proc isNull*(sa: StructArray, i: int): bool =
+  ## Check if struct at index i is null
+  if i < 0 or i >= sa.len:
+    raise newException(IndexDefect, "Index out of bounds")
+  result = garrow_array_is_null(cast[ptr GArrowArray](sa.toPtr), i) != 0
+
+proc isValid*(sa: StructArray, i: int): bool {.inline.} =
+  ## Check if struct at index i is valid (not null)
+  result = not sa.isNull(i)
+
+proc nNulls*(sa: StructArray): int64 =
+  ## Count of null structs in the array
+  result = garrow_array_get_n_nulls(cast[ptr GArrowArray](sa.toPtr)).int64
+
+# Safe getter
+type StructRow* = object ## Represents a single struct row
+  array*: StructArray
+  index*: int
+
+proc tryGet*(sa: StructArray, i: int): Option[StructRow] =
+  ## Safely get a struct row at index i
+  if i < 0 or i >= sa.len or sa.isNull(i):
+    return none(StructRow)
+  result = some(StructRow(array: sa, index: i))
+
+# Iteration
+iterator items*(sa: StructArray): StructRow =
+  ## Iterate over all struct rows
+  for i in 0 ..< sa.len:
+    if not sa.isNull(i):
+      yield StructRow(array: sa, index: i)
+
+# Comparison
+proc `==`*(a, b: StructArray): bool =
+  ## Check equality of two struct arrays
+  if a.handle == b.handle:
+    return true
+  if a.handle == nil or b.handle == nil:
+    return false
+  result =
+    garrow_array_equal(cast[ptr GArrowArray](a.toPtr), cast[ptr GArrowArray](b.toPtr)) !=
+    0
+
+# Sequence conversion
+proc toSeq*(sa: StructArray): seq[StructRow] =
+  ## Convert struct array to sequence of rows
+  result = newSeq[StructRow](sa.len)
+  var idx = 0
+  for i in 0 ..< sa.len:
+    if not sa.isNull(i):
+      result[idx] = StructRow(array: sa, index: i)
+      idx += 1
+  result.setLen(idx)
+
+proc `@`*(sa: StructArray): seq[StructRow] {.inline.} =
+  ## Operator alias for toSeq
+  sa.toSeq
+
+# StructRow helper methods
+proc len*(row: StructRow): int {.inline.} =
+  ## Number of fields in the struct row
+  row.array.fieldCount
+
+proc getField*[T](row: StructRow, idx: int): T =
+  ## Get field value at index from this row
+  let fieldArray = row.array.getField[T](idx)
+  result = fieldArray[row.index]
+
+proc getField*[T](row: StructRow, name: string): T =
+  ## Get field value by name from this row
+  # First find the field index using the Struct type's method
+  let idx = row.array.fieldIndex(name)
+  if idx < 0:
+    raise newException(KeyError, "Field '" & name & "' not found in struct")
+  result = row.getField[T](idx)
+
+proc `$`*(row: StructRow): string =
+  ## String representation of a struct row
+  result = "StructRow(" & $row.index & "): {"
+  # Use the Struct type's fieldCount method
+  let nFields = row.array.fieldCount
+
+  # Get field names from the Struct
+  let structFields = row.array.fields
+  for i in 0 ..< nFields:
+    if i > 0:
+      result &= ", "
+    if i < structFields.len:
+      result &= structFields[i].name & ": ?"
+    else:
+      result &= "field" & $i & ": ?"
+
+  result &= "}"
 
 # StructBuilder operations
 proc append*(sb: StructBuilder) =

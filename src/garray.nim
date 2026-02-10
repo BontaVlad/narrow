@@ -2,10 +2,10 @@ import std/[options, strformat]
 import ./[ffi, gtypes, error]
 
 type
-  ArrayBuilder*[T] = object
+  ArrayBuilder*[T:ArrowPrimitive] = object
     handle: ptr GArrowArrayBuilder
 
-  Array*[T] = object
+  Array*[T:ArrowPrimitive] = object
     handle: ptr GArrowArray
 
 proc toPtr*[T](b: ArrayBuilder[T]): ptr GArrowArrayBuilder {.inline.} =
@@ -392,7 +392,7 @@ proc newArray*[T](handle: ptr GArrowArray): Array[T] =
   # Increment reference count since we're taking ownership
   result = Array[T](handle: handle)
 
-proc `==`*(a, b: Array): bool =
+proc `==`*[T, U](a: Array[T], b: Array[U]): bool =
   if a.handle == nil or b.handle == nil:
     return a.handle == b.handle
   garrow_array_equal(a.handle, b.handle).bool
@@ -477,6 +477,10 @@ proc isValid*(arr: Array, i: int): bool =
   if i > len(arr):
     raise newException(IndexDefect, fmt"index {i} not in 0 .. {len(arr)}")
   return garrow_array_is_valid(arr.handle, i) != 0
+
+proc nNulls*(arr: Array): int64 =
+  ## Number of null values in the array
+  result = garrow_array_get_n_nulls(arr.handle)
 
 proc tryGet*[T](arr: Array[T], i: int): Option[T] =
   if i < 0 or i >= arr.len:

@@ -9,7 +9,7 @@ type
     handle*: cstring
 
   ArrowPrimitive* =
-    bool | int8 | uint8 | int16 | uint16 | int32 | uint32 | int64 | uint64 | float32 |
+    void | bool | int8 | uint8 | int16 | uint16 | int32 | uint32 | int | int64 | uint64 | float32 |
     float64 | string | seq[byte] | cstring
 
   TypeError* = object of CatchableError

@@ -23,7 +23,7 @@ type
   ## - `len(ds): int`: Returns the number of elements
   ## - `ds[int]: T`: Index operator with bounds checking
   ## - `ds.tryGet(int): Option[T]`: Safe indexed access
-  ## - `items(ds: typed): T`: Iterator over elements
+  ## - `items` iterator over elements
   ## - `$` (string representation)
   ## - `==` (equality comparison)
   ## - `isNull(ds, int): bool`: Check if element is null
@@ -33,7 +33,7 @@ type
         ds.len is int
         ds[int] is typed
         ds.tryGet(int) is typed # Option[T]
-        iterator items(ds): typed
+        # Note: iterator items is not checked in concept due to Nim limitations
         `$`(ds) is string
         `==`(ds, ds) is bool
         isNull(ds, int) is bool
@@ -44,13 +44,13 @@ type
   ##
   ## Additional required methods:
   ## - `nChunks(ds): uint`: Number of chunks
-  ## - `chunks(ds: typed)`: Iterator over chunks
+  ## - `chunks` iterator over chunks
   ## - `combine(ds)`: Merge chunks into single Array
   ArrowChunked* =
     concept ds
         ds is ArrowIndexable
         ds.nChunks is uint
-        iterator chunks(ds): typed
+        # Note: iterator chunks is not checked in concept due to Nim limitations
         combine(ds) is typed
 
   ## Schema is defined in gschema module but referenced here
@@ -70,7 +70,7 @@ type
   ## - `nRows(tbl): int64`: Number of rows
   ## - `nColumns(tbl): int`: Number of columns
   ## - `schema(tbl)`: Table schema
-  ## - `columns(tbl: typed)`: Iterator over column fields
+  ## - `columns` iterator over column fields
   ## - `validate(tbl): bool`: Validate structure
   ## - `validateFull(tbl): bool`: Full validation
   ArrowTabular* =
@@ -78,7 +78,7 @@ type
         tbl.nRows is int64
         tbl.nColumns is int
         tbl.schema is Schema
-        iterator columns(tbl): Field
+        # Note: iterator columns is not checked in concept due to Nim limitations
         validate(tbl) is bool
         validateFull(tbl) is bool
         `$`(tbl) is string
@@ -114,7 +114,7 @@ type
     concept ds
         isNull(ds, int) is bool
         isValid(ds, int) is bool
-        ds.nNulls is uint64
+        ds.nNulls is int64
 
   ## ArrowSlicable represents structures that support zero-copy slicing.
   ArrowSlicable* =
@@ -122,6 +122,44 @@ type
         ds is ArrowIndexable
         slice(ds, int64, int64) is typed
         ds[int, int] is typed # Slice operator
+
+  ## ArrowStruct represents struct array structures like StructArray.
+  ##
+  ## Required methods:
+  ## - `len(sa): int`: Number of struct rows
+  ## - `isNull(sa, int): bool`: Check if struct row is null
+  ## - `isValid(sa, int): bool`: Check if struct row is valid
+  ## - `nNulls(sa): int64`: Count of null rows
+  ## - `items` iterator over struct rows
+  ## - `toSeq(sa)`: Convert to sequence
+  ArrowStruct* =
+    concept sa
+        sa.len is int
+        isNull(sa, int) is bool
+        isValid(sa, int) is bool
+        sa.nNulls is int64
+        # Note: iterator items is not checked in concept due to Nim limitations
+        `$`(sa) is string
+        `==`(sa, sa) is bool
+
+  ## ArrowMap represents map array structures like MapArray.
+  ##
+  ## Required methods:
+  ## - `len(ma): int`: Number of map entries
+  ## - `isNull(ma, int): bool`: Check if map entry is null
+  ## - `isValid(ma, int): bool`: Check if map entry is valid
+  ## - `nNulls(ma): int64`: Count of null entries
+  ## - `items` iterator over map entries
+  ## - `toSeq(ma)`: Convert to sequence
+  ArrowMap* =
+    concept ma
+        ma.len is int
+        isNull(ma, int) is bool
+        isValid(ma, int) is bool
+        ma.nNulls is int64
+        # Note: iterator items is not checked in concept due to Nim limitations
+        `$`(ma) is string
+        `==`(ma, ma) is bool
 
 ## Type Checking Helpers
 
@@ -140,6 +178,22 @@ template isArrowTabular*(T: typedesc): bool =
 template isArrowBuilder*(T: typedesc): bool =
   ## Check if a type satisfies the ArrowBuilder concept at compile time
   T is ArrowBuilder
+
+template isArrowNullable*(T: typedesc): bool =
+  ## Check if a type satisfies the ArrowNullable concept at compile time
+  T is ArrowNullable
+
+template isArrowSlicable*(T: typedesc): bool =
+  ## Check if a type satisfies the ArrowSlicable concept at compile time
+  T is ArrowSlicable
+
+template isArrowStruct*(T: typedesc): bool =
+  ## Check if a type satisfies the ArrowStruct concept at compile time
+  T is ArrowStruct
+
+template isArrowMap*(T: typedesc): bool =
+  ## Check if a type satisfies the ArrowMap concept at compile time
+  T is ArrowMap
 
 ## Compile-time Compliance Checks
 ##
@@ -186,6 +240,26 @@ template checkArrowBuilder*(T: typedesc) =
         error:
           $T & " does not satisfy ArrowBuilder concept. " &
           "Required: append, appendNull, finish"
+      .}
+
+template checkArrowStruct*(T: typedesc) =
+  ## Compile-time check that a type satisfies ArrowStruct
+  static:
+    when not (T is ArrowStruct):
+      {.
+        error:
+          $T & " does not satisfy ArrowStruct concept. " &
+          "Required: len, isNull, isValid, nNulls, items, $, =="
+      .}
+
+template checkArrowMap*(T: typedesc) =
+  ## Compile-time check that a type satisfies ArrowMap
+  static:
+    when not (T is ArrowMap):
+      {.
+        error:
+          $T & " does not satisfy ArrowMap concept. " &
+          "Required: len, isNull, isValid, nNulls, items, $, =="
       .}
 
 ## Documentation References

@@ -1,6 +1,6 @@
 import std/[os, options, sets, sequtils]
 import unittest2
-import ../src/[ffi, filesystem, gtables, csv, gtypes, gschema, garray]
+import ../src/[ffi, filesystem, gtables, csv, gtypes, gschema, garray, grecordbatch]
 
 suite "Reading CSV":
 

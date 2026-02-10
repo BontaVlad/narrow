@@ -122,7 +122,7 @@ suite "ChunkedArray - Dimensions":
       newArray[bool](@[true, false, true])
     ]
     let chunkedArray = newChunkedArray(chunks)
-    check chunkedArray.getNRows() == 3
+    check chunkedArray.nRows() == 3
   
   test "n_rows with multiple chunks":
     let chunks = [
@@ -130,18 +130,18 @@ suite "ChunkedArray - Dimensions":
       newArray[bool](@[true])
     ]
     let chunkedArray = newChunkedArray(chunks)
-    check chunkedArray.getNRows() == 3
+    check chunkedArray.nRows() == 3
   
   test "n_rows empty":
     let chunkedArray = newChunkedArray[bool]()
-    check chunkedArray.getNRows() == 0
+    check chunkedArray.nRows() == 0
   
   test "len equals n_rows":
     let chunks = [
       newArray[int32](@[1'i32, 2, 3, 4, 5])
     ]
     let chunkedArray = newChunkedArray(chunks)
-    check chunkedArray.len() == int(chunkedArray.getNRows())
+    check chunkedArray.len() == int(chunkedArray.nRows())
 
 suite "ChunkedArray - Null Handling":
   
@@ -151,7 +151,7 @@ suite "ChunkedArray - Null Handling":
       newArray[bool](@[true])
     ]
     let chunkedArray = newChunkedArray(chunks)
-    check chunkedArray.getNNulls() == 0
+    check chunkedArray.nNulls() == 0
   
   test "n_nulls with nulls in single chunk":
     var builder = newArrayBuilder[bool]()
@@ -160,7 +160,7 @@ suite "ChunkedArray - Null Handling":
     builder.append(false)
     let chunks = [builder.finish()]
     let chunkedArray = newChunkedArray(chunks)
-    check chunkedArray.getNNulls() == 1
+    check chunkedArray.nNulls() == 1
   
   test "n_nulls with nulls in multiple chunks":
     var builder1 = newArrayBuilder[bool]()
@@ -175,7 +175,7 @@ suite "ChunkedArray - Null Handling":
     
     let chunks = [builder1.finish(), builder2.finish()]
     let chunkedArray = newChunkedArray(chunks)
-    check chunkedArray.getNNulls() == 3
+    check chunkedArray.nNulls() == 3
   
   test "n_nulls with all nulls":
     var builder = newArrayBuilder[int32]()
@@ -183,7 +183,7 @@ suite "ChunkedArray - Null Handling":
       builder.appendNull()
     let chunks = [builder.finish()]
     let chunkedArray = newChunkedArray(chunks)
-    check chunkedArray.getNNulls() == 10
+    check chunkedArray.nNulls() == 10
 
 suite "ChunkedArray - Chunks Access":
   
@@ -689,7 +689,7 @@ suite "ChunkedArray - Complex Scenarios":
     ]
     let chunkedArray = newChunkedArray(chunks)
     check chunkedArray.len() == 7
-    check chunkedArray.getNNulls() == 3
+    check chunkedArray.nNulls() == 3
   
   test "Collect all values skipping nulls":
     var builder = newArrayBuilder[int32]()
@@ -768,8 +768,8 @@ suite "ChunkedArray - Error Handling":
     let chunkedArray = newChunkedArray[int32]()
     check chunkedArray.len() == 0
     check chunkedArray.nChunks() == 1
-    check chunkedArray.getNNulls() == 0
-    check chunkedArray.getNRows() == 0
+    check chunkedArray.nNulls() == 0
+    check chunkedArray.nRows() == 0
   
   test "Access chunk beyond bounds":
     let chunks = [newArray(@[1'i32, 2, 3])]

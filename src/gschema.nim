@@ -1,4 +1,4 @@
-import std/[strformat, sets]
+import std/[strformat, sets, options]
 import ./[ffi, gchunkedarray, garray, glist, gtypes, error]
 
 type
@@ -131,16 +131,41 @@ proc `$`*(schema: Schema): string =
 proc nFields*(schema: Schema): int =
   garrow_schema_n_fields(schema.handle).int
 
+proc len*(schema: Schema): int {.inline.} =
+  ## Number of fields in the schema (alias for nFields)
+  result = schema.nFields
+
 proc getField*(schema: Schema, idx: int): Field =
   # FIXME: this will segfault with crap idx idx > nFields
   let handle = garrow_schema_get_field(schema.handle, idx.guint)
   result = newField(handle)
+
+proc tryGetField*(schema: Schema, idx: int): Option[Field] =
+  ## Safely get field by index, returns none if out of bounds
+  if idx < 0 or idx >= schema.nFields:
+    return none(Field)
+  result = some(schema.getField(idx))
 
 proc getFieldByName*(schema: Schema, name: string): Field =
   let handle = garrow_schema_get_field_by_name(schema.handle, name.cstring)
   if handle.isNil:
     raise newException(KeyError, fmt"Field with name: [{name}] does not exist")
   result = newField(handle)
+
+proc tryGetField*(schema: Schema, name: string): Option[Field] =
+  ## Safely get field by name, returns none if not found
+  let handle = garrow_schema_get_field_by_name(schema.handle, name.cstring)
+  if handle.isNil:
+    return none(Field)
+  result = some(newField(handle))
+
+proc `[]`*(schema: Schema, idx: int): Field =
+  ## Get field by index
+  result = schema.getField(idx)
+
+proc `[]`*(schema: Schema, name: string): Field =
+  ## Get field by name
+  result = schema.getFieldByName(name)
 
 proc getFieldIndex*(schema: Schema, name: string): int =
   result = garrow_schema_get_field_index(schema.handle, name.cstring).int

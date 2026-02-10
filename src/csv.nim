@@ -17,8 +17,6 @@ type
     nullString*: string
     eol*: string
 
-  ColFormatter = proc(rowIdx: int): string
-
   Writable* =
     concept w
         for col in w.columns:

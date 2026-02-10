@@ -32,12 +32,8 @@ proc newChunkedArray*[T](cAbiArrayStream: pointer): ChunkedArray[T] =
 proc newChunkedArray*[T](rawPtr: ptr GArrowChunkedArray): ChunkedArray[T] =
   result = ChunkedArray[T](handle: rawPtr)
 
-# TODO: find a way to deal with typed untyped stuff
-proc `==`*(chunkedArray: ChunkedArray, other: ChunkedArray): bool {.inline.} =
-  result = garrow_chunked_array_equal(chunkedArray.toPtr, other.toPtr) != 0
-
-proc `==`*[T](chunkedArray: ChunkedArray, other: ChunkedArray[T]): bool {.inline.} =
-  result = garrow_chunked_array_equal(chunkedArray.toPtr, other.toPtr) != 0
+proc `==`*[T, U](a: ChunkedArray[T], b: ChunkedArray[U]): bool {.inline.} =
+  result = garrow_chunked_array_equal(a.toPtr, b.toPtr) != 0
 
 proc getValueDataType*(chunkedArray: ChunkedArray): GADType =
   result = cast[GADType](garrow_chunked_array_get_value_data_type(chunkedArray.toPtr))
@@ -55,16 +51,6 @@ proc nRows*(chunkedArray: ChunkedArray): int64 {.inline.} =
 proc nNulls*(chunkedArray: ChunkedArray): int64 {.inline.} =
   ## Number of null values in the chunked array
   result = garrow_chunked_array_get_n_nulls(chunkedArray.toPtr).int64
-
-proc getNRows*(chunkedArray: ChunkedArray): uint64 {.deprecated: "Use nRows instead".} =
-  ## Deprecated: Use nRows instead
-  result = garrow_chunked_array_get_n_rows(chunkedArray.toPtr)
-
-proc getNNulls*(
-    chunkedArray: ChunkedArray
-): uint64 {.deprecated: "Use nNulls instead".} =
-  ## Deprecated: Use nNulls instead
-  result = garrow_chunked_array_get_n_nulls(chunkedArray.toPtr)
 
 proc nChunks*(chunkedArray: ChunkedArray): uint =
   result = garrow_chunked_array_get_n_chunks(chunkedArray.toPtr)
