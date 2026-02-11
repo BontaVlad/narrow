@@ -1111,6 +1111,7 @@ type enum_GParamFlags* {.size: sizeof(cint).} = enum
 const G_PARAM_PRIVATE* = enum_GParamFlags.G_PARAM_STATIC_NAME
 type compiler_has_extension* = object
 type struct_GKeyFile* = object
+type GARROW_VERSION_MIN_REQUIRED* = object
 type struct_GCache* = object
 type struct_GVariant* = object
 type struct_GSourcePrivate* = object
@@ -1120,12 +1121,14 @@ type struct_GArrowReadableInterface* = object
 type GARROW_EXTERN* = object
 type struct_GArrowWritableFileInterface* = object
 type struct_GSequence* = object
+type GARROW_VERSION_MAX_ALLOWED* = object
 type struct_GDir* = object
 type struct_GStrvBuilder* = object
 type struct_GOptionContext* = object
-type struct_GArrowWritable* = object
+type GPARQUET_EXTERN* = object
 type struct_GHmac* = object
 type struct_GMappedFile* = object
+type struct_GArrowWritable* = object
 type struct_GMatchInfo* = object
 type TRUE* = object
 type struct_GChecksum* = object
@@ -1153,8 +1156,9 @@ type struct_GMarkupParseContext* = object
 type GARROW_IMPORT* = object
 type GLIB_DEPRECATED* = object
 type compiler_builtin_va_list* = object
-type struct_GPatternSpec* = object
+type GPARQUET_IMPORT* = object
 type struct_GBytes* = object
+type struct_GPatternSpec* = object
 type internal_GLIB_IMPORT* = object
 type struct_GOptionGroup* = object
 type struct_GRand* = object
@@ -12282,6 +12286,403 @@ type
     ## Generated based on /usr/include/arrow-glib/local-file-system.h:49:1
   GArrowLocalFileSystemClass_queueautoptr* = ptr GQueue
     ## Generated based on /usr/include/arrow-glib/local-file-system.h:49:1
+  GParquetStatistics* = struct_GParquetStatistics
+    ## Generated based on /usr/include/parquet-glib/statistics.h:30:1
+  struct_GParquetStatistics* {.pure, inheritable, bycopy.} = object
+    parent_instance*: GObject
+      ## Generated based on /usr/include/parquet-glib/statistics.h:30:1
+
+  GParquetStatisticsClass* = struct_GParquetStatisticsClass
+    ## Generated based on /usr/include/parquet-glib/statistics.h:30:1
+  struct_GParquetStatisticsClass* {.pure, inheritable, bycopy.} = object
+    parent_class*: GObjectClass
+      ## Generated based on /usr/include/parquet-glib/statistics.h:32:8
+
+  GParquetStatistics_autoptr* = ptr GParquetStatistics
+    ## Generated based on /usr/include/parquet-glib/statistics.h:30:1
+  GParquetStatistics_listautoptr* = ptr GList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:30:1
+  GParquetStatistics_slistautoptr* = ptr GSList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:30:1
+  GParquetStatistics_queueautoptr* = ptr GQueue
+    ## Generated based on /usr/include/parquet-glib/statistics.h:30:1
+  GParquetStatisticsClass_autoptr* = ptr GParquetStatisticsClass
+    ## Generated based on /usr/include/parquet-glib/statistics.h:30:1
+  GParquetStatisticsClass_listautoptr* = ptr GList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:30:1
+  GParquetStatisticsClass_slistautoptr* = ptr GSList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:30:1
+  GParquetStatisticsClass_queueautoptr* = ptr GQueue
+    ## Generated based on /usr/include/parquet-glib/statistics.h:30:1
+  GParquetBooleanStatistics* = struct_GParquetBooleanStatistics
+    ## Generated based on /usr/include/parquet-glib/statistics.h:62:1
+  struct_GParquetBooleanStatistics* {.pure, inheritable, bycopy.} = object
+    parent_instance*: GParquetStatistics
+      ## Generated based on /usr/include/parquet-glib/statistics.h:62:1
+
+  GParquetBooleanStatisticsClass* = struct_GParquetBooleanStatisticsClass
+    ## Generated based on /usr/include/parquet-glib/statistics.h:62:1
+  struct_GParquetBooleanStatisticsClass* {.pure, inheritable, bycopy.} = object
+    parent_class*: GParquetStatisticsClass
+      ## Generated based on /usr/include/parquet-glib/statistics.h:67:8
+
+  GParquetBooleanStatistics_autoptr* = ptr GParquetBooleanStatistics
+    ## Generated based on /usr/include/parquet-glib/statistics.h:62:1
+  GParquetBooleanStatistics_listautoptr* = ptr GList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:62:1
+  GParquetBooleanStatistics_slistautoptr* = ptr GSList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:62:1
+  GParquetBooleanStatistics_queueautoptr* = ptr GQueue
+    ## Generated based on /usr/include/parquet-glib/statistics.h:62:1
+  GParquetBooleanStatisticsClass_autoptr* = ptr GParquetBooleanStatisticsClass
+    ## Generated based on /usr/include/parquet-glib/statistics.h:62:1
+  GParquetBooleanStatisticsClass_listautoptr* = ptr GList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:62:1
+  GParquetBooleanStatisticsClass_slistautoptr* = ptr GSList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:62:1
+  GParquetBooleanStatisticsClass_queueautoptr* = ptr GQueue
+    ## Generated based on /usr/include/parquet-glib/statistics.h:62:1
+  GParquetInt32Statistics* = struct_GParquetInt32Statistics
+    ## Generated based on /usr/include/parquet-glib/statistics.h:81:1
+  struct_GParquetInt32Statistics* {.pure, inheritable, bycopy.} = object
+    parent_instance*: GParquetStatistics
+      ## Generated based on /usr/include/parquet-glib/statistics.h:81:1
+
+  GParquetInt32StatisticsClass* = struct_GParquetInt32StatisticsClass
+    ## Generated based on /usr/include/parquet-glib/statistics.h:81:1
+  struct_GParquetInt32StatisticsClass* {.pure, inheritable, bycopy.} = object
+    parent_class*: GParquetStatisticsClass
+      ## Generated based on /usr/include/parquet-glib/statistics.h:86:8
+
+  GParquetInt32Statistics_autoptr* = ptr GParquetInt32Statistics
+    ## Generated based on /usr/include/parquet-glib/statistics.h:81:1
+  GParquetInt32Statistics_listautoptr* = ptr GList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:81:1
+  GParquetInt32Statistics_slistautoptr* = ptr GSList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:81:1
+  GParquetInt32Statistics_queueautoptr* = ptr GQueue
+    ## Generated based on /usr/include/parquet-glib/statistics.h:81:1
+  GParquetInt32StatisticsClass_autoptr* = ptr GParquetInt32StatisticsClass
+    ## Generated based on /usr/include/parquet-glib/statistics.h:81:1
+  GParquetInt32StatisticsClass_listautoptr* = ptr GList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:81:1
+  GParquetInt32StatisticsClass_slistautoptr* = ptr GSList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:81:1
+  GParquetInt32StatisticsClass_queueautoptr* = ptr GQueue
+    ## Generated based on /usr/include/parquet-glib/statistics.h:81:1
+  GParquetInt64Statistics* = struct_GParquetInt64Statistics
+    ## Generated based on /usr/include/parquet-glib/statistics.h:100:1
+  struct_GParquetInt64Statistics* {.pure, inheritable, bycopy.} = object
+    parent_instance*: GParquetStatistics
+      ## Generated based on /usr/include/parquet-glib/statistics.h:100:1
+
+  GParquetInt64StatisticsClass* = struct_GParquetInt64StatisticsClass
+    ## Generated based on /usr/include/parquet-glib/statistics.h:100:1
+  struct_GParquetInt64StatisticsClass* {.pure, inheritable, bycopy.} = object
+    parent_class*: GParquetStatisticsClass
+      ## Generated based on /usr/include/parquet-glib/statistics.h:105:8
+
+  GParquetInt64Statistics_autoptr* = ptr GParquetInt64Statistics
+    ## Generated based on /usr/include/parquet-glib/statistics.h:100:1
+  GParquetInt64Statistics_listautoptr* = ptr GList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:100:1
+  GParquetInt64Statistics_slistautoptr* = ptr GSList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:100:1
+  GParquetInt64Statistics_queueautoptr* = ptr GQueue
+    ## Generated based on /usr/include/parquet-glib/statistics.h:100:1
+  GParquetInt64StatisticsClass_autoptr* = ptr GParquetInt64StatisticsClass
+    ## Generated based on /usr/include/parquet-glib/statistics.h:100:1
+  GParquetInt64StatisticsClass_listautoptr* = ptr GList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:100:1
+  GParquetInt64StatisticsClass_slistautoptr* = ptr GSList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:100:1
+  GParquetInt64StatisticsClass_queueautoptr* = ptr GQueue
+    ## Generated based on /usr/include/parquet-glib/statistics.h:100:1
+  GParquetFloatStatistics* = struct_GParquetFloatStatistics
+    ## Generated based on /usr/include/parquet-glib/statistics.h:119:1
+  struct_GParquetFloatStatistics* {.pure, inheritable, bycopy.} = object
+    parent_instance*: GParquetStatistics
+      ## Generated based on /usr/include/parquet-glib/statistics.h:119:1
+
+  GParquetFloatStatisticsClass* = struct_GParquetFloatStatisticsClass
+    ## Generated based on /usr/include/parquet-glib/statistics.h:119:1
+  struct_GParquetFloatStatisticsClass* {.pure, inheritable, bycopy.} = object
+    parent_class*: GParquetStatisticsClass
+      ## Generated based on /usr/include/parquet-glib/statistics.h:124:8
+
+  GParquetFloatStatistics_autoptr* = ptr GParquetFloatStatistics
+    ## Generated based on /usr/include/parquet-glib/statistics.h:119:1
+  GParquetFloatStatistics_listautoptr* = ptr GList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:119:1
+  GParquetFloatStatistics_slistautoptr* = ptr GSList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:119:1
+  GParquetFloatStatistics_queueautoptr* = ptr GQueue
+    ## Generated based on /usr/include/parquet-glib/statistics.h:119:1
+  GParquetFloatStatisticsClass_autoptr* = ptr GParquetFloatStatisticsClass
+    ## Generated based on /usr/include/parquet-glib/statistics.h:119:1
+  GParquetFloatStatisticsClass_listautoptr* = ptr GList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:119:1
+  GParquetFloatStatisticsClass_slistautoptr* = ptr GSList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:119:1
+  GParquetFloatStatisticsClass_queueautoptr* = ptr GQueue
+    ## Generated based on /usr/include/parquet-glib/statistics.h:119:1
+  GParquetDoubleStatistics* = struct_GParquetDoubleStatistics
+    ## Generated based on /usr/include/parquet-glib/statistics.h:138:1
+  struct_GParquetDoubleStatistics* {.pure, inheritable, bycopy.} = object
+    parent_instance*: GParquetStatistics
+      ## Generated based on /usr/include/parquet-glib/statistics.h:138:1
+
+  GParquetDoubleStatisticsClass* = struct_GParquetDoubleStatisticsClass
+    ## Generated based on /usr/include/parquet-glib/statistics.h:138:1
+  struct_GParquetDoubleStatisticsClass* {.pure, inheritable, bycopy.} = object
+    parent_class*: GParquetStatisticsClass
+      ## Generated based on /usr/include/parquet-glib/statistics.h:143:8
+
+  GParquetDoubleStatistics_autoptr* = ptr GParquetDoubleStatistics
+    ## Generated based on /usr/include/parquet-glib/statistics.h:138:1
+  GParquetDoubleStatistics_listautoptr* = ptr GList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:138:1
+  GParquetDoubleStatistics_slistautoptr* = ptr GSList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:138:1
+  GParquetDoubleStatistics_queueautoptr* = ptr GQueue
+    ## Generated based on /usr/include/parquet-glib/statistics.h:138:1
+  GParquetDoubleStatisticsClass_autoptr* = ptr GParquetDoubleStatisticsClass
+    ## Generated based on /usr/include/parquet-glib/statistics.h:138:1
+  GParquetDoubleStatisticsClass_listautoptr* = ptr GList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:138:1
+  GParquetDoubleStatisticsClass_slistautoptr* = ptr GSList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:138:1
+  GParquetDoubleStatisticsClass_queueautoptr* = ptr GQueue
+    ## Generated based on /usr/include/parquet-glib/statistics.h:138:1
+  GParquetByteArrayStatistics* = struct_GParquetByteArrayStatistics
+    ## Generated based on /usr/include/parquet-glib/statistics.h:157:1
+  struct_GParquetByteArrayStatistics* {.pure, inheritable, bycopy.} = object
+    parent_instance*: GParquetStatistics
+      ## Generated based on /usr/include/parquet-glib/statistics.h:157:1
+
+  GParquetByteArrayStatisticsClass* = struct_GParquetByteArrayStatisticsClass
+    ## Generated based on /usr/include/parquet-glib/statistics.h:157:1
+  struct_GParquetByteArrayStatisticsClass* {.pure, inheritable, bycopy.} = object
+    parent_class*: GParquetStatisticsClass
+      ## Generated based on /usr/include/parquet-glib/statistics.h:162:8
+
+  GParquetByteArrayStatistics_autoptr* = ptr GParquetByteArrayStatistics
+    ## Generated based on /usr/include/parquet-glib/statistics.h:157:1
+  GParquetByteArrayStatistics_listautoptr* = ptr GList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:157:1
+  GParquetByteArrayStatistics_slistautoptr* = ptr GSList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:157:1
+  GParquetByteArrayStatistics_queueautoptr* = ptr GQueue
+    ## Generated based on /usr/include/parquet-glib/statistics.h:157:1
+  GParquetByteArrayStatisticsClass_autoptr* = ptr GParquetByteArrayStatisticsClass
+    ## Generated based on /usr/include/parquet-glib/statistics.h:157:1
+  GParquetByteArrayStatisticsClass_listautoptr* = ptr GList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:157:1
+  GParquetByteArrayStatisticsClass_slistautoptr* = ptr GSList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:157:1
+  GParquetByteArrayStatisticsClass_queueautoptr* = ptr GQueue
+    ## Generated based on /usr/include/parquet-glib/statistics.h:157:1
+  GParquetFixedLengthByteArrayStatistics* =
+    struct_GParquetFixedLengthByteArrayStatistics
+    ## Generated based on /usr/include/parquet-glib/statistics.h:177:1
+  struct_GParquetFixedLengthByteArrayStatistics* {.pure, inheritable, bycopy.} = object
+    parent_instance*: GParquetStatistics
+      ## Generated based on /usr/include/parquet-glib/statistics.h:177:1
+
+  GParquetFixedLengthByteArrayStatisticsClass* =
+    struct_GParquetFixedLengthByteArrayStatisticsClass
+    ## Generated based on /usr/include/parquet-glib/statistics.h:177:1
+
+  struct_GParquetFixedLengthByteArrayStatisticsClass* {.pure, inheritable, bycopy.} = object
+    parent_class*: GParquetStatisticsClass
+      ## Generated based on /usr/include/parquet-glib/statistics.h:182:8
+
+  GParquetFixedLengthByteArrayStatistics_autoptr* =
+    ptr GParquetFixedLengthByteArrayStatistics
+    ## Generated based on /usr/include/parquet-glib/statistics.h:177:1
+  GParquetFixedLengthByteArrayStatistics_listautoptr* = ptr GList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:177:1
+  GParquetFixedLengthByteArrayStatistics_slistautoptr* = ptr GSList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:177:1
+  GParquetFixedLengthByteArrayStatistics_queueautoptr* = ptr GQueue
+    ## Generated based on /usr/include/parquet-glib/statistics.h:177:1
+  GParquetFixedLengthByteArrayStatisticsClass_autoptr* =
+    ptr GParquetFixedLengthByteArrayStatisticsClass
+    ## Generated based on /usr/include/parquet-glib/statistics.h:177:1
+  GParquetFixedLengthByteArrayStatisticsClass_listautoptr* = ptr GList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:177:1
+  GParquetFixedLengthByteArrayStatisticsClass_slistautoptr* = ptr GSList
+    ## Generated based on /usr/include/parquet-glib/statistics.h:177:1
+  GParquetFixedLengthByteArrayStatisticsClass_queueautoptr* = ptr GQueue
+    ## Generated based on /usr/include/parquet-glib/statistics.h:177:1
+  GParquetColumnChunkMetadata* = struct_GParquetColumnChunkMetadata
+    ## Generated based on /usr/include/parquet-glib/metadata.h:28:1
+  struct_GParquetColumnChunkMetadata* {.pure, inheritable, bycopy.} = object
+    parent_instance*: GObject
+      ## Generated based on /usr/include/parquet-glib/metadata.h:28:1
+
+  GParquetColumnChunkMetadataClass* = struct_GParquetColumnChunkMetadataClass
+    ## Generated based on /usr/include/parquet-glib/metadata.h:28:1
+  struct_GParquetColumnChunkMetadataClass* {.pure, inheritable, bycopy.} = object
+    parent_class*: GObjectClass
+      ## Generated based on /usr/include/parquet-glib/metadata.h:33:8
+
+  GParquetColumnChunkMetadata_autoptr* = ptr GParquetColumnChunkMetadata
+    ## Generated based on /usr/include/parquet-glib/metadata.h:28:1
+  GParquetColumnChunkMetadata_listautoptr* = ptr GList
+    ## Generated based on /usr/include/parquet-glib/metadata.h:28:1
+  GParquetColumnChunkMetadata_slistautoptr* = ptr GSList
+    ## Generated based on /usr/include/parquet-glib/metadata.h:28:1
+  GParquetColumnChunkMetadata_queueautoptr* = ptr GQueue
+    ## Generated based on /usr/include/parquet-glib/metadata.h:28:1
+  GParquetColumnChunkMetadataClass_autoptr* = ptr GParquetColumnChunkMetadataClass
+    ## Generated based on /usr/include/parquet-glib/metadata.h:28:1
+  GParquetColumnChunkMetadataClass_listautoptr* = ptr GList
+    ## Generated based on /usr/include/parquet-glib/metadata.h:28:1
+  GParquetColumnChunkMetadataClass_slistautoptr* = ptr GSList
+    ## Generated based on /usr/include/parquet-glib/metadata.h:28:1
+  GParquetColumnChunkMetadataClass_queueautoptr* = ptr GQueue
+    ## Generated based on /usr/include/parquet-glib/metadata.h:28:1
+  GParquetRowGroupMetadata* = struct_GParquetRowGroupMetadata
+    ## Generated based on /usr/include/parquet-glib/metadata.h:61:1
+  struct_GParquetRowGroupMetadata* {.pure, inheritable, bycopy.} = object
+    parent_instance*: GObject
+      ## Generated based on /usr/include/parquet-glib/metadata.h:61:1
+
+  GParquetRowGroupMetadataClass* = struct_GParquetRowGroupMetadataClass
+    ## Generated based on /usr/include/parquet-glib/metadata.h:61:1
+  struct_GParquetRowGroupMetadataClass* {.pure, inheritable, bycopy.} = object
+    parent_class*: GObjectClass
+      ## Generated based on /usr/include/parquet-glib/metadata.h:66:8
+
+  GParquetRowGroupMetadata_autoptr* = ptr GParquetRowGroupMetadata
+    ## Generated based on /usr/include/parquet-glib/metadata.h:61:1
+  GParquetRowGroupMetadata_listautoptr* = ptr GList
+    ## Generated based on /usr/include/parquet-glib/metadata.h:61:1
+  GParquetRowGroupMetadata_slistautoptr* = ptr GSList
+    ## Generated based on /usr/include/parquet-glib/metadata.h:61:1
+  GParquetRowGroupMetadata_queueautoptr* = ptr GQueue
+    ## Generated based on /usr/include/parquet-glib/metadata.h:61:1
+  GParquetRowGroupMetadataClass_autoptr* = ptr GParquetRowGroupMetadataClass
+    ## Generated based on /usr/include/parquet-glib/metadata.h:61:1
+  GParquetRowGroupMetadataClass_listautoptr* = ptr GList
+    ## Generated based on /usr/include/parquet-glib/metadata.h:61:1
+  GParquetRowGroupMetadataClass_slistautoptr* = ptr GSList
+    ## Generated based on /usr/include/parquet-glib/metadata.h:61:1
+  GParquetRowGroupMetadataClass_queueautoptr* = ptr GQueue
+    ## Generated based on /usr/include/parquet-glib/metadata.h:61:1
+  GParquetFileMetadata* = struct_GParquetFileMetadata
+    ## Generated based on /usr/include/parquet-glib/metadata.h:101:1
+  struct_GParquetFileMetadata* {.pure, inheritable, bycopy.} = object
+    parent_instance*: GObject
+      ## Generated based on /usr/include/parquet-glib/metadata.h:101:1
+
+  GParquetFileMetadataClass* = struct_GParquetFileMetadataClass
+    ## Generated based on /usr/include/parquet-glib/metadata.h:101:1
+  struct_GParquetFileMetadataClass* {.pure, inheritable, bycopy.} = object
+    parent_class*: GObjectClass
+      ## Generated based on /usr/include/parquet-glib/metadata.h:103:8
+
+  GParquetFileMetadata_autoptr* = ptr GParquetFileMetadata
+    ## Generated based on /usr/include/parquet-glib/metadata.h:101:1
+  GParquetFileMetadata_listautoptr* = ptr GList
+    ## Generated based on /usr/include/parquet-glib/metadata.h:101:1
+  GParquetFileMetadata_slistautoptr* = ptr GSList
+    ## Generated based on /usr/include/parquet-glib/metadata.h:101:1
+  GParquetFileMetadata_queueautoptr* = ptr GQueue
+    ## Generated based on /usr/include/parquet-glib/metadata.h:101:1
+  GParquetFileMetadataClass_autoptr* = ptr GParquetFileMetadataClass
+    ## Generated based on /usr/include/parquet-glib/metadata.h:101:1
+  GParquetFileMetadataClass_listautoptr* = ptr GList
+    ## Generated based on /usr/include/parquet-glib/metadata.h:101:1
+  GParquetFileMetadataClass_slistautoptr* = ptr GSList
+    ## Generated based on /usr/include/parquet-glib/metadata.h:101:1
+  GParquetFileMetadataClass_queueautoptr* = ptr GQueue
+    ## Generated based on /usr/include/parquet-glib/metadata.h:101:1
+  GParquetArrowFileReader* = struct_GParquetArrowFileReader
+    ## Generated based on /usr/include/parquet-glib/arrow-file-reader.h:28:1
+  struct_GParquetArrowFileReader* {.pure, inheritable, bycopy.} = object
+    parent_instance*: GObject
+      ## Generated based on /usr/include/parquet-glib/arrow-file-reader.h:28:1
+
+  GParquetArrowFileReaderClass* = struct_GParquetArrowFileReaderClass
+    ## Generated based on /usr/include/parquet-glib/arrow-file-reader.h:28:1
+  struct_GParquetArrowFileReaderClass* {.pure, inheritable, bycopy.} = object
+    parent_class*: GObjectClass
+      ## Generated based on /usr/include/parquet-glib/arrow-file-reader.h:33:8
+
+  GParquetArrowFileReader_autoptr* = ptr GParquetArrowFileReader
+    ## Generated based on /usr/include/parquet-glib/arrow-file-reader.h:28:1
+  GParquetArrowFileReader_listautoptr* = ptr GList
+    ## Generated based on /usr/include/parquet-glib/arrow-file-reader.h:28:1
+  GParquetArrowFileReader_slistautoptr* = ptr GSList
+    ## Generated based on /usr/include/parquet-glib/arrow-file-reader.h:28:1
+  GParquetArrowFileReader_queueautoptr* = ptr GQueue
+    ## Generated based on /usr/include/parquet-glib/arrow-file-reader.h:28:1
+  GParquetArrowFileReaderClass_autoptr* = ptr GParquetArrowFileReaderClass
+    ## Generated based on /usr/include/parquet-glib/arrow-file-reader.h:28:1
+  GParquetArrowFileReaderClass_listautoptr* = ptr GList
+    ## Generated based on /usr/include/parquet-glib/arrow-file-reader.h:28:1
+  GParquetArrowFileReaderClass_slistautoptr* = ptr GSList
+    ## Generated based on /usr/include/parquet-glib/arrow-file-reader.h:28:1
+  GParquetArrowFileReaderClass_queueautoptr* = ptr GQueue
+    ## Generated based on /usr/include/parquet-glib/arrow-file-reader.h:28:1
+  GParquetWriterProperties* = struct_GParquetWriterProperties
+    ## Generated based on /usr/include/parquet-glib/arrow-file-writer.h:29:1
+  struct_GParquetWriterProperties* {.pure, inheritable, bycopy.} = object
+    parent_instance*: GObject
+      ## Generated based on /usr/include/parquet-glib/arrow-file-writer.h:29:1
+
+  GParquetWriterPropertiesClass* = struct_GParquetWriterPropertiesClass
+    ## Generated based on /usr/include/parquet-glib/arrow-file-writer.h:29:1
+  struct_GParquetWriterPropertiesClass* {.pure, inheritable, bycopy.} = object
+    parent_class*: GObjectClass
+      ## Generated based on /usr/include/parquet-glib/arrow-file-writer.h:34:8
+
+  GParquetWriterProperties_autoptr* = ptr GParquetWriterProperties
+    ## Generated based on /usr/include/parquet-glib/arrow-file-writer.h:29:1
+  GParquetWriterProperties_listautoptr* = ptr GList
+    ## Generated based on /usr/include/parquet-glib/arrow-file-writer.h:29:1
+  GParquetWriterProperties_slistautoptr* = ptr GSList
+    ## Generated based on /usr/include/parquet-glib/arrow-file-writer.h:29:1
+  GParquetWriterProperties_queueautoptr* = ptr GQueue
+    ## Generated based on /usr/include/parquet-glib/arrow-file-writer.h:29:1
+  GParquetWriterPropertiesClass_autoptr* = ptr GParquetWriterPropertiesClass
+    ## Generated based on /usr/include/parquet-glib/arrow-file-writer.h:29:1
+  GParquetWriterPropertiesClass_listautoptr* = ptr GList
+    ## Generated based on /usr/include/parquet-glib/arrow-file-writer.h:29:1
+  GParquetWriterPropertiesClass_slistautoptr* = ptr GSList
+    ## Generated based on /usr/include/parquet-glib/arrow-file-writer.h:29:1
+  GParquetWriterPropertiesClass_queueautoptr* = ptr GQueue
+    ## Generated based on /usr/include/parquet-glib/arrow-file-writer.h:29:1
+  GParquetArrowFileWriter* = struct_GParquetArrowFileWriter
+    ## Generated based on /usr/include/parquet-glib/arrow-file-writer.h:95:1
+  struct_GParquetArrowFileWriter* {.pure, inheritable, bycopy.} = object
+    parent_instance*: GObject
+      ## Generated based on /usr/include/parquet-glib/arrow-file-writer.h:95:1
+
+  GParquetArrowFileWriterClass* = struct_GParquetArrowFileWriterClass
+    ## Generated based on /usr/include/parquet-glib/arrow-file-writer.h:95:1
+  struct_GParquetArrowFileWriterClass* {.pure, inheritable, bycopy.} = object
+    parent_class*: GObjectClass
+      ## Generated based on /usr/include/parquet-glib/arrow-file-writer.h:100:8
+
+  GParquetArrowFileWriter_autoptr* = ptr GParquetArrowFileWriter
+    ## Generated based on /usr/include/parquet-glib/arrow-file-writer.h:95:1
+  GParquetArrowFileWriter_listautoptr* = ptr GList
+    ## Generated based on /usr/include/parquet-glib/arrow-file-writer.h:95:1
+  GParquetArrowFileWriter_slistautoptr* = ptr GSList
+    ## Generated based on /usr/include/parquet-glib/arrow-file-writer.h:95:1
+  GParquetArrowFileWriter_queueautoptr* = ptr GQueue
+    ## Generated based on /usr/include/parquet-glib/arrow-file-writer.h:95:1
+  GParquetArrowFileWriterClass_autoptr* = ptr GParquetArrowFileWriterClass
+    ## Generated based on /usr/include/parquet-glib/arrow-file-writer.h:95:1
+  GParquetArrowFileWriterClass_listautoptr* = ptr GList
+    ## Generated based on /usr/include/parquet-glib/arrow-file-writer.h:95:1
+  GParquetArrowFileWriterClass_slistautoptr* = ptr GSList
+    ## Generated based on /usr/include/parquet-glib/arrow-file-writer.h:95:1
+  GParquetArrowFileWriterClass_queueautoptr* = ptr GQueue
+    ## Generated based on /usr/include/parquet-glib/arrow-file-writer.h:95:1
   compiler_time_t* = clong ## Generated based on /usr/include/bits/types.h:160:26
   union_pthread_mutex_t* {.union, bycopy.} = object
     compiler_data*: struct_pthread_mutex_s
@@ -14052,6 +14453,426 @@ when -1 is static:
 else:
   let GARROW_LIST_SLICE_OPTIONS_STOP_UNSPECIFIED* = -1
     ## Generated based on /usr/include/arrow-glib/compute.h:1405:9
+when 23 is static:
+  const GPARQUET_VERSION_MAJOR* = 23
+    ## Generated based on /usr/include/parquet-glib/version.h:41:9
+else:
+  let GPARQUET_VERSION_MAJOR* = 23
+    ## Generated based on /usr/include/parquet-glib/version.h:41:9
+when 0 is static:
+  const GPARQUET_VERSION_MINOR* = 0
+    ## Generated based on /usr/include/parquet-glib/version.h:50:9
+else:
+  let GPARQUET_VERSION_MINOR* = 0
+    ## Generated based on /usr/include/parquet-glib/version.h:50:9
+when 0 is static:
+  const GPARQUET_VERSION_MICRO* = 0
+    ## Generated based on /usr/include/parquet-glib/version.h:59:9
+else:
+  let GPARQUET_VERSION_MICRO* = 0
+    ## Generated based on /usr/include/parquet-glib/version.h:59:9
+when "" is static:
+  const GPARQUET_VERSION_TAG* = ""
+    ## Generated based on /usr/include/parquet-glib/version.h:69:9
+else:
+  let GPARQUET_VERSION_TAG* = ""
+    ## Generated based on /usr/include/parquet-glib/version.h:69:9
+when G_DEPRECATED is typedesc:
+  type GPARQUET_DEPRECATED* = G_DEPRECATED
+    ## Generated based on /usr/include/parquet-glib/version.h:108:11
+
+else:
+  when G_DEPRECATED is static:
+    const GPARQUET_DEPRECATED* = G_DEPRECATED
+      ## Generated based on /usr/include/parquet-glib/version.h:108:11
+  else:
+    let GPARQUET_DEPRECATED* = G_DEPRECATED
+      ## Generated based on /usr/include/parquet-glib/version.h:108:11
+when GARROW_VERSION_MIN_REQUIRED is typedesc:
+  type GPARQUET_VERSION_MIN_REQUIRED* = GARROW_VERSION_MIN_REQUIRED
+    ## Generated based on /usr/include/parquet-glib/version.h:410:11
+
+else:
+  when GARROW_VERSION_MIN_REQUIRED is static:
+    const GPARQUET_VERSION_MIN_REQUIRED* = GARROW_VERSION_MIN_REQUIRED
+      ## Generated based on /usr/include/parquet-glib/version.h:410:11
+  else:
+    let GPARQUET_VERSION_MIN_REQUIRED* = GARROW_VERSION_MIN_REQUIRED
+      ## Generated based on /usr/include/parquet-glib/version.h:410:11
+when GARROW_VERSION_MAX_ALLOWED is typedesc:
+  type GPARQUET_VERSION_MAX_ALLOWED* = GARROW_VERSION_MAX_ALLOWED
+    ## Generated based on /usr/include/parquet-glib/version.h:431:11
+
+else:
+  when GARROW_VERSION_MAX_ALLOWED is static:
+    const GPARQUET_VERSION_MAX_ALLOWED* = GARROW_VERSION_MAX_ALLOWED
+      ## Generated based on /usr/include/parquet-glib/version.h:431:11
+  else:
+    let GPARQUET_VERSION_MAX_ALLOWED* = GARROW_VERSION_MAX_ALLOWED
+      ## Generated based on /usr/include/parquet-glib/version.h:431:11
+when GPARQUET_IMPORT is typedesc:
+  type GPARQUET_API* = GPARQUET_IMPORT
+    ## Generated based on /usr/include/parquet-glib/version.h:445:11
+
+else:
+  when GPARQUET_IMPORT is static:
+    const GPARQUET_API* = GPARQUET_IMPORT
+      ## Generated based on /usr/include/parquet-glib/version.h:445:11
+  else:
+    let GPARQUET_API* = GPARQUET_IMPORT
+      ## Generated based on /usr/include/parquet-glib/version.h:445:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_ALL* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:450:9
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_ALL* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:450:9
+  else:
+    let GPARQUET_AVAILABLE_IN_ALL* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:450:9
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_23_0* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:463:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_23_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:463:11
+  else:
+    let GPARQUET_AVAILABLE_IN_23_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:463:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_22_0* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:477:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_22_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:477:11
+  else:
+    let GPARQUET_AVAILABLE_IN_22_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:477:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_21_0* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:491:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_21_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:491:11
+  else:
+    let GPARQUET_AVAILABLE_IN_21_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:491:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_20_0* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:505:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_20_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:505:11
+  else:
+    let GPARQUET_AVAILABLE_IN_20_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:505:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_19_0* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:519:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_19_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:519:11
+  else:
+    let GPARQUET_AVAILABLE_IN_19_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:519:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_18_0* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:533:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_18_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:533:11
+  else:
+    let GPARQUET_AVAILABLE_IN_18_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:533:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_17_0* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:547:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_17_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:547:11
+  else:
+    let GPARQUET_AVAILABLE_IN_17_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:547:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_16_0* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:561:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_16_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:561:11
+  else:
+    let GPARQUET_AVAILABLE_IN_16_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:561:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_15_0* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:575:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_15_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:575:11
+  else:
+    let GPARQUET_AVAILABLE_IN_15_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:575:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_14_0* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:589:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_14_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:589:11
+  else:
+    let GPARQUET_AVAILABLE_IN_14_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:589:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_13_0* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:603:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_13_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:603:11
+  else:
+    let GPARQUET_AVAILABLE_IN_13_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:603:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_12_0* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:617:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_12_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:617:11
+  else:
+    let GPARQUET_AVAILABLE_IN_12_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:617:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_11_0* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:631:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_11_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:631:11
+  else:
+    let GPARQUET_AVAILABLE_IN_11_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:631:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_10_0* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:645:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_10_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:645:11
+  else:
+    let GPARQUET_AVAILABLE_IN_10_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:645:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_9_0* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:659:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_9_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:659:11
+  else:
+    let GPARQUET_AVAILABLE_IN_9_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:659:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_8_0* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:673:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_8_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:673:11
+  else:
+    let GPARQUET_AVAILABLE_IN_8_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:673:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_7_0* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:687:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_7_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:687:11
+  else:
+    let GPARQUET_AVAILABLE_IN_7_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:687:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_6_0* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:701:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_6_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:701:11
+  else:
+    let GPARQUET_AVAILABLE_IN_6_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:701:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_5_0* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:715:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_5_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:715:11
+  else:
+    let GPARQUET_AVAILABLE_IN_5_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:715:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_4_0* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:729:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_4_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:729:11
+  else:
+    let GPARQUET_AVAILABLE_IN_4_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:729:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_3_0* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:743:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_3_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:743:11
+  else:
+    let GPARQUET_AVAILABLE_IN_3_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:743:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_2_0* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:757:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_2_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:757:11
+  else:
+    let GPARQUET_AVAILABLE_IN_2_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:757:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_1_0* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:771:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_1_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:771:11
+  else:
+    let GPARQUET_AVAILABLE_IN_1_0* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:771:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_0_17* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:785:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_0_17* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:785:11
+  else:
+    let GPARQUET_AVAILABLE_IN_0_17* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:785:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_0_16* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:799:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_0_16* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:799:11
+  else:
+    let GPARQUET_AVAILABLE_IN_0_16* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:799:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_0_15* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:813:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_0_15* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:813:11
+  else:
+    let GPARQUET_AVAILABLE_IN_0_15* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:813:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_0_14* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:827:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_0_14* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:827:11
+  else:
+    let GPARQUET_AVAILABLE_IN_0_14* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:827:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_0_13* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:841:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_0_13* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:841:11
+  else:
+    let GPARQUET_AVAILABLE_IN_0_13* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:841:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_0_12* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:855:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_0_12* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:855:11
+  else:
+    let GPARQUET_AVAILABLE_IN_0_12* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:855:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_0_11* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:869:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_0_11* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:869:11
+  else:
+    let GPARQUET_AVAILABLE_IN_0_11* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:869:11
+when GPARQUET_EXTERN is typedesc:
+  type GPARQUET_AVAILABLE_IN_0_10* = GPARQUET_EXTERN
+    ## Generated based on /usr/include/parquet-glib/version.h:883:11
+
+else:
+  when GPARQUET_EXTERN is static:
+    const GPARQUET_AVAILABLE_IN_0_10* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:883:11
+  else:
+    let GPARQUET_AVAILABLE_IN_0_10* = GPARQUET_EXTERN
+      ## Generated based on /usr/include/parquet-glib/version.h:883:11
 proc g_array_new*(
   zero_terminated: gboolean, clear_private: gboolean, element_size: guint
 ): ptr GArray {.cdecl, importc: "g_array_new".}
@@ -27965,3 +28786,409 @@ proc garrow_local_file_system_get_type*(): GType {.
 proc garrow_local_file_system_new*(
   options: ptr GArrowLocalFileSystemOptions
 ): ptr GArrowLocalFileSystem {.cdecl, importc: "garrow_local_file_system_new".}
+
+proc gparquet_statistics_get_type*(): GType {.
+  cdecl, importc: "gparquet_statistics_get_type"
+.}
+
+proc gparquet_statistics_equal*(
+  statistics: ptr GParquetStatistics, other_statistics: ptr GParquetStatistics
+): gboolean {.cdecl, importc: "gparquet_statistics_equal".}
+
+proc gparquet_statistics_has_n_nulls*(
+  statistics: ptr GParquetStatistics
+): gboolean {.cdecl, importc: "gparquet_statistics_has_n_nulls".}
+
+proc gparquet_statistics_get_n_nulls*(
+  statistics: ptr GParquetStatistics
+): gint64 {.cdecl, importc: "gparquet_statistics_get_n_nulls".}
+
+proc gparquet_statistics_has_n_distinct_values*(
+  statistics: ptr GParquetStatistics
+): gboolean {.cdecl, importc: "gparquet_statistics_has_n_distinct_values".}
+
+proc gparquet_statistics_get_n_distinct_values*(
+  statistics: ptr GParquetStatistics
+): gint64 {.cdecl, importc: "gparquet_statistics_get_n_distinct_values".}
+
+proc gparquet_statistics_get_n_values*(
+  statistics: ptr GParquetStatistics
+): gint64 {.cdecl, importc: "gparquet_statistics_get_n_values".}
+
+proc gparquet_statistics_has_min_max*(
+  statistics: ptr GParquetStatistics
+): gboolean {.cdecl, importc: "gparquet_statistics_has_min_max".}
+
+proc gparquet_boolean_statistics_get_type*(): GType {.
+  cdecl, importc: "gparquet_boolean_statistics_get_type"
+.}
+
+proc gparquet_boolean_statistics_get_min*(
+  statistics: ptr GParquetBooleanStatistics
+): gboolean {.cdecl, importc: "gparquet_boolean_statistics_get_min".}
+
+proc gparquet_boolean_statistics_get_max*(
+  statistics: ptr GParquetBooleanStatistics
+): gboolean {.cdecl, importc: "gparquet_boolean_statistics_get_max".}
+
+proc gparquet_int32_statistics_get_type*(): GType {.
+  cdecl, importc: "gparquet_int32_statistics_get_type"
+.}
+
+proc gparquet_int32_statistics_get_min*(
+  statistics: ptr GParquetInt32Statistics
+): gint32 {.cdecl, importc: "gparquet_int32_statistics_get_min".}
+
+proc gparquet_int32_statistics_get_max*(
+  statistics: ptr GParquetInt32Statistics
+): gint32 {.cdecl, importc: "gparquet_int32_statistics_get_max".}
+
+proc gparquet_int64_statistics_get_type*(): GType {.
+  cdecl, importc: "gparquet_int64_statistics_get_type"
+.}
+
+proc gparquet_int64_statistics_get_min*(
+  statistics: ptr GParquetInt64Statistics
+): gint64 {.cdecl, importc: "gparquet_int64_statistics_get_min".}
+
+proc gparquet_int64_statistics_get_max*(
+  statistics: ptr GParquetInt64Statistics
+): gint64 {.cdecl, importc: "gparquet_int64_statistics_get_max".}
+
+proc gparquet_float_statistics_get_type*(): GType {.
+  cdecl, importc: "gparquet_float_statistics_get_type"
+.}
+
+proc gparquet_float_statistics_get_min*(
+  statistics: ptr GParquetFloatStatistics
+): gfloat {.cdecl, importc: "gparquet_float_statistics_get_min".}
+
+proc gparquet_float_statistics_get_max*(
+  statistics: ptr GParquetFloatStatistics
+): gfloat {.cdecl, importc: "gparquet_float_statistics_get_max".}
+
+proc gparquet_double_statistics_get_type*(): GType {.
+  cdecl, importc: "gparquet_double_statistics_get_type"
+.}
+
+proc gparquet_double_statistics_get_min*(
+  statistics: ptr GParquetDoubleStatistics
+): gdouble {.cdecl, importc: "gparquet_double_statistics_get_min".}
+
+proc gparquet_double_statistics_get_max*(
+  statistics: ptr GParquetDoubleStatistics
+): gdouble {.cdecl, importc: "gparquet_double_statistics_get_max".}
+
+proc gparquet_byte_array_statistics_get_type*(): GType {.
+  cdecl, importc: "gparquet_byte_array_statistics_get_type"
+.}
+
+proc gparquet_byte_array_statistics_get_min*(
+  statistics: ptr GParquetByteArrayStatistics
+): ptr GBytes {.cdecl, importc: "gparquet_byte_array_statistics_get_min".}
+
+proc gparquet_byte_array_statistics_get_max*(
+  statistics: ptr GParquetByteArrayStatistics
+): ptr GBytes {.cdecl, importc: "gparquet_byte_array_statistics_get_max".}
+
+proc gparquet_fixed_length_byte_array_statistics_get_type*(): GType {.
+  cdecl, importc: "gparquet_fixed_length_byte_array_statistics_get_type"
+.}
+
+proc gparquet_fixed_length_byte_array_statistics_get_min*(
+  statistics: ptr GParquetFixedLengthByteArrayStatistics
+): ptr GBytes {.cdecl, importc: "gparquet_fixed_length_byte_array_statistics_get_min".}
+
+proc gparquet_fixed_length_byte_array_statistics_get_max*(
+  statistics: ptr GParquetFixedLengthByteArrayStatistics
+): ptr GBytes {.cdecl, importc: "gparquet_fixed_length_byte_array_statistics_get_max".}
+
+proc gparquet_column_chunk_metadata_get_type*(): GType {.
+  cdecl, importc: "gparquet_column_chunk_metadata_get_type"
+.}
+
+proc gparquet_column_chunk_metadata_equal*(
+  metadata: ptr GParquetColumnChunkMetadata,
+  other_metadata: ptr GParquetColumnChunkMetadata,
+): gboolean {.cdecl, importc: "gparquet_column_chunk_metadata_equal".}
+
+proc gparquet_column_chunk_metadata_get_total_size*(
+  metadata: ptr GParquetColumnChunkMetadata
+): gint64 {.cdecl, importc: "gparquet_column_chunk_metadata_get_total_size".}
+
+proc gparquet_column_chunk_metadata_get_total_compressed_size*(
+  metadata: ptr GParquetColumnChunkMetadata
+): gint64 {.cdecl, importc: "gparquet_column_chunk_metadata_get_total_compressed_size".}
+
+proc gparquet_column_chunk_metadata_get_file_offset*(
+  metadata: ptr GParquetColumnChunkMetadata
+): gint64 {.cdecl, importc: "gparquet_column_chunk_metadata_get_file_offset".}
+
+proc gparquet_column_chunk_metadata_can_decompress*(
+  metadata: ptr GParquetColumnChunkMetadata
+): gboolean {.cdecl, importc: "gparquet_column_chunk_metadata_can_decompress".}
+
+proc gparquet_column_chunk_metadata_get_statistics*(
+  metadata: ptr GParquetColumnChunkMetadata
+): ptr GParquetStatistics {.
+  cdecl, importc: "gparquet_column_chunk_metadata_get_statistics"
+.}
+
+proc gparquet_row_group_metadata_get_type*(): GType {.
+  cdecl, importc: "gparquet_row_group_metadata_get_type"
+.}
+
+proc gparquet_row_group_metadata_equal*(
+  metadata: ptr GParquetRowGroupMetadata, other_metadata: ptr GParquetRowGroupMetadata
+): gboolean {.cdecl, importc: "gparquet_row_group_metadata_equal".}
+
+proc gparquet_row_group_metadata_get_n_columns*(
+  metadata: ptr GParquetRowGroupMetadata
+): gint {.cdecl, importc: "gparquet_row_group_metadata_get_n_columns".}
+
+proc gparquet_row_group_metadata_get_column_chunk*(
+  metadata: ptr GParquetRowGroupMetadata, index: gint, error: ptr ptr GError
+): ptr GParquetColumnChunkMetadata {.
+  cdecl, importc: "gparquet_row_group_metadata_get_column_chunk"
+.}
+
+proc gparquet_row_group_metadata_get_n_rows*(
+  metadata: ptr GParquetRowGroupMetadata
+): gint64 {.cdecl, importc: "gparquet_row_group_metadata_get_n_rows".}
+
+proc gparquet_row_group_metadata_get_total_size*(
+  metadata: ptr GParquetRowGroupMetadata
+): gint64 {.cdecl, importc: "gparquet_row_group_metadata_get_total_size".}
+
+proc gparquet_row_group_metadata_get_total_compressed_size*(
+  metadata: ptr GParquetRowGroupMetadata
+): gint64 {.cdecl, importc: "gparquet_row_group_metadata_get_total_compressed_size".}
+
+proc gparquet_row_group_metadata_get_file_offset*(
+  metadata: ptr GParquetRowGroupMetadata
+): gint64 {.cdecl, importc: "gparquet_row_group_metadata_get_file_offset".}
+
+proc gparquet_row_group_metadata_can_decompress*(
+  metadata: ptr GParquetRowGroupMetadata
+): gboolean {.cdecl, importc: "gparquet_row_group_metadata_can_decompress".}
+
+proc gparquet_file_metadata_get_type*(): GType {.
+  cdecl, importc: "gparquet_file_metadata_get_type"
+.}
+
+proc gparquet_file_metadata_equal*(
+  metadata: ptr GParquetFileMetadata, other_metadata: ptr GParquetFileMetadata
+): gboolean {.cdecl, importc: "gparquet_file_metadata_equal".}
+
+proc gparquet_file_metadata_get_n_columns*(
+  metadata: ptr GParquetFileMetadata
+): gint {.cdecl, importc: "gparquet_file_metadata_get_n_columns".}
+
+proc gparquet_file_metadata_get_n_schema_elements*(
+  metadata: ptr GParquetFileMetadata
+): gint {.cdecl, importc: "gparquet_file_metadata_get_n_schema_elements".}
+
+proc gparquet_file_metadata_get_n_rows*(
+  metadata: ptr GParquetFileMetadata
+): gint64 {.cdecl, importc: "gparquet_file_metadata_get_n_rows".}
+
+proc gparquet_file_metadata_get_n_row_groups*(
+  metadata: ptr GParquetFileMetadata
+): gint {.cdecl, importc: "gparquet_file_metadata_get_n_row_groups".}
+
+proc gparquet_file_metadata_get_row_group*(
+  metadata: ptr GParquetFileMetadata, index: gint, error: ptr ptr GError
+): ptr GParquetRowGroupMetadata {.
+  cdecl, importc: "gparquet_file_metadata_get_row_group"
+.}
+
+proc gparquet_file_metadata_get_created_by*(
+  metadata: ptr GParquetFileMetadata
+): cstring {.cdecl, importc: "gparquet_file_metadata_get_created_by".}
+
+proc gparquet_file_metadata_get_size*(
+  metadata: ptr GParquetFileMetadata
+): guint32 {.cdecl, importc: "gparquet_file_metadata_get_size".}
+
+proc gparquet_file_metadata_can_decompress*(
+  metadata: ptr GParquetFileMetadata
+): gboolean {.cdecl, importc: "gparquet_file_metadata_can_decompress".}
+
+proc gparquet_arrow_file_reader_get_type*(): GType {.
+  cdecl, importc: "gparquet_arrow_file_reader_get_type"
+.}
+
+proc gparquet_arrow_file_reader_new_arrow*(
+  source: ptr GArrowSeekableInputStream, error: ptr ptr GError
+): ptr GParquetArrowFileReader {.
+  cdecl, importc: "gparquet_arrow_file_reader_new_arrow"
+.}
+
+proc gparquet_arrow_file_reader_new_path*(
+  path: cstring, error: ptr ptr GError
+): ptr GParquetArrowFileReader {.cdecl, importc: "gparquet_arrow_file_reader_new_path".}
+
+proc gparquet_arrow_file_reader_close*(
+  reader: ptr GParquetArrowFileReader
+): void {.cdecl, importc: "gparquet_arrow_file_reader_close".}
+
+proc gparquet_arrow_file_reader_read_table*(
+  reader: ptr GParquetArrowFileReader, error: ptr ptr GError
+): ptr GArrowTable {.cdecl, importc: "gparquet_arrow_file_reader_read_table".}
+
+proc gparquet_arrow_file_reader_read_row_group*(
+  reader: ptr GParquetArrowFileReader,
+  row_group_index: gint,
+  column_indices: ptr gint,
+  n_column_indices: gsize,
+  error: ptr ptr GError,
+): ptr GArrowTable {.cdecl, importc: "gparquet_arrow_file_reader_read_row_group".}
+
+proc gparquet_arrow_file_reader_get_schema*(
+  reader: ptr GParquetArrowFileReader, error: ptr ptr GError
+): ptr GArrowSchema {.cdecl, importc: "gparquet_arrow_file_reader_get_schema".}
+
+proc gparquet_arrow_file_reader_read_column_data*(
+  reader: ptr GParquetArrowFileReader, i: gint, error: ptr ptr GError
+): ptr GArrowChunkedArray {.
+  cdecl, importc: "gparquet_arrow_file_reader_read_column_data"
+.}
+
+proc gparquet_arrow_file_reader_get_n_row_groups*(
+  reader: ptr GParquetArrowFileReader
+): gint {.cdecl, importc: "gparquet_arrow_file_reader_get_n_row_groups".}
+
+proc gparquet_arrow_file_reader_get_n_rows*(
+  reader: ptr GParquetArrowFileReader
+): gint64 {.cdecl, importc: "gparquet_arrow_file_reader_get_n_rows".}
+
+proc gparquet_arrow_file_reader_set_use_threads*(
+  reader: ptr GParquetArrowFileReader, use_threads: gboolean
+): void {.cdecl, importc: "gparquet_arrow_file_reader_set_use_threads".}
+
+proc gparquet_arrow_file_reader_get_metadata*(
+  reader: ptr GParquetArrowFileReader
+): ptr GParquetFileMetadata {.
+  cdecl, importc: "gparquet_arrow_file_reader_get_metadata"
+.}
+
+proc gparquet_writer_properties_get_type*(): GType {.
+  cdecl, importc: "gparquet_writer_properties_get_type"
+.}
+
+proc gparquet_writer_properties_new*(): ptr GParquetWriterProperties {.
+  cdecl, importc: "gparquet_writer_properties_new"
+.}
+
+proc gparquet_writer_properties_set_compression*(
+  properties: ptr GParquetWriterProperties,
+  compression_type: GArrowCompressionType,
+  path: cstring,
+): void {.cdecl, importc: "gparquet_writer_properties_set_compression".}
+
+proc gparquet_writer_properties_get_compression_path*(
+  properties: ptr GParquetWriterProperties, path: cstring
+): GArrowCompressionType {.
+  cdecl, importc: "gparquet_writer_properties_get_compression_path"
+.}
+
+proc gparquet_writer_properties_enable_dictionary*(
+  properties: ptr GParquetWriterProperties, path: cstring
+): void {.cdecl, importc: "gparquet_writer_properties_enable_dictionary".}
+
+proc gparquet_writer_properties_disable_dictionary*(
+  properties: ptr GParquetWriterProperties, path: cstring
+): void {.cdecl, importc: "gparquet_writer_properties_disable_dictionary".}
+
+proc gparquet_writer_properties_is_dictionary_enabled*(
+  properties: ptr GParquetWriterProperties, path: cstring
+): gboolean {.cdecl, importc: "gparquet_writer_properties_is_dictionary_enabled".}
+
+proc gparquet_writer_properties_set_dictionary_page_size_limit*(
+  properties: ptr GParquetWriterProperties, limit: gint64
+): void {.cdecl, importc: "gparquet_writer_properties_set_dictionary_page_size_limit".}
+
+proc gparquet_writer_properties_get_dictionary_page_size_limit*(
+  properties: ptr GParquetWriterProperties
+): gint64 {.
+  cdecl, importc: "gparquet_writer_properties_get_dictionary_page_size_limit"
+.}
+
+proc gparquet_writer_properties_set_batch_size*(
+  properties: ptr GParquetWriterProperties, batch_size: gint64
+): void {.cdecl, importc: "gparquet_writer_properties_set_batch_size".}
+
+proc gparquet_writer_properties_get_batch_size*(
+  properties: ptr GParquetWriterProperties
+): gint64 {.cdecl, importc: "gparquet_writer_properties_get_batch_size".}
+
+proc gparquet_writer_properties_set_max_row_group_length*(
+  properties: ptr GParquetWriterProperties, length: gint64
+): void {.cdecl, importc: "gparquet_writer_properties_set_max_row_group_length".}
+
+proc gparquet_writer_properties_get_max_row_group_length*(
+  properties: ptr GParquetWriterProperties
+): gint64 {.cdecl, importc: "gparquet_writer_properties_get_max_row_group_length".}
+
+proc gparquet_writer_properties_set_data_page_size*(
+  properties: ptr GParquetWriterProperties, data_page_size: gint64
+): void {.cdecl, importc: "gparquet_writer_properties_set_data_page_size".}
+
+proc gparquet_writer_properties_get_data_page_size*(
+  properties: ptr GParquetWriterProperties
+): gint64 {.cdecl, importc: "gparquet_writer_properties_get_data_page_size".}
+
+proc gparquet_arrow_file_writer_get_type*(): GType {.
+  cdecl, importc: "gparquet_arrow_file_writer_get_type"
+.}
+
+proc gparquet_arrow_file_writer_new_arrow*(
+  schema: ptr GArrowSchema,
+  sink: ptr GArrowOutputStream,
+  writer_properties: ptr GParquetWriterProperties,
+  error: ptr ptr GError,
+): ptr GParquetArrowFileWriter {.
+  cdecl, importc: "gparquet_arrow_file_writer_new_arrow"
+.}
+
+proc gparquet_arrow_file_writer_new_path*(
+  schema: ptr GArrowSchema,
+  path: cstring,
+  writer_properties: ptr GParquetWriterProperties,
+  error: ptr ptr GError,
+): ptr GParquetArrowFileWriter {.cdecl, importc: "gparquet_arrow_file_writer_new_path".}
+
+proc gparquet_arrow_file_writer_get_schema*(
+  writer: ptr GParquetArrowFileWriter
+): ptr GArrowSchema {.cdecl, importc: "gparquet_arrow_file_writer_get_schema".}
+
+proc gparquet_arrow_file_writer_write_record_batch*(
+  writer: ptr GParquetArrowFileWriter,
+  record_batch: ptr GArrowRecordBatch,
+  error: ptr ptr GError,
+): gboolean {.cdecl, importc: "gparquet_arrow_file_writer_write_record_batch".}
+
+proc gparquet_arrow_file_writer_write_table*(
+  writer: ptr GParquetArrowFileWriter,
+  table: ptr GArrowTable,
+  chunk_size: gsize,
+  error: ptr ptr GError,
+): gboolean {.cdecl, importc: "gparquet_arrow_file_writer_write_table".}
+
+proc gparquet_arrow_file_writer_new_row_group*(
+  writer: ptr GParquetArrowFileWriter, error: ptr ptr GError
+): gboolean {.cdecl, importc: "gparquet_arrow_file_writer_new_row_group".}
+
+proc gparquet_arrow_file_writer_new_buffered_row_group*(
+  writer: ptr GParquetArrowFileWriter, error: ptr ptr GError
+): gboolean {.cdecl, importc: "gparquet_arrow_file_writer_new_buffered_row_group".}
+
+proc gparquet_arrow_file_writer_write_chunked_array*(
+  writer: ptr GParquetArrowFileWriter,
+  chunked_array: ptr GArrowChunkedArray,
+  error: ptr ptr GError,
+): gboolean {.cdecl, importc: "gparquet_arrow_file_writer_write_chunked_array".}
+
+proc gparquet_arrow_file_writer_close*(
+  writer: ptr GParquetArrowFileWriter, error: ptr ptr GError
+): gboolean {.cdecl, importc: "gparquet_arrow_file_writer_close".}

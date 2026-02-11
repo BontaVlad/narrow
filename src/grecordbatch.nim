@@ -168,7 +168,9 @@ proc `==`*(rb1, rb2: RecordBatch): bool {.inline.} =
   ## Check equality without metadata
   garrow_record_batch_equal(rb1.toPtr, rb2.toPtr).bool
 
-proc equalMetadata*(rb1, rb2: RecordBatch, checkMetadata: bool = true): bool {.inline.} =
+proc equalMetadata*(
+    rb1, rb2: RecordBatch, checkMetadata: bool = true
+): bool {.inline.} =
   ## Check equality with optional metadata checking
   garrow_record_batch_equal_metadata(rb1.toPtr, rb2.toPtr, checkMetadata.gboolean).bool
 

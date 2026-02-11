@@ -9,8 +9,26 @@ type
     handle*: cstring
 
   ArrowPrimitive* =
-    void | bool | int8 | uint8 | int16 | uint16 | int32 | uint32 | int | int64 | uint64 | float32 |
-    float64 | string | seq[byte] | cstring
+    void | bool | int8 | uint8 | int16 | uint16 | int32 | uint32 | int | int64 | uint64 |
+    float32 | float64 | string | seq[byte] | cstring
+
+  # Forward declarations for complex types (defined in respective modules)
+  StructArray* = object # Defined in gstruct.nim
+  MapArray*[K, V] = object # Defined in gmaparray.nim
+  TimestampArray* = object # Defined in gtemporal.nim
+  Date32Array* = object # Defined in gtemporal.nim
+  Date64Array* = object # Defined in gtemporal.nim
+  Time32Array* = object # Defined in gtemporal.nim
+  Time64Array* = object # Defined in gtemporal.nim
+  ListArray*[T] = object # Defined in glistarray.nim
+
+  # Union of primitive and complex types that can be stored in Arrow arrays
+  ArrowComplex* =
+    StructArray | MapArray | TimestampArray | Date32Array | Date64Array | Time32Array |
+    Time64Array | ListArray
+
+  # All valid Arrow value types
+  ArrowValue* = ArrowPrimitive | ArrowComplex
 
   TypeError* = object of CatchableError
 

@@ -35,8 +35,9 @@ proc newChunkedArray*[T](rawPtr: ptr GArrowChunkedArray): ChunkedArray[T] =
 proc `==`*[T, U](a: ChunkedArray[T], b: ChunkedArray[U]): bool {.inline.} =
   result = garrow_chunked_array_equal(a.toPtr, b.toPtr) != 0
 
+# TODO: this leaks memory
 proc getValueDataType*(chunkedArray: ChunkedArray): GADType =
-  result = cast[GADType](garrow_chunked_array_get_value_data_type(chunkedArray.toPtr))
+  result = newGType(garrow_chunked_array_get_value_data_type(chunkedArray.toPtr))
 
 proc getValueType*(chunkedArray: ChunkedArray): GArrowType =
   result = garrow_chunked_array_get_value_type(chunkedArray.toPtr)

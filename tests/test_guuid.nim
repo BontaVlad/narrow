@@ -1,6 +1,5 @@
-import std/strutils
 import unittest2
-import ../src/[ffi, gschema, gtypes, guuid]
+import ../src/[gschema, gtypes, guuid]
 
 suite "UUIDType - Basic Creation":
   

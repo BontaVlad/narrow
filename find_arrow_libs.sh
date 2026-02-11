@@ -23,6 +23,24 @@ else
     echo "❌ arrow-glib NOT FOUND via pkg-config"
 fi
 
+# --- NEW: Check parquet-glib ---
+echo -e "\n=== Checking parquet-glib ==="
+if pkg-config --exists parquet-glib; then
+    PARQUET_VERSION=$(pkg-config --modversion parquet-glib)
+    PARQUET_LIBDIR=$(pkg-config --variable=libdir parquet-glib)
+    echo "Found parquet-glib version: $PARQUET_VERSION"
+    echo "Location: $PARQUET_LIBDIR"
+
+    # Check for version 22.0 compatibility
+    if pkg-config --atleast-version=22.0 parquet-glib; then
+        echo "✅ Version is compatible (22.0 or newer)"
+    else
+        echo "❌ Version $PARQUET_VERSION is older than 22.0"
+    fi
+else
+    echo "❌ parquet-glib NOT FOUND via pkg-config"
+fi
+
 # Method 2: ldconfig
 echo -e "\nArrow libraries (ldconfig):"
 ldconfig -p | grep -E "arrow|parquet"
@@ -33,7 +51,7 @@ find /usr/lib -name "libarrow*.so*" 2>/dev/null
 
 # Check if specific libraries exist (Updated list)
 echo -e "\nChecking specific libraries:"
-LIBS=("libarrow.so" "libarrow_acero.so" "libarrow_compute.so" "libarrow-glib.so")
+LIBS=("libarrow.so" "libarrow_acero.so" "libarrow_compute.so" "libarrow-glib.so" "libparquet.so" "libparquet-glib.so")
 
 for lib in "${LIBS[@]}"; do
     path=$(ldconfig -p | grep "$lib" | awk '{print $NF}' | head -1)

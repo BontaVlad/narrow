@@ -2,10 +2,10 @@ import std/[options, strformat]
 import ./[ffi, gtypes, error]
 
 type
-  ArrayBuilder*[T:ArrowPrimitive] = object
+  ArrayBuilder*[T: ArrowValue] = object
     handle: ptr GArrowArrayBuilder
 
-  Array*[T:ArrowPrimitive] = object
+  Array*[T: ArrowValue] = object
     handle: ptr GArrowArray
 
 proc toPtr*[T](b: ArrayBuilder[T]): ptr GArrowArrayBuilder {.inline.} =

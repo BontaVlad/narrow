@@ -265,6 +265,8 @@ proc asReadable(stream: SeekableInputStream): ptr GArrowReadable {.inline.} =
   ## Cast to GArrowReadable interface
   cast[ptr GArrowReadable](stream.handle)
 
+proc toPtr*(stream: OutputStream): ptr GArrowOutputStream {.inline.} =
+  stream.handle
 # =============================================================================
 # InputStream Implementation
 # =============================================================================
@@ -366,6 +368,9 @@ proc close*(stream: SeekableInputStream) =
   discard
   # if stream.handle != nil:
   #   g_object_unref(stream.handle)
+
+proc toPtr*(sis: SeekableInputStream): ptr GArrowSeekableInputStream {.inline.} =
+  sis.handle
 
 proc size*(stream: SeekableInputStream): uint64 =
   ## Get the total size of the stream in bytes
