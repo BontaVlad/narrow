@@ -477,9 +477,7 @@ proc nRowGroups*(m: FileMetadata): int =
 
 # TODO: leaks memory
 proc rowGroup*(m: FileMetadata, index: int): RowGroupMetadata =
-  newRowGroupMetadata(
-    check gparquet_file_metadata_get_row_group(m.toPtr, index.gint)
-  )
+  newRowGroupMetadata(check gparquet_file_metadata_get_row_group(m.toPtr, index.gint))
 
 proc createdBy*(m: FileMetadata): string =
   $gparquet_file_metadata_get_created_by(m.toPtr)

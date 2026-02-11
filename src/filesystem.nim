@@ -267,6 +267,7 @@ proc asReadable(stream: SeekableInputStream): ptr GArrowReadable {.inline.} =
 
 proc toPtr*(stream: OutputStream): ptr GArrowOutputStream {.inline.} =
   stream.handle
+
 # =============================================================================
 # InputStream Implementation
 # =============================================================================

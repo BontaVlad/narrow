@@ -12,9 +12,8 @@ type
 
   Writable* =
     concept w
-      w.schema is Schema
-      w.toPtr is ptr GArrowTable | ptr GArrowRecordBatch
-
+        w.schema is Schema
+        w.toPtr is ptr GArrowTable | ptr GArrowRecordBatch
 
 proc `=destroy`*(pfr: FileReader) =
   if pfr.handle != nil:
@@ -164,12 +163,14 @@ proc dataPageSize*(wp: WriterProperties): int64 =
 proc `dataPageSize=`*(wp: var WriterProperties, size: int64) =
   gparquet_writer_properties_set_data_page_size(wp.handle, size)
 
-proc setCompression*(wp: WriterProperties, path: string, compression: GArrowCompressionType) =
-  gparquet_writer_properties_set_compression(
-    wp.handle, compression, path.cstring
-  )
+proc setCompression*(
+    wp: WriterProperties, path: string, compression: GArrowCompressionType
+) =
+  gparquet_writer_properties_set_compression(wp.handle, compression, path.cstring)
 
-proc compression*(wp: WriterProperties, path: string): GArrowCompressionType {.inline.} =
+proc compression*(
+    wp: WriterProperties, path: string
+): GArrowCompressionType {.inline.} =
   gparquet_writer_properties_get_compression_path(wp.handle, path.cstring)
 
 proc enableDictionary*(wp: WriterProperties, path: string) =
@@ -189,7 +190,8 @@ proc readTable*(uri: string): ArrowTable =
 proc writeTable*[T: Writable](writable: T, uri: string, chunk_size: int = 1024) =
   let wp = newWriterProperties()
   let writer = newFileWriter(uri, writable.schema, wp)
-  defer: writer.close()
+  defer:
+    writer.close()
   when writable is ArrowTable:
     check gparquet_arrow_file_writer_write_table(
       writer.toPtr, writable.toPtr, chunk_size.gsize

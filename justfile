@@ -14,6 +14,12 @@ leaks := "true"    # true | false
 # Public entry
 # =========================
 
+
+# List all available commands by default
+default:
+    @just --choose --justfile {{justfile()}}
+
+
 test:
     just _test {{parallel}} {{cores}} {{mm}} {{mode}} {{coverage}} {{leaks}}
 
@@ -152,6 +158,114 @@ test-coverage:
 
 test-arc:
     just _test false 4 arc debug false true
+
+coverage-report:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    OUT_ROOT="nimcache/tests"
+    COVERAGE_DIR="coverage"
+    LCOV_FILE="coverage.info"
+
+    echo "Cleaning previous coverage data..."
+    rm -rf "$COVERAGE_DIR"
+    find "$OUT_ROOT" -name "*.gcda" -delete 2>/dev/null || true
+    rm -f "$LCOV_FILE"
+
+    # Run tests with gcov-based coverage
+    echo "Running tests with coverage instrumentation..."
+    just _test-gcov
+
+    # Check if we have coverage data
+    GCDA_COUNT=$(find "$OUT_ROOT" -name "*.gcda" | wc -l)
+    if [ "$GCDA_COUNT" -eq 0 ]; then
+        echo "No coverage data (.gcda files) found."
+        exit 1
+    fi
+    echo "Found $GCDA_COUNT .gcda files"
+
+    mkdir -p "$COVERAGE_DIR"
+
+    # Capture coverage data from all cache directories
+    echo "Capturing coverage data..."
+    lcov --capture \
+        --directory "$OUT_ROOT" \
+        --output-file "$LCOV_FILE" \
+        --rc lcov_branch_coverage=1 \
+        --ignore-errors inconsistent,unused,gcov
+
+    # Extract only src/ directory (Nim files)
+    echo "Filtering to src/ directory only..."
+    lcov --extract "$LCOV_FILE" \
+        "*/src/*.nim" \
+        --output-file "$LCOV_FILE" \
+        --rc lcov_branch_coverage=1 \
+        --ignore-errors inconsistent
+
+    # Remove generated code files
+    echo "Removing generated code from coverage..."
+    lcov --remove "$LCOV_FILE" \
+        "*/generated.nim" \
+        --output-file "$LCOV_FILE" \
+        --rc lcov_branch_coverage=1 \
+        --ignore-errors inconsistent
+
+    # Generate HTML report
+    echo "Generating HTML report..."
+    genhtml "$LCOV_FILE" \
+        --output-directory "$COVERAGE_DIR" \
+        --branch-coverage \
+        --legend \
+        --ignore-errors inconsistent,missing,corrupt,range
+
+    # Generate summary
+    echo ""
+    echo "Coverage Summary:"
+    lcov --summary "$LCOV_FILE" --rc lcov_branch_coverage=1 --ignore-errors corrupt,inconsistent 2>&1 | grep -E "(lines|functions|branches)" || true
+
+    echo ""
+    echo "Coverage report generated in: $COVERAGE_DIR/index.html"
+    echo "Open with: xdg-open $COVERAGE_DIR/index.html  # Linux"
+    echo "          open $COVERAGE_DIR/index.html      # macOS"
+
+# Internal target for gcov-based coverage testing
+_test-gcov:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    OUT_ROOT="nimcache/tests"
+    TEST_ROOT="tests"
+
+    mkdir -p "$OUT_ROOT"
+
+    mapfile -t TEST_FILES < <(find "$TEST_ROOT" -name 'test_*.nim' | sort)
+
+    for file in "${TEST_FILES[@]}"; do
+        name="$(basename "$file" .nim)"
+        outdir="$OUT_ROOT/$name"
+        cache_dir="$outdir/cache"
+
+        mkdir -p "$outdir"
+
+        echo "==> Compiling: $file"
+        nim c \
+            --cc:gcc \
+            --verbosity:0 \
+            --hints:off \
+            --mm:orc \
+            --lineDir:on \
+            --debugger:native \
+            -d:debug \
+            --opt:none \
+            --passC:--coverage \
+            --passL:--coverage \
+            --nimcache:"$cache_dir" \
+            -o:"$outdir/$name" \
+            "$file"
+
+        echo "==> Running: $name"
+        "$outdir/$name" || true
+    done
 
 clean:
     rm -rf nimcache
