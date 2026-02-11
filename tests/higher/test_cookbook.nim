@@ -1,6 +1,33 @@
+import std/[os, sequtils]
 import unittest2
+import ../testfixture
 
-import ../../src/[garray, gchunkedarray, gschema, gtables]
+import ../../src/[garray, gchunkedarray, gschema, gtables, parquet]
+
+suite "Reading and Writing Data":
+
+  var fixture: TestFixture
+
+  setup:
+    fixture = newTestFixture("test_parquet")
+
+  teardown:
+    fixture.cleanup()
+
+  test "Write a parquet file":
+    let schema = newSchema([
+      newField[int]("id"),
+    ])
+    let data = newArray(toSeq(0 .. 99))
+
+    let table = newArrowTable(schema, data)
+    let uri = fixture / "table.parquet"
+    writeTable(table, uri)
+
+  test "Read a Parquet file":
+    let uri = getCurrentDir() & "/tests/fatboy.parquet"
+    let table = readTable(uri)
+    check table["int64_col"].len == 10
 
 suite "Creating Arrow Objects":
   test "Creating Arrays":

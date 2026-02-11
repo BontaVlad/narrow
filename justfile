@@ -6,7 +6,6 @@ parallel := "false"
 cores := "4"
 mm := "orc"        # orc | arc
 mode := "debug"    # debug | release
-coverage := "false"
 leaks := "true"    # true | false
 
 
@@ -21,14 +20,14 @@ default:
 
 
 test:
-    just _test {{parallel}} {{cores}} {{mm}} {{mode}} {{coverage}} {{leaks}}
+    just _test {{parallel}} {{cores}} {{mm}} {{mode}} {{leaks}}
 
 
 # =========================
 # Implementation
 # =========================
 
-_test parallel cores mm mode coverage leaks:
+_test parallel cores mm mode leaks:
     #!/usr/bin/env bash
     set -euo pipefail
 
@@ -36,7 +35,6 @@ _test parallel cores mm mode coverage leaks:
     CORES="{{cores}}"
     MM="{{mm}}"
     MODE="{{mode}}"
-    COVERAGE="{{coverage}}"
     LEAKS="{{leaks}}"
 
     CC=clang
@@ -93,14 +91,6 @@ _test parallel cores mm mode coverage leaks:
             )
         fi
 
-        if [ "$COVERAGE" = "true" ]; then
-            flags+=(
-                --passc:-fprofile-instr-generate
-                --passc:-fcoverage-mapping
-                --passl:-fprofile-instr-generate
-            )
-        fi
-
         echo "==> $file"
         nim c \
             "${flags[@]}" \
@@ -112,20 +102,10 @@ _test parallel cores mm mode coverage leaks:
         LLVM_PROFILE_FILE="$outdir/$name.profraw" \
             "$outdir/$name"
 
-        if [ "$COVERAGE" = "true" ]; then
-            llvm-profdata merge -sparse \
-                "$outdir/$name.profraw" \
-                -o "$outdir/$name.profdata"
-
-            llvm-cov report \
-                "$outdir/$name" \
-                -instr-profile="$outdir/$name.profdata" \
-                >/dev/null
-        fi
     }
 
     export -f run_test
-    export OUT_ROOT MM MODE COVERAGE CC ASAN_OPTIONS LSAN_OPTIONS
+    export OUT_ROOT MM MODE CC ASAN_OPTIONS LSAN_OPTIONS
 
     if [ "$PARALLEL" = "true" ]; then
         printf '%s\n' "${TEST_FILES[@]}" \
@@ -142,22 +122,16 @@ _test parallel cores mm mode coverage leaks:
 # =========================
 
 test-debug:
-    just _test false 4 orc debug false true
-
-test-debug-no-leaks:
-    just _test false 4 orc debug false false
+    just _test false 4 orc debug true
 
 test-debug-par:
-    just _test true 8 orc debug false true
+    just _test true 8 orc debug true
 
 test-release:
-    just _test false 4 orc release false false
-
-test-coverage:
-    just _test false 4 orc debug true false
+    just _test false 4 orc release false
 
 test-arc:
-    just _test false 4 arc debug false true
+    just _test false 4 arc debug true
 
 coverage-report:
     #!/usr/bin/env bash
