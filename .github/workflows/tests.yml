@@ -47,7 +47,7 @@ jobs:
     - name: Cache apt packages
       uses: awalsh128/cache-apt-pkgs-action@latest
       with:
-        packages: clang libclang-dev libarrow-dev libarrow-glib-dev libglib2.0-dev libgirepository1.0-dev pkg-config
+        packages: clang libclang-dev libarrow-dev libarrow-glib-dev libparquet-glib-dev libglib2.0-dev libgirepository1.0-dev pkg-config
         version: 1.0
 
     - name: Verify installations
