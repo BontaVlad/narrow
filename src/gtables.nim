@@ -25,7 +25,7 @@ proc toPtr*(tbl: ArrowTable): ptr GArrowTable {.inline.} =
   tbl.handle
 
 proc newArrowTableFromRecordBatches*(
-    schema: Schema, recordBatches: openArray[ptr GArrowRecordBatch]
+    schema: Schema, recordBatches: seq[ptr GArrowRecordBatch]
 ): ArrowTable =
   if recordBatches.len == 0:
     raise newException(ValueError, "Cannot create table from empty record batches")
@@ -37,7 +37,7 @@ proc newArrowTableFromRecordBatches*(
   result.handle = handle
 
 proc newArrowTableFromArrays*(
-    schema: Schema, arrays: openArray[ptr GArrowArray]
+    schema: Schema, arrays: seq[ptr GArrowArray]
 ): ArrowTable =
   if arrays.len == 0:
     raise newException(ValueError, "Cannot create table from empty arrays")
@@ -48,7 +48,7 @@ proc newArrowTableFromArrays*(
   result.handle = handle
 
 proc newArrowTableFromChunkedArrays*(
-    schema: Schema, chunkedArrays: openArray[ptr GArrowChunkedArray]
+    schema: Schema, chunkedArrays: seq[ptr GArrowChunkedArray]
 ): ArrowTable =
   if chunkedArrays.len == 0:
     raise newException(ValueError, "Cannot create table from empty chunked arrays")
@@ -60,17 +60,17 @@ proc newArrowTableFromChunkedArrays*(
   result.handle = handle
 
 template dispatchNewTable(
-    schema: Schema, ptrs: openArray[ptr GArrowRecordBatch]
+    schema: Schema, ptrs: seq[ptr GArrowRecordBatch]
 ): ArrowTable =
   newArrowTableFromRecordBatches(schema, ptrs)
 
 template dispatchNewTable(
-    schema: Schema, ptrs: openArray[ptr GArrowArray]
+    schema: Schema, ptrs: seq[ptr GArrowArray]
 ): ArrowTable =
   newArrowTableFromArrays(schema, ptrs)
 
 template dispatchNewTable(
-    schema: Schema, ptrs: openArray[ptr GArrowChunkedArray]
+    schema: Schema, ptrs: seq[ptr GArrowChunkedArray]
 ): ArrowTable =
   newArrowTableFromChunkedArrays(schema, ptrs)
 
@@ -87,8 +87,11 @@ macro newArrowTable*(schema: Schema, args: varargs[typed]): ArrowTable =
     bracket.add quote do:
       `arg`.toPtr
 
+  # Build @[...] seq constructor
+  let seqExpr = newNimNode(nnkPrefix).add(ident"@").add(bracket)
+
   result = quote:
-    dispatchNewTable(`schema`, `bracket`)
+    dispatchNewTable(`schema`, `seqExpr`)
 
 macro newArrowTable*(rows: typed): ArrowTable =
   ## Creates a new ArrowTable from a sequence of named tuples.

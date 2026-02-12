@@ -4,7 +4,7 @@ import ./[ffi, gtypes, error, garray, glist]
 type ChunkedArray*[T] = object
   handle: ptr GArrowChunkedArray
 
-proc toPtr*[T](c: ChunkedArray[T]): ptr GArrowChunkedArray {.inline.} =
+proc toPtr*[T](c: ChunkedArray[T] | ChunkedArray): ptr GArrowChunkedArray {.inline.} =
   c.handle
 
 proc `=destroy`*[T](c: ChunkedArray[T]) =

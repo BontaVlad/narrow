@@ -1,3 +1,4 @@
+import std/[options, sugar, sequtils]
 import ./[ffi, filesystem, error, gschema, gtables, gchunkedarray, grecordbatch]
 
 type
@@ -187,7 +188,28 @@ proc readTable*(uri: string): ArrowTable =
   let handle = check gparquet_arrow_file_reader_read_table(pfr.toPtr)
   result = newArrowTable(handle)
 
-proc writeTable*[T: Writable](writable: T, uri: string, chunk_size: int = 1024) =
+proc readTable*(uri: string, columns: sink seq[string]): ArrowTable =
+  let pfr = newFileReader(uri)
+  let schema = pfr.schema
+
+  # 1. Map column names to (index, field) tuples, filtering out missing ones
+  let fieldsInfo = columns.filterIt(schema.tryGetField(it).isSome).mapIt(
+      (index: schema.getFieldIndex(it), field: schema.tryGetField(it).get())
+    )
+
+  var chunkedArrays = newSeq[ChunkedArray[void]]()
+  for info in fieldsInfo:
+    chunkedArrays.add(pfr.readColumnData(info.index))
+  
+  var data = newSeq[ptr GArrowChunkedArray]()
+  for arr in chunkedArrays:
+    data.add(arr.toPtr)
+
+  let tSchema = newSchema(fieldsInfo.mapIt(it.field))
+
+  result = newArrowTableFromChunkedArrays(tSchema, data)
+
+proc writeTable*[T: Writable](writable: T, uri: string, chunk_size: int = 65536) =
   let wp = newWriterProperties()
   let writer = newFileWriter(uri, writable.schema, wp)
   defer:

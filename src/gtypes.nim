@@ -12,6 +12,27 @@ type
     void | bool | int8 | uint8 | int16 | uint16 | int32 | uint32 | int | int64 | uint64 |
     float32 | float64 | string | seq[byte] | cstring
 
+  # Integer type groupings (compile-time)
+  ArrowSignedInt* = int8 | int16 | int32 | int | int64
+  ArrowUnsignedInt* = uint8 | uint16 | uint32 | uint64
+  ArrowInteger* = ArrowSignedInt | ArrowUnsignedInt
+
+  # Floating point types
+  ArrowFloating* = float32 | float64
+
+  # Numeric types
+  ArrowNumeric* = ArrowInteger | ArrowFloating
+
+  # Temporal types
+  ArrowTemporal* = object # Placeholder - actual types are in gtemporal.nim
+  ArrowDate* = object # Placeholder - Date32Array | Date64Array
+  ArrowTime* = object # Placeholder - Time32Array | Time64Array
+
+  # Nested types
+  ArrowNested* = StructArray | MapArray | ListArray | ListArray[void]
+
+  # Union types - will be added when union types are implemented
+
   # Forward declarations for complex types (defined in respective modules)
   StructArray* = object # Defined in gstruct.nim
   MapArray*[K, V] = object # Defined in gmaparray.nim
@@ -31,6 +52,73 @@ type
   ArrowValue* = ArrowPrimitive | ArrowComplex
 
   TypeError* = object of CatchableError
+
+# Runtime type category sets (mirroring Python's pyarrow.type
+const
+  SignedIntegerTypes* =
+    {GARROW_TYPE_INT8, GARROW_TYPE_INT16, GARROW_TYPE_INT32, GARROW_TYPE_INT64}
+  UnsignedIntegerTypes* =
+    {GARROW_TYPE_UINT8, GARROW_TYPE_UINT16, GARROW_TYPE_UINT32, GARROW_TYPE_UINT64}
+  IntegerTypes* = SignedIntegerTypes + UnsignedIntegerTypes
+  FloatingTypes* = {GARROW_TYPE_HALF_FLOAT, GARROW_TYPE_FLOAT, GARROW_TYPE_DOUBLE}
+  DecimalTypes* = {
+    GARROW_TYPE_DECIMAL32, GARROW_TYPE_DECIMAL64, GARROW_TYPE_DECIMAL128,
+    GARROW_TYPE_DECIMAL256,
+  }
+  DateTypes* = {GARROW_TYPE_DATE32, GARROW_TYPE_DATE64}
+  TimeTypes* = {GARROW_TYPE_TIME32, GARROW_TYPE_TIME64}
+  IntervalTypes* = {
+    GARROW_TYPE_MONTH_INTERVAL, GARROW_TYPE_DAY_TIME_INTERVAL,
+    GARROW_TYPE_MONTH_DAY_NANO_INTERVAL,
+  }
+  TemporalTypes* =
+    {GARROW_TYPE_TIMESTAMP, GARROW_TYPE_DURATION} + TimeTypes + DateTypes + IntervalTypes
+  UnionTypes* = {GARROW_TYPE_SPARSE_UNION, GARROW_TYPE_DENSE_UNION}
+  NestedTypes* =
+    {
+      GARROW_TYPE_LIST, GARROW_TYPE_FIXED_SIZE_LIST, GARROW_TYPE_LARGE_LIST,
+      GARROW_TYPE_STRUCT, GARROW_TYPE_MAP,
+    } + UnionTypes
+
+# Type checking procs for runtime type categories
+proc isSignedInteger*(arrowType: GArrowType): bool {.inline.} =
+  arrowType in SignedIntegerTypes
+
+proc isUnsignedInteger*(arrowType: GArrowType): bool {.inline.} =
+  arrowType in UnsignedIntegerTypes
+
+proc isInteger*(arrowType: GArrowType): bool {.inline.} =
+  arrowType in IntegerTypes
+
+proc isFloating*(arrowType: GArrowType): bool {.inline.} =
+  arrowType in FloatingTypes
+
+proc isDecimal*(arrowType: GArrowType): bool {.inline.} =
+  arrowType in DecimalTypes
+
+proc isNumeric*(arrowType: GArrowType): bool {.inline.} =
+  arrowType in IntegerTypes + FloatingTypes + DecimalTypes
+
+proc isDate*(arrowType: GArrowType): bool {.inline.} =
+  arrowType in DateTypes
+
+proc isTime*(arrowType: GArrowType): bool {.inline.} =
+  arrowType in TimeTypes
+
+proc isInterval*(arrowType: GArrowType): bool {.inline.} =
+  arrowType in IntervalTypes
+
+proc isTemporal*(arrowType: GArrowType): bool {.inline.} =
+  arrowType in TemporalTypes
+
+proc isUnion*(arrowType: GArrowType): bool {.inline.} =
+  arrowType in UnionTypes
+
+proc isNested*(arrowType: GArrowType): bool {.inline.} =
+  arrowType in NestedTypes
+
+proc isPrimitive*(arrowType: GArrowType): bool {.inline.} =
+  not arrowType.isNested
 
 proc toPtr*(g: GADType): ptr GArrowDataType {.inline.} =
   g.handle
@@ -87,23 +175,108 @@ proc `$`*(tp: GADType): string =
 proc `id`*(tp: GADType): GArrowType =
   garrow_data_type_get_id(tp.toPtr)
 
+# Convenience type checking procs on GADType
+proc isSignedInteger*(tp: GADType): bool {.inline.} =
+  tp.id.isSignedInteger
+
+proc isUnsignedInteger*(tp: GADType): bool {.inline.} =
+  tp.id.isUnsignedInteger
+
+proc isInteger*(tp: GADType): bool {.inline.} =
+  tp.id.isInteger
+
+proc isFloating*(tp: GADType): bool {.inline.} =
+  tp.id.isFloating
+
+proc isDecimal*(tp: GADType): bool {.inline.} =
+  tp.id.isDecimal
+
+proc isNumeric*(tp: GADType): bool {.inline.} =
+  tp.id.isNumeric
+
+proc isDate*(tp: GADType): bool {.inline.} =
+  tp.id.isDate
+
+proc isTime*(tp: GADType): bool {.inline.} =
+  tp.id.isTime
+
+proc isInterval*(tp: GADType): bool {.inline.} =
+  tp.id.isInterval
+
+proc isTemporal*(tp: GADType): bool {.inline.} =
+  tp.id.isTemporal
+
+proc isUnion*(tp: GADType): bool {.inline.} =
+  tp.id.isUnion
+
+proc isNested*(tp: GADType): bool {.inline.} =
+  tp.id.isNested
+
+proc isPrimitive*(tp: GADType): bool {.inline.} =
+  tp.id.isPrimitive
+
 proc nimTypeName*(tp: GADType): string =
   ## Returns the Nim type name corresponding to an Arrow data type
   case tp.id
-  of GArrowType.GARROW_TYPE_BOOLEAN: "bool"
-  of GArrowType.GARROW_TYPE_INT8: "int8"
-  of GArrowType.GARROW_TYPE_UINT8: "uint8"
-  of GArrowType.GARROW_TYPE_INT16: "int16"
-  of GArrowType.GARROW_TYPE_UINT16: "uint16"
-  of GArrowType.GARROW_TYPE_INT32: "int32"
-  of GArrowType.GARROW_TYPE_UINT32: "uint32"
-  of GArrowType.GARROW_TYPE_INT64: "int64"
-  of GArrowType.GARROW_TYPE_UINT64: "uint64"
-  of GArrowType.GARROW_TYPE_FLOAT, GArrowType.GARROW_TYPE_HALF_FLOAT: "float32"
-  of GArrowType.GARROW_TYPE_DOUBLE: "float64"
-  of GArrowType.GARROW_TYPE_STRING: "string"
-  of GArrowType.GARROW_TYPE_LARGE_STRING: "string"
-  else: "unsupported"
+  of GARROW_TYPE_BOOLEAN:
+    "bool"
+  of GARROW_TYPE_INT8:
+    "int8"
+  of GARROW_TYPE_UINT8:
+    "uint8"
+  of GARROW_TYPE_INT16:
+    "int16"
+  of GARROW_TYPE_UINT16:
+    "uint16"
+  of GARROW_TYPE_INT32:
+    "int32"
+  of GARROW_TYPE_UINT32:
+    "uint32"
+  of GARROW_TYPE_INT64:
+    "int64"
+  of GARROW_TYPE_UINT64:
+    "uint64"
+  of GARROW_TYPE_FLOAT, GARROW_TYPE_HALF_FLOAT:
+    "float32"
+  of GARROW_TYPE_DOUBLE:
+    "float64"
+  of GARROW_TYPE_STRING, GARROW_TYPE_LARGE_STRING, GARROW_TYPE_STRING_VIEW:
+    "string"
+  of GARROW_TYPE_BINARY, GARROW_TYPE_LARGE_BINARY, GARROW_TYPE_FIXED_SIZE_BINARY,
+      GARROW_TYPE_BINARY_VIEW:
+    "seq[byte]"
+  of GARROW_TYPE_DATE32:
+    "Date32Array"
+  of GARROW_TYPE_DATE64:
+    "Date64Array"
+  of GARROW_TYPE_TIMESTAMP:
+    "TimestampArray"
+  of GARROW_TYPE_TIME32:
+    "Time32Array"
+  of GARROW_TYPE_TIME64:
+    "Time64Array"
+  of GARROW_TYPE_DURATION:
+    "DurationArray"
+  of GARROW_TYPE_LIST, GARROW_TYPE_LARGE_LIST:
+    "ListArray"
+  of GARROW_TYPE_FIXED_SIZE_LIST:
+    "FixedSizeListArray"
+  of GARROW_TYPE_STRUCT:
+    "StructArray"
+  of GARROW_TYPE_MAP:
+    "MapArray"
+  of GARROW_TYPE_SPARSE_UNION, GARROW_TYPE_DENSE_UNION:
+    "UnionArray"
+  of GARROW_TYPE_DECIMAL32, GARROW_TYPE_DECIMAL64, GARROW_TYPE_DECIMAL128,
+      GARROW_TYPE_DECIMAL256:
+    "DecimalArray"
+  of GARROW_TYPE_MONTH_INTERVAL, GARROW_TYPE_DAY_TIME_INTERVAL,
+      GARROW_TYPE_MONTH_DAY_NANO_INTERVAL:
+    "IntervalArray"
+  of GARROW_TYPE_NA:
+    "null"
+  else:
+    "unsupported"
 
 proc isCompatible*(tp: GADType, T: typedesc): bool =
   ## Check if a GADType is compatible with the given Nim type

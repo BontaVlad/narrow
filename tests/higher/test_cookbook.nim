@@ -29,6 +29,11 @@ suite "Reading and Writing Data":
     let table = readTable(uri)
     check table["int64_col"].len == 10
 
+  test "Reading a subset of Parquet data":
+    let uri = getCurrentDir() & "/tests/fatboy.parquet"
+    let table = readTable(uri, columns = @["int64_col", "string_col"])
+    check table["int64_col"].len == 10
+
 suite "Creating Arrow Objects":
   test "Creating Arrays":
     let arr = @[1, 2, 3, 4, 5]
