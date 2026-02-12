@@ -1,14 +1,14 @@
 import std/[os]
 import unittest2
 import testfixture
-import ../src/[garray, gtables, gschema, parquet, parquet_statistics]
+import ../src/narrow/[column/primitive, tabular/table, column/metadata, io/parquet, io/parquet_statistics]
 
 # TODO: Low quality tests - just checking we can access properties without crashing. Need to add more thorough tests for statistics values and edge cases.
 suite "Parquet Statistics and Metadata":
   var fixture: TestFixture
 
   setup:
-    fixture = newTestFixture("test_parquet_statistics")
+    fixture = newTestFixture("test_io/parquet_statistics")
 
   test "read metadata from parquet file":
     let uri = getCurrentDir() & "/tests/fatboy.parquet"

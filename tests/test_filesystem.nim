@@ -1,6 +1,6 @@
 import std/[os, tempfiles, strformat]
 import unittest2
-import ../src/[ffi, filesystem]
+import ../src/narrow/[core/ffi, io/filesystem]
 
 const
   TestRoot = "/tmp/arrow_nim_test"
@@ -572,7 +572,7 @@ suite "FileSystem - Memory Stress Tests":
           discard stream.tell()
         stream.close()
   
-  test "Multiple filesystem instances":
+  test "Multiple io/filesystem instances":
     withTestDir:
       for i in 0..100:
         let fs1 = newLocalFileSystem()

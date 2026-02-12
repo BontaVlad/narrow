@@ -1,7 +1,7 @@
 import std/[os]
 import unittest2
 import testfixture
-import ../src/[ffi, garray, gtables, gschema, parquet, gtypes, gchunkedarray, grecordbatch]
+import ../src/narrow/[core/ffi, column/primitive, tabular/table, column/metadata, io/parquet, types/gtypes, column/primitive, tabular/batch]
 
 suite "Reading parquet":
   test "read parquet file localFileSystem":

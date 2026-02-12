@@ -1,5 +1,5 @@
 import unittest2
-import ../src/[gschema, gtypes, guuid]
+import ../src/narrow/[column/metadata, types/gtypes, types/guuid]
 
 suite "UUIDType - Basic Creation":
   

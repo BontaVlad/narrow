@@ -1,5 +1,8 @@
 import std/[options, strformat]
-import ./[ffi, gtables, gchunkedarray, garray, gtypes, error]
+import ../core/[ffi, error]
+import ../types/gtypes
+import ../column/primitive
+import ../tabular/table
 
 type
   FilterOptions* = object

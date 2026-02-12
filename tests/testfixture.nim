@@ -9,13 +9,13 @@
 ##     var fixture: TestFixture
 ##     
 ##     setup:
-##       fixture = newTestFixture("test_csv")
+##       fixture = newTestFixture("test_io/csv")
 ##     
 ##     teardown:
 ##       fixture.cleanup()
 ##     
 ##     test "something":
-##       let path = fixture / "data.csv"
+##       let path = fixture / "data.io/csv"
 
 import std/[os, times, strformat, strutils, random, algorithm]
 
@@ -50,7 +50,7 @@ proc generateRunId(): string =
   result = fmt"{timestamp}-{randomSuffix}"
 
 proc acquireLock(): File =
-  ## Acquire exclusive lock for filesystem operations
+  ## Acquire exclusive lock for io/filesystem operations
   createDir(BaseDir)
   result = open(LockFile, fmReadWrite)
   
@@ -139,8 +139,8 @@ proc newTestFixture*(suiteName: string): TestFixture =
   ## All tests in the same process share the same run session.
   ##
   ## Example:
-  ##   var fixture = newTestFixture("test_csv")
-  ##   let path = fixture / "output.csv"
+  ##   var fixture = newTestFixture("test_io/csv")
+  ##   let path = fixture / "output.io/csv"
   let runId = initializeSession()
   let testName = generateTestName()
   

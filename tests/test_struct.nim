@@ -1,6 +1,6 @@
 import unittest2
 import std/[strutils]
-import ../src/[gschema, gstruct, garray]
+import ../src/narrow/[column/metadata, column/nested, column/primitive]
 
 # TODO: append is crap, does nothing useful yet
 suite "Struct - Basic Creation and Field Access":

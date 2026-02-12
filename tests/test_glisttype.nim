@@ -1,6 +1,6 @@
 import std/strutils
 import unittest2
-import ../src/[ffi, gschema, gtypes, glisttype]
+import ../src/narrow/[core/ffi, column/metadata, types/gtypes, types/glisttype]
 
 suite "ListType - Basic Creation":
   

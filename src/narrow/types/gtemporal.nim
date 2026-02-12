@@ -1,5 +1,6 @@
 import std/[options, times]
-import ./[ffi, gtypes, error]
+import ../core/[ffi, error]
+import ./gtypes
 
 # Time units mapping
 type

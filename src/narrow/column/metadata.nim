@@ -1,5 +1,11 @@
 import std/[strformat, sets, options]
-import ./[ffi, gchunkedarray, garray, glist, gtypes, error]
+import ../core/[ffi, error]
+import ../types/[gtypes, glist]
+import ./primitive
+
+# ============================================================================
+# Field and Schema Definitions
+# ============================================================================
 
 type
   Field* = object
@@ -58,7 +64,7 @@ proc dataType*(field: Field): GADType =
   result = newGType(handle)
 
 proc `$`*(field: Field): string {.inline.} =
-  $newGSTring(garrow_field_to_string(field.handle))
+  $newGString(garrow_field_to_string(field.handle))
 
 proc `==`*(a, b: Field): bool {.inline.} =
   garrow_field_equal(a.handle, b.handle).bool
@@ -118,22 +124,19 @@ proc newSchema*(handle: ptr GArrowSchema): Schema =
   result.handle = handle
 
 proc `$`*(schema: Schema): string {.inline.} =
-  $newGSTring(garrow_schema_to_string(schema.handle))
+  $newGString(garrow_schema_to_string(schema.handle))
 
 proc nFields*(schema: Schema): int =
   garrow_schema_n_fields(schema.handle).int
 
 proc len*(schema: Schema): int {.inline.} =
-  ## Number of fields in the schema (alias for nFields)
   schema.nFields
 
 proc getField*(schema: Schema, idx: int): Field =
-  # FIXME: this will segfault with crap idx idx > nFields
   let handle = garrow_schema_get_field(schema.handle, idx.guint)
   result = newField(handle)
 
 proc tryGetField*(schema: Schema, idx: int): Option[Field] =
-  ## Safely get field by index, returns none if out of bounds
   if idx < 0 or idx >= schema.nFields:
     return none(Field)
   result = some(schema.getField(idx))
@@ -145,18 +148,15 @@ proc getFieldByName*(schema: Schema, name: string): Field =
   result = newField(handle)
 
 proc tryGetField*(schema: Schema, name: string): Option[Field] =
-  ## Safely get field by name, returns none if not found
   let handle = garrow_schema_get_field_by_name(schema.handle, name.cstring)
   if handle.isNil:
     return none(Field)
   result = some(newField(handle))
 
 proc `[]`*(schema: Schema, idx: int): Field {.inline.} =
-  ## Get field by index
   schema.getField(idx)
 
 proc `[]`*(schema: Schema, name: string): Field {.inline.} =
-  ## Get field by name
   schema.getFieldByName(name)
 
 proc getFieldIndex*(schema: Schema, name: string): int =

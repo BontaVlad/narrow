@@ -1,12 +1,18 @@
 import std/[macros, options, strformat]
-import ./[ffi, gchunkedarray, garray, glist, gtypes, gschema, error]
+import ../core/[ffi, error]
+import ../types/[gtypes, glist]
+import ../column/[primitive, metadata]
+
+# ============================================================================
+# RecordBatch and Related Types
+# ============================================================================
 
 type
   RecordBatchBuilder* = object
     handle: ptr GArrowRecordBatchBuilder
 
   RecordBatch* = object
-    handle: ptr GArrowRecordBatch
+    handle*: ptr GArrowRecordBatch
 
   RecordBatchIterator* = object
     handle: ptr GArrowRecordBatchIterator
@@ -95,7 +101,6 @@ macro newRecordBatch*(schema: Schema, arrays: varargs[typed]): RecordBatch =
 
   var bodyStmts = newStmtList()
 
-  # For each array, add columnBuilder().appendValues() call
   for i, arr in arrays:
     let idx = newLit(i)
     let arrType = arr.getTypeInst()
@@ -118,20 +123,16 @@ macro newRecordBatch*(schema: Schema, arrays: varargs[typed]): RecordBatch =
 
 proc `$`*(rb: RecordBatch): string =
   let cstr = check garrow_record_batch_to_string(rb.handle)
-  result = $newGstring(cstr)
+  result = $newGString(cstr)
 
-# TODO: check does not like to much that the function validate return a bool
 proc validate*(rb: RecordBatch): bool =
-  ## Validate the record batch
   var err: ptr GError
   result = garrow_record_batch_validate(rb.toPtr, addr err).bool
   if not err.isNil:
     raise
       newException(ValueError, fmt"RecordBatch validation failed, got {err[].message}")
 
-# TODO: same as above, but for full validation
 proc validateFull*(rb: RecordBatch): bool =
-  ## Perform full validation of the record batch
   var err: ptr GError
   result = garrow_record_batch_validate_full(rb.toPtr, addr err).bool
   if not err.isNil:
@@ -150,7 +151,6 @@ proc nRows*(rb: RecordBatch): int64 =
   garrow_record_batch_get_n_rows(rb.handle).int64
 
 proc getColumnName*(rb: RecordBatch, idx: int): string =
-  # this should not be wrapped by newGString because it will be cleaned by RecordBatch, and we don't want to double free it
   result = $garrow_record_batch_get_column_name(rb.toPtr, idx.gint)
 
 proc getColumnData*[T](rb: RecordBatch, idx: int): Array[T] =
@@ -165,28 +165,23 @@ proc `[]`*[T](rb: RecordBatch, key: string, _: typedesc[T]): Array[T] =
   result = getColumnData[T](rb, idx)
 
 proc `==`*(rb1, rb2: RecordBatch): bool {.inline.} =
-  ## Check equality without metadata
   garrow_record_batch_equal(rb1.toPtr, rb2.toPtr).bool
 
 proc equalMetadata*(
     rb1, rb2: RecordBatch, checkMetadata: bool = true
 ): bool {.inline.} =
-  ## Check equality with optional metadata checking
   garrow_record_batch_equal_metadata(rb1.toPtr, rb2.toPtr, checkMetadata.gboolean).bool
 
 proc slice*(rb: RecordBatch, offset: int64, length: int64): RecordBatch =
-  ## Create a zero-copy slice of the record batch
   let handle = garrow_record_batch_slice(rb.toPtr, offset.gint64, length.gint64)
   result = newRecordBatch(handle)
 
 proc addColumn*(rb: RecordBatch, idx: uint, field: Field, column: Array): RecordBatch =
-  ## Add a column at the specified index
   let handle =
     check garrow_record_batch_add_column(rb.toPtr, idx.guint, field.toPtr, column.toPtr)
   result = newRecordBatch(handle)
 
 proc removeColumn*(rb: RecordBatch, idx: uint): RecordBatch =
-  ## Remove a column at the specified index
   let handle = check garrow_record_batch_remove_column(rb.toPtr, idx.guint)
   result = newRecordBatch(handle)
 
@@ -218,7 +213,6 @@ proc flush*(builder: RecordBatchBuilder): RecordBatch =
   result = RecordBatch(handle: handle)
 
 proc newRecordBatchIterator*(recordBatches: seq[RecordBatch]): RecordBatchIterator =
-  ## Create an iterator from a sequence of record batches
   var glist = newGList[ptr GArrowRecordBatch]()
   for rb in recordBatches:
     glist.append(rb.toPtr)
@@ -227,7 +221,6 @@ proc newRecordBatchIterator*(recordBatches: seq[RecordBatch]): RecordBatchIterat
   result = RecordBatchIterator(handle: handle)
 
 proc next*(it: RecordBatchIterator): Option[RecordBatch] =
-  ## Get the next record batch, or none if exhausted
   var err: ptr GError
   let handle = garrow_record_batch_iterator_next(it.toPtr, addr err)
 
@@ -241,11 +234,9 @@ proc next*(it: RecordBatchIterator): Option[RecordBatch] =
   result = some(newRecordBatch(handle))
 
 proc `==`*(it1, it2: RecordBatchIterator): bool {.inline.} =
-  ## Check if two iterators are equal
   garrow_record_batch_iterator_equal(it1.toPtr, it2.toPtr).bool
 
 proc toList*(it: RecordBatchIterator): seq[RecordBatch] =
-  ## Convert iterator to a list of record batches
   var err: ptr GError
   let glist = garrow_record_batch_iterator_to_list(it.toPtr, addr err)
 
@@ -268,7 +259,6 @@ proc toList*(it: RecordBatchIterator): seq[RecordBatch] =
     result.add(newRecordBatch(handle))
 
 iterator items*(it: RecordBatchIterator): RecordBatch =
-  ## Iterate over record batches
   var maybeRb = it.next()
   while maybeRb.isSome:
     yield maybeRb.get()
@@ -278,9 +268,7 @@ iterator columns*(rb: RecordBatch): Field =
   for field in rb.schema:
     yield field
 
-# Row-level access methods
 proc isNull*(rb: RecordBatch, rowIdx: int, colIdx: int): bool =
-  ## Check if cell at (rowIdx, colIdx) is null
   if rowIdx < 0 or rowIdx >= rb.nRows:
     raise newException(IndexDefect, "Row index out of bounds: " & $rowIdx)
   if colIdx < 0 or colIdx >= rb.nColumns:
@@ -291,21 +279,17 @@ proc isNull*(rb: RecordBatch, rowIdx: int, colIdx: int): bool =
   result = colArray.isNull(rowIdx)
 
 proc isNull*(rb: RecordBatch, rowIdx: int, colName: string): bool =
-  ## Check if cell at (rowIdx, colName) is null
   let schema = rb.schema
   let colIdx = schema.getFieldIndex(colName)
   result = rb.isNull(rowIdx, colIdx)
 
 proc isValid*(rb: RecordBatch, rowIdx: int, colIdx: int): bool {.inline.} =
-  ## Check if cell at (rowIdx, colIdx) is valid (not null)
   result = not rb.isNull(rowIdx, colIdx)
 
 proc isValid*(rb: RecordBatch, rowIdx: int, colName: string): bool {.inline.} =
-  ## Check if cell at (rowIdx, colName) is valid (not null)
   result = not rb.isNull(rowIdx, colName)
 
 proc tryGet*[T](rb: RecordBatch, rowIdx: int, colIdx: int): Option[T] =
-  ## Safely get value at (rowIdx, colIdx), returns none if out of bounds or null
   if rowIdx < 0 or rowIdx >= rb.nRows or colIdx < 0 or colIdx >= rb.nColumns:
     return none(T)
 
@@ -316,7 +300,6 @@ proc tryGet*[T](rb: RecordBatch, rowIdx: int, colIdx: int): Option[T] =
   result = some(colData[rowIdx])
 
 proc tryGet*[T](rb: RecordBatch, rowIdx: int, colName: string): Option[T] =
-  ## Safely get value at (rowIdx, colName), returns none if out of bounds or null
   if rowIdx < 0 or rowIdx >= rb.nRows:
     return none(T)
 
@@ -332,19 +315,15 @@ type RecordBatchRow* = object ## Represents a single row in a RecordBatch for it
   index*: int
 
 proc len*(row: RecordBatchRow): int {.inline.} =
-  ## Number of columns in the row
   result = row.batch.nColumns
 
 proc isNull*(row: RecordBatchRow, idx: int): bool =
-  ## Check if column idx in this row is null
   result = row.batch.isNull(row.index, idx)
 
 proc isValid*(row: RecordBatchRow, idx: int): bool {.inline.} =
-  ## Check if column idx in this row is valid
   result = not row.isNull(idx)
 
 proc `$`*(row: RecordBatchRow): string =
-  ## String representation of a row
   result = "Row " & $row.index & ": ["
   for i in 0 ..< row.batch.nColumns:
     if i > 0:
@@ -352,21 +331,18 @@ proc `$`*(row: RecordBatchRow): string =
     if row.isNull(i):
       result &= "null"
     else:
-      result &= "?" # Cannot easily convert without type info
+      result &= "?"
   result &= "]"
 
 iterator items*(rb: RecordBatch): RecordBatchRow =
-  ## Iterate over rows in the record batch
   for i in 0 ..< rb.nRows:
     yield RecordBatchRow(batch: rb, index: i.int)
 
 proc nNulls*(rb: RecordBatch): int64 =
-  ## Total number of null values across all columns
   result = 0
   for i in 0 ..< rb.nColumns:
     let handle = garrow_record_batch_get_column_data(rb.toPtr, i.gint)
-    let colArray = newArray[int8](handle) # Type doesn't matter for null checking
-    # We need to count nulls manually since Array doesn't expose this directly
+    let colArray = newArray[int8](handle)
     for j in 0 ..< rb.nRows:
       if colArray.isNull(j):
         result += 1

@@ -1,4 +1,5 @@
-import ./[ffi, gtypes, error]
+import ../core/[ffi, error]
+import ./gtypes
 
 type MapType* = object
   handle*: ptr GArrowMapDataType

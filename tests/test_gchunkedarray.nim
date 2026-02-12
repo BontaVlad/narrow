@@ -1,6 +1,6 @@
 import std/options
 import unittest2
-import ../src/[ffi, garray, gchunkedarray, gtypes]
+import ../src/narrow/[core/ffi, column/primitive, column/primitive, types/gtypes]
 
 suite "ChunkedArray - Construction":
   test "Empty chunked array with data type":

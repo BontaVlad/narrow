@@ -1,6 +1,6 @@
 import std/[options, strutils]
 import unittest2
-import ../src/[ffi, gschema, gtypes]
+import ../src/narrow/[core/ffi, column/metadata, types/gtypes]
 
 suite "Field - Creation and Properties":
   test "Create field with primitive types":

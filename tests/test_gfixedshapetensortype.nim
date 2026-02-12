@@ -1,6 +1,6 @@
 import std/strutils
 import unittest2
-import ../src/[ffi, gschema, gtypes, gfixedshapetensortype]
+import ../src/narrow/[core/ffi, column/metadata, types/gtypes, types/gfixedshapetensortype]
 
 suite "FixedShapeTensorType - Basic Creation":
   

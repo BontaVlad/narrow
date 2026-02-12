@@ -1,11 +1,22 @@
-import
-  ./[
-    ffi, error, garray, gtables, glist, gstruct, gtemporal, gmap, gmaparray, glisttype,
-    glargelisttype, gfixedsizelisttype, guuid, gfixedshapetensortype, concepts,
-    glistarray, gschema, gchunkedarray, grecordbatch, parquet, parquet_statistics,
-  ]
+# Narrow - Apache Arrow C API Wrapper for Nim
+#
+# This module provides a high-level, memory-safe wrapper around Apache Arrow's C API.
+
+import narrow/core/[ffi, error, concepts, generated]
+import narrow/types/[
+  gtypes, gtemporal, glisttype, glargelisttype, gfixedsizelisttype,
+  gfixedshapetensortype, guuid, gmap, glist
+]
+import narrow/column/[primitive, nested, metadata]
+import narrow/tabular/[table, batch]
+import narrow/compute/filters
+import narrow/io/[parquet, parquet_statistics, csv, filesystem]
 
 export
-  error, ffi, garray, gtables, glist, gstruct, gtemporal, gmap, gmaparray, glisttype,
-  glargelisttype, gfixedsizelisttype, guuid, gfixedshapetensortype, concepts,
-  glistarray, gschema, gchunkedarray, grecordbatch, parquet, parquet_statistics
+  ffi, error, concepts, generated,
+  gtypes, gtemporal, glisttype, glargelisttype, gfixedsizelisttype,
+  gfixedshapetensortype, guuid, gmap, glist,
+  primitive, nested, metadata,
+  table, batch,
+  filters,
+  parquet, parquet_statistics, csv, filesystem

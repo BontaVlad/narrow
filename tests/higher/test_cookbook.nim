@@ -2,7 +2,7 @@ import std/[os, sequtils]
 import unittest2
 import ../testfixture
 
-import ../../src/[garray, gchunkedarray, gschema, gtables, parquet]
+import ../../src/narrow/[column/primitive, column/metadata, tabular/table, io/parquet]
 
 suite "Reading and Writing Data":
 

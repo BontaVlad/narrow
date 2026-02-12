@@ -1,6 +1,6 @@
 import std/options
 import unittest2
-import ../src/[ffi, garray, gschema, grecordbatch, gtypes]
+import ../src/narrow/[core/ffi, column/primitive, column/metadata, tabular/batch, types/gtypes]
 
 suite "RecordBatch - Construction":
   

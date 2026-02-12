@@ -1,5 +1,5 @@
 import unittest2
-import ../src/[ffi, gschema, gtypes, gmap]
+import ../src/narrow/[core/ffi, column/metadata, types/gtypes, types/gmap]
 
 suite "MapType - Basic Creation":
   

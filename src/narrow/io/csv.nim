@@ -1,9 +1,9 @@
 import std/[strformat, options, tables, sets, sequtils, strutils]
-import
-  ./[
-    ffi, filesystem, gtables, error, gtypes, gschema, garray, grecordbatch,
-    gchunkedarray,
-  ]
+import ../core/[ffi, error]
+import ../types/gtypes
+import ../column/[metadata, primitive]
+import ../tabular/[table, batch]
+import ./filesystem
 
 type
   CsvReadOptions* = object

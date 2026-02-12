@@ -1,4 +1,5 @@
-import ./[ffi, error, parquet]
+import ../core/[ffi, error]
+import ./parquet
 
 type
   Statistics* = object

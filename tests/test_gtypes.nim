@@ -1,6 +1,6 @@
 
 import unittest2
-import ../src/[ffi, gtypes]
+import ../src/narrow/[core/ffi, types/gtypes]
 
 suite "GArrow types":
 

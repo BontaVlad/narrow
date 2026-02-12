@@ -1,5 +1,8 @@
 import std/[options, sugar, sequtils]
-import ./[ffi, filesystem, error, gschema, gtables, gchunkedarray, grecordbatch]
+import ../core/[ffi, error]
+import ./filesystem
+import ../column/[metadata, primitive]
+import ../tabular/[table, batch]
 
 type
   FileReader* = object

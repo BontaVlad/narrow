@@ -1,6 +1,6 @@
 import std/strutils
 import unittest2
-import ../src/[ffi, gschema, gtypes, glargelisttype]
+import ../src/narrow/[core/ffi, column/metadata, types/gtypes, types/glargelisttype]
 
 suite "LargeListType - Basic Creation":
   

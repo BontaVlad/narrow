@@ -1,7 +1,7 @@
 import std/[os, options, sets, sequtils]
 import unittest2
 import testfixture
-import ../src/[ffi, filesystem, gtables, csv, gtypes, gschema, garray, grecordbatch]
+import ../src/narrow/[core/ffi, io/filesystem, tabular/table, io/csv, types/gtypes, column/metadata, column/primitive, tabular/batch]
 
 suite "Reading CSV":
 
@@ -51,12 +51,12 @@ suite "Writing CSV - ArrowTable":
 
   setup:
     # Auto-detect test name - will create isolated directory per test
-    fixture = newTestFixture("test_csv")
+    fixture = newTestFixture("test_io/csv")
 
   teardown:
     fixture.cleanup()
 
-  test "write table to csv file localFileSystem":
+  test "write table to io/csv file localFileSystem":
     let table = newArrowTable(schema, alive, name)
     let uri = fixture / "written_table.csv"
 
@@ -111,12 +111,12 @@ suite "Writing CSV - RecordBatch":
   var fixture: TestFixture
 
   setup:
-    fixture = newTestFixture("test_csv")
+    fixture = newTestFixture("test_io/csv")
 
   teardown:
     fixture.cleanup()
 
-  test "write record batch to csv file":
+  test "write record batch to io/csv file":
     let rb = newRecordBatch(schema, alive, name)
     let uri = fixture / "written_batch.csv"
 
@@ -189,7 +189,7 @@ suite "CSV Round-trip":
   var fixture: TestFixture
 
   setup:
-    fixture = newTestFixture("test_csv")
+    fixture = newTestFixture("test_io/csv")
 
   teardown:
     fixture.cleanup()

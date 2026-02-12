@@ -1,6 +1,6 @@
 import std/strutils
 import unittest2
-import ../src/[ffi, gschema, gtypes, gfixedsizelisttype]
+import ../src/narrow/[core/ffi, column/metadata, types/gtypes, types/gfixedsizelisttype]
 
 suite "FixedSizeListType - Basic Creation":
 

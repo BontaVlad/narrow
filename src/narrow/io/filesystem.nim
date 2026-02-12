@@ -1,4 +1,5 @@
-import ./[ffi, error, glist, gtypes]
+import ../core/[ffi, error]
+import ../types/[gtypes, glist]
 
 const
   PropPath = "path"

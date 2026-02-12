@@ -1,6 +1,6 @@
 import unittest2
 import std/[options, strutils]
-import ../src/[ffi, gtemporal]
+import ../src/narrow/[core/ffi, types/gtemporal]
 
 suite "Time32 - Creation and Operations":
 

@@ -1,5 +1,12 @@
 import std/[macros, options]
-import ./[ffi, gchunkedarray, garray, glist, gtypes, gschema, grecordbatch, error]
+import ../core/[ffi, error]
+import ../types/[gtypes, glist]
+import ../column/[primitive, metadata]
+import ./batch
+
+# ============================================================================
+# ArrowTable
+# ============================================================================
 
 type ArrowTable* = object
   handle: ptr GArrowTable
@@ -87,7 +94,6 @@ macro newArrowTable*(schema: Schema, args: varargs[typed]): ArrowTable =
     bracket.add quote do:
       `arg`.toPtr
 
-  # Build @[...] seq constructor
   let seqExpr = newNimNode(nnkPrefix).add(ident"@").add(bracket)
 
   result = quote:
@@ -95,26 +101,13 @@ macro newArrowTable*(schema: Schema, args: varargs[typed]): ArrowTable =
 
 macro newArrowTable*(rows: typed): ArrowTable =
   ## Creates a new ArrowTable from a sequence of named tuples.
-  ##
-  ## The tuple field names become column names and types are inferred.
-  ## Only named tuples like `(col1: 1, col2: "a")` are supported.
-  ##
-  ## Example:
-  ##   let data = @[
-  ##     (col1: 1, col2: "a"),
-  ##     (col1: 2, col2: "b")
-  ##   ]
-  ##   let table = newArrowTable(data)
-
   let rowsType = rows.getTypeInst()
 
-  # Extract element type from seq[T]
   if rowsType.kind != nnkBracketExpr or rowsType.len < 2:
     error("Expected seq of tuples, got: " & rowsType.repr, rows)
 
   let elemType = rowsType[1]
 
-  # Extract field names and types from TupleTy
   var fieldInfo: seq[tuple[name: string, typ: NimNode]] = @[]
 
   if elemType.kind == nnkTupleTy:
@@ -135,20 +128,16 @@ macro newArrowTable*(rows: typed): ArrowTable =
   if fieldInfo.len == 0:
     error("No fields found in tuple type. Anonymous tuples are not supported.", rows)
 
-  # Build all statements in the result directly
   result = newStmtList()
 
-  # let data = rows
   let dataSym = genSym(nskLet, "data")
   result.add newLetStmt(dataSym, rows)
 
-  # if data.len == 0: raise ValueError
   let checkEmpty = quote:
     if `dataSym`.len == 0:
       raise newException(ValueError, "Cannot create ArrowTable from empty data")
   result.add checkEmpty
 
-  # var schemaFields = newSeq[Field]()
   let schemaFieldsSym = genSym(nskVar, "schemaFields")
   result.add newVarStmt(
     schemaFieldsSym,
@@ -156,14 +145,12 @@ macro newArrowTable*(rows: typed): ArrowTable =
       newSeq[Field](),
   )
 
-  # Add field creation for each field
   for (name, typ) in fieldInfo:
     let nameLit = newLit(name)
     let fieldStmt = quote:
       `schemaFieldsSym`.add(newField[`typ`](`nameLit`))
     result.add fieldStmt
 
-  # let schema = newSchema(schemaFields)
   let schemaSym = genSym(nskLet, "schema")
   result.add newLetStmt(
     schemaSym,
@@ -171,7 +158,6 @@ macro newArrowTable*(rows: typed): ArrowTable =
       newSchema(`schemaFieldsSym`),
   )
 
-  # Create a ChunkedArray for each column and collect their pointers
   let chunkedArraysSym = genSym(nskVar, "chunkedArrays")
   result.add newVarStmt(
     chunkedArraysSym,
@@ -179,21 +165,18 @@ macro newArrowTable*(rows: typed): ArrowTable =
       newSeq[ptr GArrowChunkedArray](),
   )
 
-  # Add column extraction for each field
   for (name, typ) in fieldInfo:
     let fieldName = ident(name)
     let colSym = genSym(nskVar, "colData")
     let arrSym = genSym(nskLet, "arr")
     let chunkedSym = genSym(nskLet, "chunkedArray")
 
-    # var colData = newSeq[Typ](data.len)
     let newSeqCall = newNimNode(nnkCall).add(
         newNimNode(nnkBracketExpr).add(bindSym"newSeq", typ),
         newDotExpr(dataSym, ident"len"),
       )
     result.add newVarStmt(colSym, newSeqCall)
 
-    # for rowIdx in 0 ..< data.len: colData[rowIdx] = data[rowIdx].fieldName
     let rowIdxSym = genSym(nskForVar, "rowIdx")
     let rowLoop = newNimNode(nnkForStmt)
     rowLoop.add rowIdxSym
@@ -209,22 +192,18 @@ macro newArrowTable*(rows: typed): ArrowTable =
     rowLoop.add rowLoopBody
     result.add rowLoop
 
-    # let arr = newArray(colData)
     result.add newLetStmt(arrSym, newCall(bindSym"newArray", colSym))
 
-    # let chunkedArray = newChunkedArray[Typ]([arr])
     let chunkedCall = newNimNode(nnkCall).add(
         newNimNode(nnkBracketExpr).add(bindSym"newChunkedArray", typ),
         newNimNode(nnkBracket).add(arrSym),
       )
     result.add newLetStmt(chunkedSym, chunkedCall)
 
-    # chunkedArrays.add(chunkedArray.toPtr)
     result.add newCall(
       newDotExpr(chunkedArraysSym, ident"add"), newDotExpr(chunkedSym, ident"toPtr")
     )
 
-  # newArrowTableFromChunkedArrays(schema, chunkedArrays)
   result.add quote do:
     newArrowTableFromChunkedArrays(`schemaSym`, `chunkedArraysSym`)
 
@@ -345,20 +324,16 @@ proc concatenate*(tbl: ArrowTable, others: openArray[ArrowTable]): ArrowTable =
   result = newArrowTable(handle)
 
 proc getColumnData*[T](tbl: ArrowTable, idx: int): ChunkedArray[T] =
-  ## Get column data with compile-time type and runtime type validation
-
   when defined(debug):
     let schema = tbl.schema
     let field = schema.getField(idx)
     let dataType = field.dataType
-    # Runtime type check
     dataType.checkType(T)
 
   let handle = garrow_table_get_column_data(tbl.handle, idx.gint)
   result = newChunkedArray[T](handle)
 
 proc `[]`*(tbl: ArrowTable, idx: int): ChunkedArray[void] =
-  ## Get column by index without specifying type (returns ChunkedArray[byte])
   let handle = garrow_table_get_column_data(tbl.handle, idx.gint)
   result = newChunkedArray[void](handle)
 
@@ -366,7 +341,6 @@ proc `[]`*(tbl: ArrowTable, idx: int, T: typedesc): ChunkedArray[T] =
   result = getColumnData[T](tbl, idx)
 
 proc `[]`*(tbl: ArrowTable, key: string): ChunkedArray[void] =
-  ## Get column by name without specifying type (returns ChunkedArray[byte])
   let schema = tbl.schema
   let idx = schema.getFieldIndex(key)
   let handle = garrow_table_get_column_data(tbl.handle, idx.gint)
@@ -385,34 +359,28 @@ iterator columns*(tbl: ArrowTable): Field =
   for field in tbl.schema:
     yield field
 
-# Row-level access methods
 proc isNull*(tbl: ArrowTable, rowIdx: int, colIdx: int): bool =
-  ## Check if cell at (rowIdx, colIdx) is null
   if rowIdx < 0 or rowIdx >= tbl.nRows:
     raise newException(IndexDefect, "Row index out of bounds: " & $rowIdx)
   if colIdx < 0 or colIdx >= tbl.nColumns:
     raise newException(IndexDefect, "Column index out of bounds: " & $colIdx)
 
   let handle = garrow_table_get_column_data(tbl.handle, colIdx.gint)
-  let colArray = newChunkedArray[void](handle) # Type doesn't matter for null checking
+  let colArray = newChunkedArray[void](handle)
   result = colArray.isNull(rowIdx)
 
 proc isNull*(tbl: ArrowTable, rowIdx: int, colName: string): bool =
-  ## Check if cell at (rowIdx, colName) is null
   let schema = tbl.schema
   let colIdx = schema.getFieldIndex(colName)
   result = tbl.isNull(rowIdx, colIdx)
 
 proc isValid*(tbl: ArrowTable, rowIdx: int, colIdx: int): bool {.inline.} =
-  ## Check if cell at (rowIdx, colIdx) is valid (not null)
   result = not tbl.isNull(rowIdx, colIdx)
 
 proc isValid*(tbl: ArrowTable, rowIdx: int, colName: string): bool {.inline.} =
-  ## Check if cell at (rowIdx, colName) is valid (not null)
   result = not tbl.isNull(rowIdx, colName)
 
 proc tryGet*[T](tbl: ArrowTable, rowIdx: int, colIdx: int): Option[T] =
-  ## Safely get value at (rowIdx, colIdx), returns none if out of bounds or null
   if rowIdx < 0 or rowIdx >= tbl.nRows or colIdx < 0 or colIdx >= tbl.nColumns:
     return none(T)
 
@@ -423,7 +391,6 @@ proc tryGet*[T](tbl: ArrowTable, rowIdx: int, colIdx: int): Option[T] =
   result = some(colData[rowIdx])
 
 proc tryGet*[T](tbl: ArrowTable, rowIdx: int, colName: string): Option[T] =
-  ## Safely get value at (rowIdx, colName), returns none if out of bounds or null
   if rowIdx < 0 or rowIdx >= tbl.nRows:
     return none(T)
 
@@ -439,19 +406,15 @@ type TableRow* = object ## Represents a single row in an ArrowTable for iteratio
   index*: int
 
 proc len*(row: TableRow): int {.inline.} =
-  ## Number of columns in the row
   result = row.table.nColumns
 
 proc isNull*(row: TableRow, idx: int): bool =
-  ## Check if column idx in this row is null
   result = row.table.isNull(row.index, idx)
 
 proc isValid*(row: TableRow, idx: int): bool {.inline.} =
-  ## Check if column idx in this row is valid
   result = not row.isNull(idx)
 
 proc `$`*(row: TableRow): string =
-  ## String representation of a row
   result = "Row " & $row.index & ": ["
   for i in 0 ..< row.table.nColumns:
     if i > 0:
@@ -459,21 +422,18 @@ proc `$`*(row: TableRow): string =
     if row.isNull(i):
       result &= "null"
     else:
-      result &= "?" # Cannot easily convert without type info
+      result &= "?"
   result &= "]"
 
 iterator items*(tbl: ArrowTable): TableRow =
-  ## Iterate over rows in the table
   for i in 0 ..< tbl.nRows:
     yield TableRow(table: tbl, index: i.int)
 
 proc nNulls*(tbl: ArrowTable): int64 =
-  ## Total number of null values across all columns
   result = 0
   for i in 0 ..< tbl.nColumns:
     let handle = garrow_table_get_column_data(tbl.handle, i.gint)
-    let colArray = newChunkedArray[int8](handle) # Type doesn't matter for null checking
-    # Need to count nulls across all chunks
+    let colArray = newChunkedArray[int8](handle)
     for j in 0 ..< tbl.nRows.int:
       if colArray.isNull(j):
         result += 1

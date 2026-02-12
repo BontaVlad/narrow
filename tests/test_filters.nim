@@ -1,6 +1,6 @@
 import std/options
 import unittest2
-import ../src/[ffi, filters, garray, gchunkedarray]
+import ../src/narrow/[core/ffi, compute/filters, column/primitive, column/primitive]
 
 suite "Filters - Creation":
 

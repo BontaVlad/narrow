@@ -1,5 +1,10 @@
 import std/[options, strformat]
-import ./[ffi, gtypes, error]
+import ../core/[ffi, error]
+import ../types/[gtypes, glist]
+
+# ============================================================================
+# Array Types
+# ============================================================================
 
 type
   ArrayBuilder*[T: ArrowValue] = object
@@ -48,6 +53,10 @@ proc `=copy`*[T](dest: var Array[T], src: Array[T]) =
     if not isNil(dest.handle):
       discard g_object_ref(dest.handle)
 
+# ============================================================================
+# Array Builders
+# ============================================================================
+
 proc newArrayBuilder*[T](builderPtr: ptr GArrowArrayBuilder): ArrayBuilder[T] =
   let handle = cast[ptr GArrowArrayBuilder](g_object_ref(builderPtr))
   result = ArrayBuilder[T](handle: handle)
@@ -86,7 +95,6 @@ proc newArrayBuilder*[T](): ArrayBuilder[T] =
   if isNil(handle):
     raise newException(OperationError, "Error creating the builder")
 
-  # Sink floating reference if present
   if g_object_is_floating(handle) != 0:
     discard g_object_ref_sink(handle)
 
@@ -254,7 +262,6 @@ proc appendValues*[T](builder: ArrayBuilder[T], values: openArray[T]) =
       0,
     )
   else:
-    # Fallback to individual appends for unsupported batch operations
     for val in values:
       builder.append(val)
 
@@ -359,7 +366,6 @@ proc appendValues*[T](builder: ArrayBuilder[T], values: Array[T]) =
       0,
     )
   else:
-    # Fallback to individual appends for unsupported batch operations
     for val in values:
       builder.append(val)
 
@@ -367,7 +373,10 @@ proc finish*[T](builder: ArrayBuilder[T]): Array[T] =
   let handle = check garrow_array_builder_finish(builder.handle)
   result = Array[T](handle: handle)
 
-# ARRAY
+# ============================================================================
+# Array Operations
+# ============================================================================
+
 proc newArray*[T](values: sink seq[T]): Array[T] =
   let builder = newArrayBuilder[T]()
   if len(values) != 0:
@@ -389,7 +398,6 @@ proc newArray*[T](gptr: pointer): Array[T] =
   result = cast[Array[T]](rawPtr)
 
 proc newArray*[T](handle: ptr GArrowArray): Array[T] =
-  # Increment reference count since we're taking ownership
   result = Array[T](handle: handle)
 
 proc `==`*[T, U](a: Array[T], b: Array[U]): bool =
@@ -500,3 +508,158 @@ proc `@`*[T](arr: Array[T]): seq[T] =
 proc `$`*(arr: Array): string =
   let cStr = check garrow_array_to_string(arr.handle)
   result = $newGString(cStr)
+
+
+# ============================================================================
+# ChunkedArray Types
+# ============================================================================
+
+type ChunkedArray*[T] = object
+  handle: ptr GArrowChunkedArray
+
+proc toPtr*[T](c: ChunkedArray[T] | ChunkedArray): ptr GArrowChunkedArray {.inline.} =
+  c.handle
+
+proc `=destroy`*[T](c: ChunkedArray[T]) =
+  if not isNil(c.toPtr):
+    g_object_unref(cast[gpointer](c.toPtr))
+
+proc newChunkedArray*[T](chunks: openArray[Array[T]]): ChunkedArray[T] =
+  let cList = newGList(chunks)
+  var handle: ptr GArrowChunkedArray
+  if len(cList) == 0:
+    handle = check garrow_chunked_array_new_empty(newGType(T).toPtr)
+  else:
+    handle = check garrow_chunked_array_new(cList.list)
+  result = ChunkedArray[T](handle: handle)
+
+proc newChunkedArray*[T](): ChunkedArray[T] {.inline.} =
+  let dataType = newGType(T)
+  let handle = check garrow_chunked_array_new_empty(dataType.toPtr)
+  result = ChunkedArray[T](handle: handle)
+
+proc newChunkedArray*[T](cAbiArrayStream: pointer): ChunkedArray[T] =
+  let handle = check garrow_chunked_array_import(cAbiArrayStream)
+  result = ChunkedArray[T](handle: handle)
+
+proc newChunkedArray*[T](rawPtr: ptr GArrowChunkedArray): ChunkedArray[T] =
+  result = ChunkedArray[T](handle: rawPtr)
+
+proc `==`*[T, U](a: ChunkedArray[T], b: ChunkedArray[U]): bool {.inline.} =
+  result = garrow_chunked_array_equal(a.toPtr, b.toPtr) != 0
+
+proc getValueDataType*(chunkedArray: ChunkedArray): GADType =
+  result = newGType(garrow_chunked_array_get_value_data_type(chunkedArray.toPtr))
+
+proc getValueType*(chunkedArray: ChunkedArray): GArrowType =
+  result = garrow_chunked_array_get_value_type(chunkedArray.toPtr)
+
+proc len*(chunkedArray: ChunkedArray): int =
+  result = int(garrow_chunked_array_get_length(chunkedArray.toPtr))
+
+proc nRows*(chunkedArray: ChunkedArray): int64 {.inline.} =
+  ## Number of rows in the chunked array
+  result = garrow_chunked_array_get_n_rows(chunkedArray.toPtr).int64
+
+proc nNulls*(chunkedArray: ChunkedArray): int64 {.inline.} =
+  ## Number of null values in the chunked array
+  result = garrow_chunked_array_get_n_nulls(chunkedArray.toPtr).int64
+
+proc nChunks*(chunkedArray: ChunkedArray): uint =
+  result = garrow_chunked_array_get_n_chunks(chunkedArray.toPtr)
+
+proc getChunk*[T](chunkedArray: ChunkedArray[T], i: uint): Array[T] =
+  if i.int >= chunkedArray.len:
+    raise newException(IndexDefect, "Chunk index out of bounds")
+  let handle = garrow_chunked_array_get_chunk(chunkedArray.toPtr, i.guint)
+  result = newArray[T](handle)
+
+proc getChunks*[T](chunkedArray: ChunkedArray[T]): ptr GList =
+  result = garrow_chunked_array_get_chunks(chunkedArray.toPtr)
+
+proc slice*(chunkedArray: ChunkedArray, offset: uint64, length: uint64): ChunkedArray =
+  let handle =
+    garrow_chunked_array_slice(chunkedArray.toPtr, offset.guint64, length.guint64)
+  result = ChunkedArray(handle: handle)
+
+proc slice*(chunkedArray: ChunkedArray, slice: HSlice[int, int]): ChunkedArray =
+  let start = uint64(slice.a)
+  let length = uint64(slice.b - slice.a + 1)
+  result = chunkedArray.slice(start, length)
+
+proc `$`*(chunkedArray: ChunkedArray): string =
+  let cStr = check garrow_chunked_array_to_string(chunkedArray.toPtr)
+  result = $newGString(cStr)
+
+proc combine*[T](chunkedArray: ChunkedArray[T]): Array[T] =
+  let handle = check garrow_chunked_array_combine(chunkedArray.toPtr)
+  result = newArray[T](handle)
+
+proc exportCArray*(chunkedArray: ChunkedArray): pointer =
+  result = check garrow_chunked_array_export(chunkedArray.toPtr)
+
+iterator chunks*[T](chunkedArray: ChunkedArray[T]): Array[T] =
+  let nChunks = chunkedArray.nChunks()
+  if len(chunkedArray) > 0:
+    for i in 0.uint ..< nChunks:
+      yield chunkedArray.getChunk(i)
+
+proc `[]`*[T](chunkedArray: ChunkedArray[T], i: int): T =
+  if i < 0 or i >= chunkedArray.len:
+    raise newException(IndexDefect, "Index out of bounds")
+
+  var currentIndex = i
+  let nChunks = chunkedArray.nChunks()
+
+  for chunkIdx in 0.uint ..< nChunks:
+    let chunk = chunkedArray.getChunk(chunkIdx)
+    let chunkLen = chunk.len
+
+    if currentIndex < chunkLen:
+      return chunk[currentIndex]
+    else:
+      currentIndex -= chunkLen
+
+  raise newException(IndexDefect, "Index out of bounds")
+
+proc isNull*(chunkedArray: ChunkedArray, i: int): bool =
+  if i < 0 or i >= chunkedArray.len:
+    raise newException(IndexDefect, "Index out of bounds")
+
+  var currentIndex = i
+  let nChunks = chunkedArray.nChunks()
+
+  for chunkIdx in 0.uint ..< nChunks:
+    let chunk = chunkedArray.getChunk(chunkIdx)
+    let chunkLen = chunk.len
+
+    if currentIndex < chunkLen:
+      return chunk.isNull(currentIndex)
+    else:
+      currentIndex -= chunkLen
+
+  raise newException(IndexDefect, "Index out of bounds")
+
+proc isValid*(chunkedArray: ChunkedArray, i: int): bool =
+  result = not chunkedArray.isNull(i)
+
+proc tryGet*[T](chunkedArray: ChunkedArray[T], i: int): Option[T] =
+  if i < 0 or i >= chunkedArray.len:
+    return none(T)
+  if chunkedArray.isNull(i):
+    return none(T)
+  return some(chunkedArray[i])
+
+proc `@`*[T](chunkedArray: ChunkedArray[T]): seq[T] =
+  result = newSeq[T](chunkedArray.len)
+  var idx = 0
+  for chunk in chunkedArray.chunks:
+    for item in chunk:
+      result[idx] = item
+      inc idx
+
+iterator items*[T](chunkedArray: ChunkedArray[T]): lent T =
+  if len(chunkedArray) > 0:
+    for chunk in chunkedArray.chunks:
+      for item in chunk:
+        yield item

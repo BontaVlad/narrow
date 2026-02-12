@@ -1,4 +1,4 @@
-import ./[ffi]
+import ../core/ffi
 
 type GAList*[T] = object
   list*: ptr GList

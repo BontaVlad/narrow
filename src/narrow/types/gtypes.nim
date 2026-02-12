@@ -1,5 +1,5 @@
 import std/[macros]
-import ./[ffi, error]
+import ../core/[ffi, error]
 
 type
   GADType* = object

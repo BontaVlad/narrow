@@ -1,6 +1,6 @@
 import std/[strutils]
 import unittest2
-import ../src/[gtables, gtypes, garray, gchunkedarray, gschema, grecordbatch]
+import ../src/narrow/[tabular/table, types/gtypes, column/primitive, column/primitive, column/metadata, tabular/batch]
 
 suite "ArrowTable Construction Tests":
 

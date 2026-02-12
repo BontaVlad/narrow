@@ -1,6 +1,6 @@
 import unittest2
 import std/[times, options, strutils]
-import ../src/[ffi, gtemporal]
+import ../src/narrow/[core/ffi, types/gtemporal]
 
 suite "Date32 - Creation and Conversion":
 

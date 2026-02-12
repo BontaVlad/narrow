@@ -1,6 +1,6 @@
 import std/options
 import unittest2
-import ../src/[ffi, garray, gtypes]
+import ../src/narrow/[core/ffi, column/primitive, types/gtypes]
 
 ## TODO: remove AI GENERATED TESTS THAT DON"T DO ANYTHING
  

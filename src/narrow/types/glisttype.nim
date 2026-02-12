@@ -1,4 +1,6 @@
-import ./[ffi, gschema, gtypes, error]
+import ../core/[ffi, error]
+import ./gtypes
+import ../column/metadata
 
 type ListType* = object
   handle*: ptr GArrowListDataType
