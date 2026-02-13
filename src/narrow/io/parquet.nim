@@ -203,7 +203,7 @@ proc readTable*(uri: string, columns: sink seq[string]): ArrowTable =
   var chunkedArrays = newSeq[ChunkedArray[void]]()
   for info in fieldsInfo:
     chunkedArrays.add(pfr.readColumnData(info.index))
-  
+
   var data = newSeq[ptr GArrowChunkedArray]()
   for arr in chunkedArrays:
     data.add(arr.toPtr)

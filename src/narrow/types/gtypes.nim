@@ -8,9 +8,14 @@ type
   GString* = object
     handle*: cstring
 
+  # Distinct scalar types for temporal values (to distinguish from primitives)
+  Date32* = distinct int32 ## Days since epoch
+  Date64* = distinct int64 ## Milliseconds since epoch
+  MonthInterval* = distinct int32 ## Number of months
+
   ArrowPrimitive* =
     void | bool | int8 | uint8 | int16 | uint16 | int32 | uint32 | int | int64 | uint64 |
-    float32 | float64 | string | seq[byte] | cstring
+    float32 | float64 | string | seq[byte] | cstring | Date32 | Date64 | MonthInterval
 
   # Integer type groupings (compile-time)
   ArrowSignedInt* = int8 | int16 | int32 | int | int64

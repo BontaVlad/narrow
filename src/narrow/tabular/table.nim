@@ -71,9 +71,7 @@ template dispatchNewTable(
 ): ArrowTable =
   newArrowTableFromRecordBatches(schema, ptrs)
 
-template dispatchNewTable(
-    schema: Schema, ptrs: seq[ptr GArrowArray]
-): ArrowTable =
+template dispatchNewTable(schema: Schema, ptrs: seq[ptr GArrowArray]): ArrowTable =
   newArrowTableFromArrays(schema, ptrs)
 
 template dispatchNewTable(

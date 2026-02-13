@@ -509,7 +509,6 @@ proc `$`*(arr: Array): string =
   let cStr = check garrow_array_to_string(arr.handle)
   result = $newGString(cStr)
 
-
 # ============================================================================
 # ChunkedArray Types
 # ============================================================================

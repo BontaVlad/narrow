@@ -36,7 +36,9 @@ proc `=copy`*(dest: var FilterOptions, src: FilterOptions) =
 proc newFilterOptions*(): FilterOptions =
   result.handle = garrow_filter_options_new()
 
-proc nullSelectionBehavior*(options: FilterOptions): FilterNullSelectionBehavior {.inline.} =
+proc nullSelectionBehavior*(
+    options: FilterOptions
+): FilterNullSelectionBehavior {.inline.} =
   var behavior: cint
   g_object_get(options.handle, "null-selection-behavior", addr behavior, nil)
   result = cast[FilterNullSelectionBehavior](behavior.int)
@@ -143,40 +145,28 @@ proc `$`*(arr: BooleanArray): string =
 proc filter*(
     table: ArrowTable, filter: BooleanArray, options: FilterOptions
 ): ArrowTable =
-  let handle = check garrow_table_filter(
-    table.toPtr,
-    filter.handle,
-    options.handle
-  )
+  let handle = check garrow_table_filter(table.toPtr, filter.handle, options.handle)
   result = newArrowTable(handle)
 
 proc filter*(
     table: ArrowTable, filter: ChunkedArray[void], options: FilterOptions
 ): ArrowTable =
-  let handle = check garrow_table_filter_chunked_array(
-    table.toPtr,
-    filter.toPtr,
-    options.handle
-  )
+  let handle =
+    check garrow_table_filter_chunked_array(table.toPtr, filter.toPtr, options.handle)
   result = newArrowTable(handle)
 
 proc filter*[T](
     chunkedArray: ChunkedArray[T], filter: BooleanArray, options: FilterOptions
 ): ChunkedArray[T] =
-  let handle = check garrow_chunked_array_filter(
-    chunkedArray.toPtr,
-    filter.handle,
-    options.handle
-  )
+  let handle =
+    check garrow_chunked_array_filter(chunkedArray.toPtr, filter.handle, options.handle)
   result = newChunkedArray[T](handle)
 
 proc filter*[T](
     chunkedArray: ChunkedArray[T], filter: ChunkedArray[bool], options: FilterOptions
 ): ChunkedArray[T] =
   let handle = check garrow_chunked_array_filter_chunked_array(
-    chunkedArray.toPtr,
-    filter.toPtr,
-    options.handle
+    chunkedArray.toPtr, filter.toPtr, options.handle
   )
   result = newChunkedArray[T](handle)
 
@@ -193,17 +183,15 @@ proc filter*[T](chunkedArray: ChunkedArray[T], filter: BooleanArray): ChunkedArr
   let options = newFilterOptions()
   result = chunkedArray.filter(filter, options)
 
-proc filter*[T](chunkedArray: ChunkedArray[T], filter: ChunkedArray[bool]): ChunkedArray[T] =
+proc filter*[T](
+    chunkedArray: ChunkedArray[T], filter: ChunkedArray[bool]
+): ChunkedArray[T] =
   let options = newFilterOptions()
   result = chunkedArray.filter(filter, options)
 
 # Array filter support
 proc filter*[T](arr: Array[T], filter: BooleanArray, options: FilterOptions): Array[T] =
-  let handle = check garrow_array_filter(
-    arr.toPtr,
-    filter.handle,
-    options.handle
-  )
+  let handle = check garrow_array_filter(arr.toPtr, filter.handle, options.handle)
   result = newArray[T](handle)
 
 proc filter*[T](arr: Array[T], filter: BooleanArray): Array[T] =
