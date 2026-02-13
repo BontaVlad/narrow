@@ -1,4 +1,4 @@
-import std/[options, sugar, sequtils]
+import std/[options, sequtils]
 import ../core/[ffi, error]
 import ./filesystem
 import ../column/[metadata, primitive]
