@@ -1,4 +1,4 @@
-import std/[options, strformat, strutils]
+import std/[options, strformat]
 import ../core/[ffi, error]
 import ../types/gtypes
 import ../column/primitive

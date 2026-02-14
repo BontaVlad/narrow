@@ -1,4 +1,3 @@
-import std/strutils
 import unittest2
 import ../src/narrow/[core/ffi, column/metadata, types/gtypes, types/gfixedshapetensortype]
 

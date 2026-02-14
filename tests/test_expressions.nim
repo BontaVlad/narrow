@@ -1,6 +1,6 @@
-import std/[options, strutils]
+import std/strutils
 import unittest2
-import ../src/narrow/[core/ffi, compute/expressions, types/gtypes, column/primitive, column/nested, tabular/table, tabular/batch, column/metadata]
+import ../src/narrow/[core/ffi, compute/expressions, types/gtypes, column/primitive, tabular/table, tabular/batch, column/metadata]
 
 suite "Datum - Construction and Basic Operations":
   test "Create Datum from Array and verify type checking":
