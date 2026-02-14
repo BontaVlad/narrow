@@ -29,16 +29,17 @@ type
   Scalar*[T: ArrowPrimitive = void] = object
     handle*: ptr GArrowScalar
 
-  ExpressionObj = object of RootObj
+  ExpressionObj* = object of RootObj
     handle: ptr GArrowExpression
 
   LiteralExpression* = object of ExpressionObj
     ## Represents a literal/constant value in an expression
 
   FieldExpression* = object of ExpressionObj
-    ## Represents a reference to a field/column by name
 
   CallExpression* = object of ExpressionObj ## Represents a function call with arguments
+
+type DatumCompatible = ArrowPrimitive | Array | ChunkedArray | ArrowTable | RecordBatch
 
 # ============================================================================
 # ARC Hooks — Datum
@@ -252,7 +253,6 @@ proc kind*[K: static DatumKind](dt: Datum[K]): DatumKind {.inline.} =
 proc isValid*[T](sc: Scalar[T]): bool {.inline.} =
   garrow_scalar_is_valid(sc.handle) != 0
 
-# TODO: this might need different types declared
 proc `==`*[T, K](a: Scalar[T], b: Scalar[K]): bool {.inline.} =
   garrow_scalar_equal(a.handle, b.handle) != 0
 
@@ -364,7 +364,7 @@ proc value*[T](sc: Scalar[T]): valueType(T) {.inline.} =
 proc newLiteralExpression*(dt: Datum): LiteralExpression =
   result.handle = cast[ptr GArrowExpression](garrow_literal_expression_new(dt.toPtr))
 
-proc newLiteralExpression*[T](value: T): LiteralExpression =
+proc newLiteralExpression*[T: DatumCompatible](value: T): LiteralExpression =
   ## Creates a literal expression from a scalar value
   ##
   ## Example:
@@ -412,13 +412,12 @@ proc newCallExpression*(
 # Expression Operations
 # ============================================================================
 
-proc `$`*(expr: ExpressionObj): string =
+proc `$`*[T: ExpressionObj](expr: T): string =
   ## Returns a string representation of the expression
   if expr.handle == nil:
     result = "Expression(nil)"
   else:
-    let cStr = garrow_expression_to_string(expr.handle)
-    result = $cStr
+    result = $newGString(garrow_expression_to_string(expr.handle))
 
 proc `==`*[T: ExpressionObj](a, b: T): bool {.inline.} =
   ## Compares two expressions (or any subtype) for equality
@@ -428,7 +427,7 @@ proc `==`*[T: ExpressionObj](a, b: T): bool {.inline.} =
 # Convenience Constructors for Common Operations
 # ============================================================================
 
-proc eq*(field: FieldExpression, value: auto): CallExpression =
+proc eq*[T: DatumCompatible](field: FieldExpression, value: T): CallExpression =
   ## Creates an equality comparison expression: field == value
   newCallExpression("equal", field, newLiteralExpression(value))
 
@@ -436,7 +435,7 @@ proc eq*(a, b: ExpressionObj): CallExpression =
   ## Creates an equality comparison expression: a == b
   newCallExpression("equal", a, b)
 
-proc neq*(field: FieldExpression, value: auto): CallExpression =
+proc neq*[T: DatumCompatible](field: FieldExpression, value: T): CallExpression =
   ## Creates a not-equal comparison expression: field != value
   newCallExpression("not_equal", field, newLiteralExpression(value))
 
@@ -444,7 +443,7 @@ proc neq*(a, b: ExpressionObj): CallExpression =
   ## Creates a not-equal comparison expression: a != b
   newCallExpression("not_equal", a, b)
 
-proc lt*(field: FieldExpression, value: auto): CallExpression =
+proc lt*[T: DatumCompatible](field: FieldExpression, value: T): CallExpression =
   ## Creates a less-than comparison expression: field < value
   newCallExpression("less", field, newLiteralExpression(value))
 
@@ -452,7 +451,7 @@ proc lt*(a, b: ExpressionObj): CallExpression =
   ## Creates a less-than comparison expression: a < b
   newCallExpression("less", a, b)
 
-proc le*(field: FieldExpression, value: auto): CallExpression =
+proc le*[T: DatumCompatible](field: FieldExpression, value: T): CallExpression =
   ## Creates a less-than-or-equal comparison expression: field <= value
   newCallExpression("less_equal", field, newLiteralExpression(value))
 
@@ -460,7 +459,7 @@ proc le*(a, b: ExpressionObj): CallExpression =
   ## Creates a less-than-or-equal comparison expression: a <= b
   newCallExpression("less_equal", a, b)
 
-proc gt*(field: FieldExpression, value: auto): CallExpression =
+proc gt*[T: DatumCompatible](field: FieldExpression, value: T): CallExpression =
   ## Creates a greater-than comparison expression: field > value
   newCallExpression("greater", field, newLiteralExpression(value))
 
@@ -468,7 +467,7 @@ proc gt*(a, b: ExpressionObj): CallExpression =
   ## Creates a greater-than comparison expression: a > b
   newCallExpression("greater", a, b)
 
-proc ge*(field: FieldExpression, value: auto): CallExpression =
+proc ge*[T: DatumCompatible](field: FieldExpression, value: T): CallExpression =
   ## Creates a greater-than-or-equal comparison expression: field >= value
   newCallExpression("greater_equal", field, newLiteralExpression(value))
 
@@ -531,3 +530,84 @@ proc strLower*(field: FieldExpression): CallExpression =
 proc strContains*(field: FieldExpression, substr: string): CallExpression =
   ## Creates a string contains expression
   newCallExpression("match_substring", field, newLiteralExpression(substr))
+
+# ============================================================================
+# DSL Entry Point
+# ============================================================================
+
+proc col*(name: string): FieldExpression =
+  ## Shortcut to create a field reference
+  newFieldExpression(name)
+
+# ============================================================================
+# Operator Overloading (Comparison)
+# ============================================================================
+
+# These map Nim's infix operators to your Arrow convenience constructors
+proc `==`*[T: DatumCompatible](a: FieldExpression, b: T): CallExpression =
+  eq(a, b)
+
+proc `!=`*[T: DatumCompatible](a: FieldExpression, b: T): CallExpression =
+  neq(a, b)
+
+proc `<`*[T: DatumCompatible](a: FieldExpression, b: T): CallExpression =
+  lt(a, b)
+
+proc `<=`*[T: DatumCompatible](a: FieldExpression, b: T): CallExpression =
+  le(a, b)
+
+proc `>`*[T: DatumCompatible](a: FieldExpression, b: T): CallExpression =
+  gt(a, b)
+
+proc `>=`*[T: DatumCompatible](a: FieldExpression, b: T): CallExpression =
+  ge(a, b)
+
+# ============================================================================
+# Operator Overloading (Logical)
+# ============================================================================
+
+# Nim allows overloading 'and', 'or', and 'not' for non-boolean types
+proc `and`*(a, b: ExpressionObj): CallExpression =
+  andExpr(a, b)
+
+proc `or`*(a, b: ExpressionObj): CallExpression =
+  orExpr(a, b)
+
+proc `not`*(a: ExpressionObj): CallExpression =
+  notExpr(a)
+
+# ============================================================================
+# Arithmetic (Optional Grammar)
+# ============================================================================
+
+proc `+`*(a, b: ExpressionObj): CallExpression =
+  add(a, b)
+
+proc `-`*(a, b: ExpressionObj): CallExpression =
+  sub(a, b)
+
+proc `*`*(a, b: ExpressionObj): CallExpression =
+  mul(a, b)
+
+proc `/`*(a, b: ExpressionObj): CallExpression =
+  divide(a, b)
+
+# ============================================================================
+# String DSL Extensions
+# ============================================================================
+
+proc contains*(field: FieldExpression, substr: string): CallExpression =
+  ## Usage: name.contains("pattern")
+  strContains(field, substr)
+
+proc len*(field: FieldExpression): CallExpression =
+  ## Usage: name.len() > 5
+  strLength(field)
+
+proc toUpper*(field: FieldExpression): CallExpression =
+  ## Usage: name.toUpper() == "ALICE"
+  strUpper(field)
+
+proc toLower*(field: FieldExpression): CallExpression =
+  ## Usage: name.toLower() == "alice"
+  strLower(field)

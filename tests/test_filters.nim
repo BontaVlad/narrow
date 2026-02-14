@@ -166,4 +166,4 @@ suite "Table - Filter":
   test "Filter Table with BooleanArray":
     # This test would require creating a table first
     # Skipping for now as it requires more setup
-    discard
+    skip()

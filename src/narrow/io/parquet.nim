@@ -1,83 +1,15 @@
 import std/[options, sequtils]
 import ../core/[ffi, error]
 import ./filesystem
+import ./parquet_filters
+import ./parquet_types
 import ../column/[metadata, primitive]
 import ../tabular/[table, batch]
 
-type
-  FileReader* = object
-    handle: ptr GParquetArrowFileReader
-
-  FileWriter* = object
-    handle: ptr GParquetArrowFileWriter
-
-  WriterProperties* = object
-    handle: ptr GParquetWriterProperties
-
-  Writable* =
-    concept w
-        w.schema is Schema
-        w.toPtr is ptr GArrowTable | ptr GArrowRecordBatch
-
-proc `=destroy`*(pfr: FileReader) =
-  if pfr.handle != nil:
-    g_object_unref(pfr.handle)
-
-proc `=sink`*(dest: var FileReader, src: FileReader) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-
-proc `=copy`*(dest: var FileReader, src: FileReader) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
-
-proc `=destroy`*(wp: WriterProperties) =
-  if not isNil(wp.handle):
-    g_object_unref(wp.handle)
-
-proc `=sink`*(dest: var WriterProperties, src: WriterProperties) =
-  if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-
-proc `=copy`*(dest: var WriterProperties, src: WriterProperties) =
-  if dest.handle != src.handle:
-    if not isNil(dest.handle):
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if not isNil(src.handle):
-      discard g_object_ref(dest.handle)
-
-proc `=destroy`*(fw: FileWriter) =
-  if not isNil(fw.handle):
-    g_object_unref(fw.handle)
-
-proc `=sink`*(dest: var FileWriter, src: FileWriter) =
-  if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-
-proc `=copy`*(dest: var FileWriter, src: FileWriter) =
-  if dest.handle != src.handle:
-    if not isNil(dest.handle):
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if not isNil(src.handle):
-      discard g_object_ref(dest.handle)
-
-proc toPtr*(fr: FileReader): ptr GParquetArrowFileReader {.inline.} =
-  fr.handle
-
-proc toPtr*(fw: FileWriter): ptr GParquetArrowFileWriter {.inline.} =
-  fw.handle
-
-proc toPtr*(wp: WriterProperties): ptr GParquetWriterProperties {.inline.} =
-  wp.handle
+type Writable* =
+  concept w
+      w.schema is Schema
+      w.toPtr is ptr GArrowTable | ptr GArrowRecordBatch
 
 proc schema*(pfr: FileReader): Schema =
   let handle = check gparquet_arrow_file_reader_get_schema(pfr.toPtr)

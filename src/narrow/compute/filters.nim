@@ -1,7 +1,8 @@
-import std/[options, strformat]
+import std/[options, strformat, strutils]
 import ../core/[ffi, error]
 import ../types/gtypes
 import ../column/primitive
+import ../compute/expressions
 import ../tabular/table
 
 type

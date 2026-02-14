@@ -1,7 +1,19 @@
 import std/[os]
 import unittest2
 import testfixture
-import ../src/narrow/[core/ffi, column/primitive, tabular/table, column/metadata, io/parquet, types/gtypes, column/primitive, tabular/batch]
+import
+  ../src/narrow/[
+    core/ffi,
+    column/primitive,
+    tabular/table,
+    column/metadata,
+    io/parquet,
+    io/parquet_types,
+    types/gtypes,
+    column/primitive,
+    tabular/batch,
+    compute/expressions,
+  ]
 
 suite "Reading parquet":
   test "read parquet file localFileSystem":
@@ -226,7 +238,6 @@ suite "FileReader Enhancements":
     check true # If no crash, setter works
 
 suite "FileWriter Enhancements":
-
   test "FileWriter close flushes and closes file":
     let
       schema = newSchema([newField[int32]("value")])
@@ -243,14 +254,11 @@ suite "FileWriter Enhancements":
     check reader.nRows == 3
 
   test "Test writeTable works with record batches":
-    let schema = newSchema([
-      newField[int32]("col1"),
-      newField["string"]("col2")
-    ])
+    let schema = newSchema([newField[int32]("col1"), newField["string"]("col2")])
 
     let seq1 = @[1'i32, 2'i32, 3'i32]
     let seq2 = @["a", "b", "c"]
-    
+
     let rb = newRecordBatch(schema, seq1, seq2)
 
     var fixture = newTestFixture("test_filewriter_close")
@@ -337,3 +345,44 @@ suite "WriterProperties Compression and Dictionary":
     check props.compression("col1") == GARROW_COMPRESSION_TYPE_SNAPPY
     check props.compression("col2") == GARROW_COMPRESSION_TYPE_GZIP
     check props.compression("col3") == GARROW_COMPRESSION_TYPE_ZSTD
+
+suite "Filtering parquet at reading":
+  var fixture: TestFixture
+
+  setup:
+    fixture = newTestFixture("test_read_with_filtering")
+
+  teardown:
+    fixture.cleanup()
+
+  test "read parquet file localFileSystem":
+    block:
+      let
+        schema = newSchema(
+          [newField[bool]("alive"), newField[string]("name"), newField[int]("age")]
+        )
+        alive = newArray(@[false, false, true])
+        name = newArray(@["Adam", "Eve", "admin"])
+        age = newArray(@[18, 20, 40])
+        table = newArrowTable(schema, alive, name, age)
+
+      let uri = fixture / "table.parquet"
+      writeTable(table, uri)
+
+    let
+      age = col("age")
+      name = col("name")
+      alive = col("alive")
+
+    # TODO: name.toLower()
+    # Developing a complex filter with your new grammar:
+    let complexFilter =
+      (age >= 18) and (name.contains("admin") or name == "root") and
+      alive.isValid()
+
+    echo age
+    echo complexFilter
+    # let table = readTable(
+    #   "users.parquet", columns = @[$age, $name, $alive], filter = complexFilter
+    # )
+    # echo table
