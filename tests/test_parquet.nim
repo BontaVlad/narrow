@@ -8,7 +8,6 @@ import
     tabular/table,
     column/metadata,
     io/parquet,
-    io/parquet_types,
     types/gtypes,
     column/primitive,
     tabular/batch,
