@@ -11,10 +11,9 @@ import
 import narrow/column/[primitive, nested, metadata]
 import narrow/tabular/[table, batch]
 import narrow/compute/[filters, expressions]
-import narrow/io/[parquet, parquet_statistics, csv, filesystem]
+import narrow/io/[parquet, csv, filesystem]
 
 export
   ffi, error, concepts, generated, gtypes, gtemporal, glisttype, glargelisttype,
   gfixedsizelisttype, gfixedshapetensortype, guuid, gmap, glist, primitive, nested,
-  metadata, table, batch, filters, expressions, parquet, parquet_statistics, csv,
-  filesystem
+  metadata, table, batch, filters, expressions, parquet, csv, filesystem
