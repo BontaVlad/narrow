@@ -1,3 +1,4 @@
+import std/[strutils]
 import ../column/primitive
 import ../types/gtypes
 import ../types/glist
@@ -39,7 +40,14 @@ type
 
   CallExpression* = object of ExpressionObj ## Represents a function call with arguments
 
-type DatumCompatible = ArrowPrimitive | Array | ChunkedArray | ArrowTable | RecordBatch
+  DatumCompatible = ArrowPrimitive | Array | ChunkedArray | ArrowTable | RecordBatch
+
+  FilterClause* = tuple[
+    field: string,
+    op: string,
+    value: string
+  ]
+
 
 # ============================================================================
 # ARC Hooks — Datum
@@ -611,3 +619,88 @@ proc toUpper*(field: FieldExpression): CallExpression =
 proc toLower*(field: FieldExpression): CallExpression =
   ## Usage: name.toLower() == "alice"
   strLower(field)
+
+# ============================================================================
+# Filter Parser - Parse string tuples into expressions
+# ============================================================================
+
+proc parseValue*(value: string): LiteralExpression =
+  ## Parses a string value into the appropriate ArrowPrimitive type.
+  ## Tries bool, then int (int32 or int64 based on range), then float64, then string.
+  
+  # Try bool first
+  if value.toLowerAscii == "true":
+    return newLiteralExpression(true)
+  elif value.toLowerAscii == "false":
+    return newLiteralExpression(false)
+  
+  # Try float (contains '.' or 'e'/'E')
+  if value.contains('.') or value.toLowerAscii.contains('e'):
+    try:
+      let f = parseFloat(value)
+      return newLiteralExpression(f.float64)
+    except ValueError:
+      discard
+  
+  # Try int
+  var intVal: int64
+  try:
+    intVal = parseInt(value)
+    # Check if it fits in int32
+    if intVal >= int32.low.int64 and intVal <= int32.high.int64:
+      return newLiteralExpression(intVal.int32)
+    else:
+      return newLiteralExpression(intVal)
+  except ValueError:
+    discard
+  
+  # Fallback to string
+  return newLiteralExpression(value)
+
+proc parseFilter*(cl: FilterClause): CallExpression =
+  ## Parses a single filter tuple (field, operator, value) into an expression.
+  ## Supported operators: "==", "!=", "<", "<=", ">", ">=", "contains"
+  
+  let fieldExpr = newFieldExpression(cl.field)
+  let valueExpr = parseValue(cl.value)
+  
+  case cl.op:
+    of "==":
+      return newCallExpression("equal", fieldExpr, valueExpr)
+    of "!=":
+      return newCallExpression("not_equal", fieldExpr, valueExpr)
+    of "<":
+      return newCallExpression("less", fieldExpr, valueExpr)
+    of "<=":
+      return newCallExpression("less_equal", fieldExpr, valueExpr)
+    of ">":
+      return newCallExpression("greater", fieldExpr, valueExpr)
+    of ">=":
+      return newCallExpression("greater_equal", fieldExpr, valueExpr)
+    of "contains":
+      return newCallExpression("match_substring", fieldExpr, valueExpr)
+    else:
+      raise newException(ValueError, "Unknown operator: " & cl.op)
+
+proc parse*(filters: seq[FilterClause]): ExpressionObj =
+  ## Parses a sequence of filter tuples into a combined expression.
+  ## Multiple filters are combined with AND logic.
+  ## 
+  ## Example:
+  ##   .. code-block:: nim
+  ##     let expr = parse(@[
+  ##       ("age", ">=", "18"),
+  ##       ("name", "contains", "Alice")
+  ##     ])
+  
+  if filters.len == 0:
+    raise newException(ValueError, "Empty filter sequence")
+  
+  if filters.len == 1:
+    return parseFilter(filters[0])
+  
+  # Build AND chain from left to right
+  result = parseFilter(filters[0])
+  for i in 1..<filters.len:
+    let nextExpr = parseFilter(filters[i])
+    result = newCallExpression("and", result, nextExpr)
