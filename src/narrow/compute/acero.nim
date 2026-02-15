@@ -1,3 +1,4 @@
+import std/cpuinfo
 import ../core/[ffi, error]
 import ../column/metadata
 import ../tabular/[table, batch]
@@ -25,6 +26,9 @@ type
 
   SinkNodeOptions* = object
     handle: ptr GArrowSinkNodeOptions
+
+  ThreadPool* = object
+    handle: ptr GArrowThreadPool
 
 # ============================================================================
 # ARC Hooks — ExecuteContext
@@ -84,6 +88,27 @@ proc `=sink`*(dest: var ExecuteNode, src: ExecuteNode) =
 
 proc `=copy`*(dest: var ExecuteNode, src: ExecuteNode) =
   dest.handle = src.handle
+
+# ============================================================================
+# ARC Hooks — ThreadPool
+# ============================================================================
+
+proc `=destroy`*(pool: ThreadPool) =
+  if pool.handle != nil:
+    g_object_unref(pool.handle)
+
+proc `=sink`*(dest: var ThreadPool, src: ThreadPool) =
+  if dest.handle != nil and dest.handle != src.handle:
+    g_object_unref(dest.handle)
+  dest.handle = src.handle
+
+proc `=copy`*(dest: var ThreadPool, src: ThreadPool) =
+  if dest.handle != src.handle:
+    if dest.handle != nil:
+      g_object_unref(dest.handle)
+    dest.handle = src.handle
+    if src.handle != nil:
+      discard g_object_ref(dest.handle)
 
 # ============================================================================
 # ARC Hooks — Node Options
@@ -162,6 +187,12 @@ proc toPtr*(opts: FilterNodeOptions): ptr GArrowFilterNodeOptions {.inline.} =
 proc toPtr*(opts: SinkNodeOptions): ptr GArrowSinkNodeOptions {.inline.} =
   opts.handle
 
+proc toPtr*(pool: ThreadPool): ptr GArrowThreadPool {.inline.} =
+  pool.handle
+
+proc toExecutor(pool: ThreadPool): ptr GArrowExecutor {.inline.} =
+  cast[ptr GArrowExecutor](pool.handle)
+
 # ============================================================================
 # Constructors
 # ============================================================================
@@ -189,6 +220,13 @@ proc newFilterNodeOptions*(expr: ExpressionObj): FilterNodeOptions =
 proc newSinkNodeOptions*(): SinkNodeOptions =
   ## Creates new sink node options for capturing output.
   result.handle = garrow_sink_node_options_new()
+
+proc newThreadPool(n_threads: int = countProcessors()): ThreadPool =
+  var err = newError()
+  let handle = garrow_thread_pool_new(n_threads = n_threads.guint, err.toPtr)
+  if err:
+    raise newException(OperationError, "Failed to create a threadPool: " & $err)
+  result.handle = handle
 
 # ============================================================================
 # Plan Building
@@ -277,12 +315,8 @@ proc filterTable*(table: ArrowTable, filter: ExpressionObj): ArrowTable =
   ## predicate evaluation in Nim.
   ensureComputeInitialized()
 
-  var err = newError()
-  let threadPool = garrow_thread_pool_new(n_threads = 1.guint, err.toPtr)
-  if err:
-    raise newException(OperationError, "Failed to create a threadPool: " & $err)
+  let executor = newThreadPool().toExecutor
 
-  let executor = cast[ptr GArrowExecutor](threadPool)
   let ctx = newExecuteContext(executor)
   let plan = newExecutePlan(ctx)
 
