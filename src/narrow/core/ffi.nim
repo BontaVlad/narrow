@@ -15,6 +15,10 @@ when defined(useFuthark):
     path gorge("pkg-config --variable=includedir parquet-glib") & "/parquet-glib"
     "parquet-glib.h"
 
+    path gorge("pkg-config --variable=includedir arrow-dataset-glib") &
+      "/arrow-dataset-glib"
+    "arrow-dataset-glib.h"
+
     outputPath currentSourcePath.parentDir / "generated.nim"
 else:
   include "generated.nim"
