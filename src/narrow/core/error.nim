@@ -11,7 +11,10 @@ proc `=destroy`(x: GErrorWrapper) =
   if not isNil(x.error):
     gErrorFree(x.error)
 
-proc newError(): GErrorWrapper =
+proc toPtr*(err: GErrorWrapper): ptr ptr GError =
+  err.error.addr
+
+proc newError*(): GErrorWrapper =
   GErrorWrapper(error: nil)
 
 converter toBool*(wrapper: GErrorWrapper): bool =

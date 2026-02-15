@@ -18,7 +18,7 @@ type
     handle: ptr GArrowRecordBatchIterator
 
   RecordBatchReader* = object
-    handle: ptr GArrowRecordBatchReader
+    handle*: ptr GArrowRecordBatchReader
 
   WriteOptions* = object
     handle: ptr GArrowWriteOptions
@@ -42,6 +42,23 @@ proc `=sink`*(dest: var RecordBatch, src: RecordBatch) =
   dest.handle = src.handle
 
 proc `=copy`*(dest: var RecordBatch, src: RecordBatch) =
+  if dest.handle != src.handle:
+    if dest.handle != nil:
+      g_object_unref(dest.handle)
+    dest.handle = src.handle
+    if src.handle != nil:
+      discard g_object_ref(dest.handle)
+
+proc `=destroy`*(reader: RecordBatchReader) =
+  if reader.handle != nil:
+    g_object_unref(reader.handle)
+
+proc `=sink`*(dest: var RecordBatchReader, src: RecordBatchReader) =
+  if dest.handle != nil and dest.handle != src.handle:
+    g_object_unref(dest.handle)
+  dest.handle = src.handle
+
+proc `=copy`*(dest: var RecordBatchReader, src: RecordBatchReader) =
   if dest.handle != src.handle:
     if dest.handle != nil:
       g_object_unref(dest.handle)
@@ -88,6 +105,14 @@ proc toPtr*(rb: RecordBatch): ptr GArrowRecordBatch {.inline.} =
 
 proc toPtr*(it: RecordBatchIterator): ptr GArrowRecordBatchIterator {.inline.} =
   it.handle
+
+proc toPtr*(reader: RecordBatchReader): ptr GArrowRecordBatchReader {.inline.} =
+  reader.handle
+
+proc schema*(reader: RecordBatchReader): Schema =
+  ## Returns the schema of the record batch reader.
+  let handle = garrow_record_batch_reader_get_schema(reader.toPtr)
+  result = newSchema(handle)
 
 proc newRecordBatch*(arr: pointer, schema: Schema): RecordBatch =
   let handle = check garrow_record_batch_import(arr, schema.handle)

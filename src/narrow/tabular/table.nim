@@ -321,6 +321,11 @@ proc concatenate*(tbl: ArrowTable, others: openArray[ArrowTable]): ArrowTable =
   let handle = check garrow_table_concatenate(tbl.handle, tableList.toPtr, options)
   result = newArrowTable(handle)
 
+proc readAll*(reader: RecordBatchReader): ArrowTable =
+  ## Reads all record batches from a reader and returns them as a table.
+  let handle = check garrow_record_batch_reader_read_all(reader.toPtr)
+  result = newArrowTable(handle)
+
 proc getColumnData*[T](tbl: ArrowTable, idx: int): ChunkedArray[T] =
   when defined(debug):
     let schema = tbl.schema

@@ -1,4 +1,4 @@
-import std/[strutils]
+import std/[strutils, sets]
 import ../column/primitive
 import ../types/gtypes
 import ../types/glist
@@ -32,6 +32,7 @@ type
 
   ExpressionObj* = object of RootObj
     handle: ptr GArrowExpression
+    referencedFields*: seq[string] ## Field names referenced in this expression tree
 
   LiteralExpression* = object of ExpressionObj
     ## Represents a literal/constant value in an expression
@@ -39,6 +40,7 @@ type
   FieldExpression* = object of ExpressionObj
 
   CallExpression* = object of ExpressionObj ## Represents a function call with arguments
+    functionName*: string ## The function being called (e.g., "equal", "greater")
 
   DatumCompatible = ArrowPrimitive | Array | ChunkedArray | ArrowTable | RecordBatch
 
@@ -98,6 +100,7 @@ proc `=sink`*(dest: var ExpressionObj, src: ExpressionObj) =
   if dest.handle != nil and dest.handle != src.handle:
     g_object_unref(dest.handle)
   dest.handle = src.handle
+  dest.referencedFields = src.referencedFields
 
 proc `=copy`*(dest: var ExpressionObj, src: ExpressionObj) =
   if dest.handle != src.handle:
@@ -106,6 +109,7 @@ proc `=copy`*(dest: var ExpressionObj, src: ExpressionObj) =
     dest.handle = src.handle
     if src.handle != nil:
       discard g_object_ref(dest.handle)
+  dest.referencedFields = src.referencedFields
 
 # ============================================================================
 # Pointer Converters
@@ -366,6 +370,7 @@ proc value*[T](sc: Scalar[T]): valueType(T) {.inline.} =
 
 proc newLiteralExpression*(dt: Datum): LiteralExpression =
   result.handle = cast[ptr GArrowExpression](garrow_literal_expression_new(dt.toPtr))
+  result.referencedFields = @[] # Literals don't reference fields
 
 proc newLiteralExpression*[T: DatumCompatible](value: T): LiteralExpression =
   ## Creates a literal expression from a scalar value
@@ -389,6 +394,7 @@ proc newFieldExpression*(name: string): FieldExpression =
 
   result.handle =
     cast[ptr GArrowExpression](check garrow_field_expression_new(name.cstring))
+  result.referencedFields = @[name] # This field references itself
 
 proc newCallExpression*(
     function: string, args: varargs[ExpressionObj]
@@ -405,11 +411,18 @@ proc newCallExpression*(
   ##     let isAdult = newCallExpression("greater", age, threshold)
 
   var argList = newGList[ptr GArrowExpression]()
+  var allFields: seq[string]
   for arg in args:
     argList.append(arg.toPtr)
+    # Merge field references from all arguments
+    for f in arg.referencedFields:
+      if f notin allFields:
+        allFields.add(f)
   result.handle = cast[ptr GArrowExpression](garrow_call_expression_new(
     function.cstring, argList.toPtr, nil
   ))
+  result.functionName = function
+  result.referencedFields = allFields
 
 # ============================================================================
 # Expression Operations
@@ -614,6 +627,32 @@ proc toUpper*(field: FieldExpression): CallExpression =
 proc toLower*(field: FieldExpression): CallExpression =
   ## Usage: name.toLower() == "alice"
   strLower(field)
+
+# ============================================================================
+# Field Reference Extraction
+# ============================================================================
+
+proc extractFieldReferences*(expr: ExpressionObj): seq[string] =
+  ## Returns all unique field names referenced in the expression tree.
+  ## 
+  ## Example:
+  ##   .. code-block:: nim
+  ##     let expr = (col("age") >= 18) and (col("name") == "Alice")
+  ##     let fields = extractFieldReferences(expr)
+  ##     # fields == @["age", "name"]
+  var seen: HashSet[string]
+  result = @[]
+  for f in expr.referencedFields:
+    if f notin seen:
+      result.add(f)
+      seen.incl(f)
+
+proc fieldName*(expr: ExpressionObj): string =
+  ## Extracts the field name from a FieldExpression.
+  ## Raises ValueError if the expression references 0 or more than 1 fields.
+  if expr.referencedFields.len != 1:
+    raise newException(ValueError, "Expected single field expression, got: " & $expr)
+  result = expr.referencedFields[0]
 
 # ============================================================================
 # Filter Parser - Parse string tuples into expressions
