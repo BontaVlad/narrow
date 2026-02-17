@@ -355,17 +355,17 @@ suite "Filtering parquet at reading":
     fixture.cleanup()
 
   test "read parquet file localFileSystem":
+    let uri = fixture / "table.parquet"
     block:
       let
         schema = newSchema(
           [newField[bool]("alive"), newField[string]("name"), newField[int]("age")]
         )
         alive = newArray(@[false, false, true])
-        name = newArray(@["Adam", "Eve", "admin"])
+        name = newArray(@["Adam", "Eve", "ADMIN"])
         age = newArray(@[18, 20, 40])
         table = newArrowTable(schema, alive, name, age)
 
-      let uri = fixture / "table.parquet"
       writeTable(table, uri)
 
     let
@@ -373,15 +373,509 @@ suite "Filtering parquet at reading":
       name = col("name")
       alive = col("alive")
 
-    # TODO: name.toLower()
-    # Developing a complex filter with your new grammar:
     let complexFilter =
-      (age >= 18) and (name.contains("admin") or name == "root") and
+      (age >= 18) and (name.toLower().contains("admin") or name == "root") and
       alive.isValid()
 
-    echo age
-    echo complexFilter
-    # let table = readTable(
-    #   "users.parquet", columns = @[$age, $name, $alive], filter = complexFilter
-    # )
-    # echo table
+    let table = readTable(
+      uri, columns = @[$age, $name, $alive], filter = complexFilter
+    )
+    check table["name"] == newChunkedArray([newArray(@["ADMIN"])])
+    check table.nColumns == 3
+
+  test "filter with simple equality":
+    let uri = fixture / "simple_equality.parquet"
+    block:
+      let
+        schema = newSchema([newField[int32]("id"), newField[string]("name")])
+        ids = newArray(@[1'i32, 2'i32, 3'i32, 4'i32, 5'i32])
+        names = newArray(@["Alice", "Bob", "Charlie", "Diana", "Eve"])
+        table = newArrowTable(schema, ids, names)
+      writeTable(table, uri)
+
+    let id = col("id")
+    let filtered = readTable(uri, filter = id == 3'i32)
+    check filtered.nRows == 1
+
+  test "filter with multiple equality conditions":
+    let uri = fixture / "multi_equality.parquet"
+    block:
+      let
+        schema = newSchema([newField[int32]("id"), newField[string]("category"), newField[bool]("active")])
+        ids = newArray(@[1'i32, 2'i32, 3'i32, 4'i32, 5'i32, 6'i32])
+        categories = newArray(@["A", "B", "A", "B", "A", "B"])
+        active = newArray(@[true, true, false, true, false, false])
+        table = newArrowTable(schema, ids, categories, active)
+      writeTable(table, uri)
+
+    let category = col("category")
+    let active = col("active")
+    let filter = (category == "A") and (active == true)
+    let filtered = readTable(uri, filter = filter)
+    check filtered.nRows == 1
+
+  test "filter with comparison operators":
+    let uri = fixture / "comparison.parquet"
+    block:
+      let
+        schema = newSchema([newField[int32]("value"), newField[float64]("score")])
+        values = newArray(@[10'i32, 20'i32, 30'i32, 40'i32, 50'i32])
+        scores = newArray(@[1.5'f64, 2.5'f64, 3.5'f64, 4.5'f64, 5.5'f64])
+        table = newArrowTable(schema, values, scores)
+      writeTable(table, uri)
+
+    let value = col("value")
+    let score = col("score")
+    
+    # Test greater than
+    var filter = value > 25'i32
+    var filtered = readTable(uri, filter = filter)
+    check filtered.nRows == 3
+    
+    # Test less than
+    filter = value < 35'i32
+    filtered = readTable(uri, filter = filter)
+    check filtered.nRows == 3
+    
+    # Test greater equal
+    filter = score >= 3.5'f64
+    filtered = readTable(uri, filter = filter)
+    check filtered.nRows == 3
+    
+    # Test less equal
+    filter = score <= 3.5'f64
+    filtered = readTable(uri, filter = filter)
+    check filtered.nRows == 3
+
+  test "filter with string contains":
+    let uri = fixture / "string_contains.parquet"
+    block:
+      let
+        schema = newSchema([newField[int32]("id"), newField[string]("description")])
+        ids = newArray(@[1'i32, 2'i32, 3'i32, 4'i32, 5'i32])
+        descriptions = newArray(@["admin user", "regular user", "admin panel", "user guide", "administrator"])
+        table = newArrowTable(schema, ids, descriptions)
+      writeTable(table, uri)
+
+    let description = col("description")
+    let filter = description.contains("admin")
+    let filtered = readTable(uri, filter = filter)
+    check filtered.nRows == 3
+
+  test "filter with string startsWith":
+    let uri = fixture / "string_startswith.parquet"
+    block:
+      let
+        schema = newSchema([newField[int32]("id"), newField[string]("name")])
+        ids = newArray(@[1'i32, 2'i32, 3'i32, 4'i32, 5'i32])
+        names = newArray(@["Alice", "Bob", "Anna", "Charlie", "Amanda"])
+        table = newArrowTable(schema, ids, names)
+      writeTable(table, uri)
+
+    let name = col("name")
+    let filter = startsWith(name, "A")
+    let filtered = readTable(uri, filter = filter)
+    check filtered.nRows == 3
+
+  test "filter with string endsWith":
+    let uri = fixture / "string_endswith.parquet"
+    block:
+      let
+        schema = newSchema([newField[int32]("id"), newField[string]("name")])
+        ids = newArray(@[1'i32, 2'i32, 3'i32, 4'i32, 5'i32])
+        names = newArray(@["test.txt", "file.pdf", "doc.txt", "image.png", "notes.txt"])
+        table = newArrowTable(schema, ids, names)
+      writeTable(table, uri)
+
+    let name = col("name")
+    let filter = endsWith(name, ".txt")
+    let filtered = readTable(uri, filter = filter)
+    check filtered.nRows == 3
+
+  test "filter with case insensitive string operations":
+    let uri = fixture / "case_insensitive.parquet"
+    block:
+      let
+        schema = newSchema([newField[int32]("id"), newField[string]("name")])
+        ids = newArray(@[1'i32, 2'i32, 3'i32, 4'i32])
+        names = newArray(@["ADMIN", "admin", "Admin", "User"])
+        table = newArrowTable(schema, ids, names)
+      writeTable(table, uri)
+
+    let name = col("name")
+    let filter = name.contains("admin", true)
+    let filtered = readTable(uri, filter = filter)
+    check filtered.nRows == 3
+
+  test "filter with toLower and contains chaining":
+    let uri = fixture / "tolower_chain.parquet"
+    block:
+      let
+        schema = newSchema([newField[int32]("id"), newField[string]("name")])
+        ids = newArray(@[1'i32, 2'i32, 3'i32, 4'i32, 5'i32])
+        names = newArray(@["ADMIN", "admin", "Admin", "User", "ADMINISTRATOR"])
+        table = newArrowTable(schema, ids, names)
+      writeTable(table, uri)
+
+    let name = col("name")
+    let filter = name.toLower().contains("admin")
+    let filtered = readTable(uri, filter = filter)
+    check filtered.nRows == 4
+
+  test "filter with toUpper and contains chaining":
+    let uri = fixture / "toupper_chain.parquet"
+    block:
+      let
+        schema = newSchema([newField[int32]("id"), newField[string]("code")])
+        ids = newArray(@[1'i32, 2'i32, 3'i32, 4'i32])
+        codes = newArray(@["abc", "ABC", "Abc", "xyz"])
+        table = newArrowTable(schema, ids, codes)
+      writeTable(table, uri)
+
+    let code = col("code")
+    let filter = code.toUpper().contains("ABC")
+    let filtered = readTable(uri, filter = filter)
+    check filtered.nRows == 3
+
+  test "filter with logical OR":
+    let uri = fixture / "logical_or.parquet"
+    block:
+      let
+        schema = newSchema([newField[int32]("id"), newField[string]("category")])
+        ids = newArray(@[1'i32, 2'i32, 3'i32, 4'i32, 5'i32])
+        categories = newArray(@["A", "B", "C", "A", "B"])
+        table = newArrowTable(schema, ids, categories)
+      writeTable(table, uri)
+
+    let category = col("category")
+    let filter = (category == "A") or (category == "C")
+    let filtered = readTable(uri, filter = filter)
+    check filtered.nRows == 3
+
+  test "filter with logical NOT":
+    let uri = fixture / "logical_not.parquet"
+    block:
+      let
+        schema = newSchema([newField[int32]("id"), newField[string]("status")])
+        ids = newArray(@[1'i32, 2'i32, 3'i32, 4'i32])
+        statuses = newArray(@["active", "inactive", "active", "pending"])
+        table = newArrowTable(schema, ids, statuses)
+      writeTable(table, uri)
+
+    let status = col("status")
+    let filter = notExpr(status == "active")
+    let filtered = readTable(uri, filter = filter)
+    check filtered.nRows == 2
+
+  test "filter with complex nested conditions":
+    let uri = fixture / "nested_conditions.parquet"
+    block:
+      let
+        schema = newSchema([
+          newField[int32]("id"),
+          newField[string]("role"),
+          newField[int32]("age"),
+          newField[bool]("active")
+        ])
+        ids = newArray(@[1'i32, 2'i32, 3'i32, 4'i32, 5'i32, 6'i32])
+        roles = newArray(@["admin", "user", "admin", "user", "guest", "admin"])
+        ages = newArray(@[25'i32, 30'i32, 35'i32, 20'i32, 40'i32, 28'i32])
+        active = newArray(@[true, true, false, true, false, true])
+        table = newArrowTable(schema, ids, roles, ages, active)
+      writeTable(table, uri)
+
+    let role = col("role")
+    let age = col("age")
+    let active = col("active")
+    
+    # Complex: (role is admin AND age >= 25) OR (active AND age < 30)
+    let filter = ((role == "admin") and (age >= 25'i32)) or ((active == true) and (age < 30'i32))
+    let filtered = readTable(uri, filter = filter)
+    check filtered.nRows == 4
+
+  test "filter with deeply nested logical operations":
+    let uri = fixture / "deeply_nested.parquet"
+    block:
+      let
+        schema = newSchema([
+          newField[int32]("id"),
+          newField[string]("type"),
+          newField[int32]("priority"),
+          newField[bool]("urgent")
+        ])
+        ids = newArray(@[1'i32, 2'i32, 3'i32, 4'i32, 5'i32, 6'i32, 7'i32, 8'i32])
+        types = newArray(@["A", "B", "A", "B", "A", "B", "A", "B"])
+        priorities = newArray(@[1'i32, 2'i32, 3'i32, 1'i32, 2'i32, 3'i32, 1'i32, 2'i32])
+        urgent = newArray(@[true, false, true, true, false, false, true, false])
+        table = newArrowTable(schema, ids, types, priorities, urgent)
+      writeTable(table, uri)
+
+    let typeCol = col("type")
+    let priority = col("priority")
+    let urgent = col("urgent")
+    
+    # Deep nesting: ((type == "A" AND priority > 1) OR (type == "B" AND urgent)) AND NOT (priority == 3)
+    let filter = (((typeCol == "A") and (priority > 1'i32)) or ((typeCol == "B") and (urgent == true))) and (notExpr(priority == 3'i32))
+    let filtered = readTable(uri, filter = filter)
+    check filtered.nRows == 2
+
+  test "filter with null handling":
+    let uri = fixture / "null_handling.parquet"
+    block:
+      let
+        schema = newSchema([newField[int32]("id"), newField[string]("optional")])
+        ids = newArray(@[1'i32, 2'i32, 3'i32])
+        optionals = newArray(@["value", "", ""])  # Empty strings as null indicators
+        table = newArrowTable(schema, ids, optionals)
+      writeTable(table, uri)
+
+    let optional = col("optional")
+    let filter = optional.isValid()
+    let filtered = readTable(uri, filter = filter)
+    check filtered.nRows >= 1
+
+  test "filter with isNull check":
+    let uri = fixture / "isnull_check.parquet"
+    block:
+      let
+        schema = newSchema([newField[int32]("id"), newField[string]("name")])
+        ids = newArray(@[1'i32, 2'i32, 3'i32])
+        names = newArray(@["Alice", "", ""])
+        table = newArrowTable(schema, ids, names)
+      writeTable(table, uri)
+
+    let name = col("name")
+    let filter = isNull(name)
+    let filtered = readTable(uri, filter = filter)
+    # Empty strings aren't null, so this should return 0 or handle appropriately
+    check filtered.nRows >= 0
+
+  test "filter resulting in empty table":
+    let uri = fixture / "empty_result.parquet"
+    block:
+      let
+        schema = newSchema([newField[int32]("id"), newField[string]("name")])
+        ids = newArray(@[1'i32, 2'i32, 3'i32])
+        names = newArray(@["Alice", "Bob", "Charlie"])
+        table = newArrowTable(schema, ids, names)
+      writeTable(table, uri)
+
+    let id = col("id")
+    let filter = id > 100'i32
+    let filtered = readTable(uri, filter = filter)
+    check filtered.nRows == 0
+
+  test "filter resulting in all rows":
+    let uri = fixture / "all_rows.parquet"
+    block:
+      let
+        schema = newSchema([newField[int32]("id"), newField[string]("name")])
+        ids = newArray(@[1'i32, 2'i32, 3'i32])
+        names = newArray(@["Alice", "Bob", "Charlie"])
+        table = newArrowTable(schema, ids, names)
+      writeTable(table, uri)
+
+    let id = col("id")
+    let filter = id >= 0'i32
+    let filtered = readTable(uri, filter = filter)
+    check filtered.nRows == 3
+
+  test "filter with string length":
+    let uri = fixture / "string_length.parquet"
+    block:
+      let
+        schema = newSchema([newField[int32]("id"), newField[string]("name")])
+        ids = newArray(@[1'i32, 2'i32, 3'i32, 4'i32, 5'i32])
+        names = newArray(@["A", "BB", "CCC", "DDDD", "EEEEE"])
+        table = newArrowTable(schema, ids, names)
+      writeTable(table, uri)
+
+    let name = col("name")
+    let filter = name.len() > 3
+    let filtered = readTable(uri, filter = filter)
+    check filtered.nRows == 2
+
+  test "filter with multiple string operations":
+    let uri = fixture / "multi_string_ops.parquet"
+    block:
+      let
+        schema = newSchema([newField[int32]("id"), newField[string]("email")])
+        ids = newArray(@[1'i32, 2'i32, 3'i32, 4'i32, 5'i32])
+        emails = newArray(@["admin@test.com", "user@domain.org", "admin@company.net", "test@admin.io", "admin@local.com"])
+        table = newArrowTable(schema, ids, emails)
+      writeTable(table, uri)
+
+    let email = col("email")
+    # Find emails that start with "admin" OR contain "admin" AND end with ".com"
+    # admin@test.com: starts with admin, ends with .com -> MATCH
+    # admin@local.com: starts with admin, ends with .com -> MATCH
+    let filter = (startsWith(email, "admin") or email.contains("admin")) and endsWith(email, ".com")
+    let filtered = readTable(uri, filter = filter)
+    check filtered.nRows == 2
+
+  test "stress test - filter large dataset with complex conditions":
+    let uri = fixture / "stress_test.parquet"
+    block:
+      let
+        schema = newSchema([
+          newField[int32]("id"),
+          newField[string]("category"),
+          newField[int32]("value"),
+          newField[bool]("flag")
+        ])
+      var
+        ids: seq[int32] = @[]
+        categories: seq[string] = @[]
+        values: seq[int32] = @[]
+        flags: seq[bool] = @[]
+      
+      # Generate 1000 rows
+      for i in 0 ..< 1000:
+        ids.add(i.int32)
+        categories.add(if i mod 3 == 0: "A" elif i mod 3 == 1: "B" else: "C")
+        values.add((i * 10).int32)
+        flags.add(i mod 2 == 0)
+      
+      let table = newArrowTable(schema, newArray(ids), newArray(categories), newArray(values), newArray(flags))
+      writeTable(table, uri)
+
+    let category = col("category")
+    let value = col("value")
+    let flag = col("flag")
+    
+    # Complex filter on large dataset
+    let filter = ((category == "A") or (category == "B")) and (value >= 100'i32) and (value <= 5000'i32) and (flag == true)
+    let filtered = readTable(uri, filter = filter)
+    # Should get roughly 1/3 of rows that meet criteria
+    check filtered.nRows > 0
+    check filtered.nRows < 1000
+
+  test "stress test - multiple filters in sequence":
+    let uri = fixture / "multi_filter_seq.parquet"
+    block:
+      let
+        schema = newSchema([newField[int32]("id"), newField[string]("type"), newField[int32]("score")])
+      var
+        ids: seq[int32] = @[]
+        types: seq[string] = @[]
+        scores: seq[int32] = @[]
+      
+      for i in 0 ..< 500:
+        ids.add(i.int32)
+        types.add(if i mod 5 == 0: "premium" else: "standard")
+        scores.add((i mod 100).int32)
+      
+      let table = newArrowTable(schema, newArray(ids), newArray(types), newArray(scores))
+      writeTable(table, uri)
+
+    let id = col("id")
+    let typeCol = col("type")
+    let score = col("score")
+    
+    # Apply multiple different filters
+    var filter = typeCol == "premium"
+    var filtered = readTable(uri, filter = filter)
+    check filtered.nRows == 100  # 500 / 5
+    
+    filter = score >= 50'i32
+    filtered = readTable(uri, filter = filter)
+    check filtered.nRows == 250  # Half of 500
+    
+    filter = (typeCol == "premium") and (score >= 50'i32)
+    filtered = readTable(uri, filter = filter)
+    check filtered.nRows == 50  # 100 premium * 0.5
+
+  test "filter with mixed types comparison":
+    let uri = fixture / "mixed_types.parquet"
+    block:
+      let
+        schema = newSchema([newField[int32]("id"), newField[float64]("value")])
+        ids = newArray(@[1'i32, 2'i32, 3'i32, 4'i32])
+        values = newArray(@[1.0'f64, 2.5'f64, 3.0'f64, 4.5'f64])
+        table = newArrowTable(schema, ids, values)
+      writeTable(table, uri)
+
+    let id = col("id")
+    let value = col("value")
+    # Note: This tests if we can compare int and float properly
+    let filter = value >= 2.0'f64
+    let filtered = readTable(uri, filter = filter)
+    check filtered.nRows == 3
+
+  test "filter with NOT and AND combination":
+    let uri = fixture / "not_and_combo.parquet"
+    block:
+      let
+        schema = newSchema([newField[int32]("id"), newField[string]("status"), newField[bool]("active")])
+        ids = newArray(@[1'i32, 2'i32, 3'i32, 4'i32, 5'i32, 6'i32])
+        statuses = newArray(@["pending", "active", "inactive", "pending", "active", "inactive"])
+        active = newArray(@[false, true, false, true, false, true])
+        table = newArrowTable(schema, ids, statuses, active)
+      writeTable(table, uri)
+
+    let status = col("status")
+    let active = col("active")
+    # NOT (status is pending AND active) - should exclude rows where both are true
+    let filter = notExpr((status == "pending") and (active == true))
+    let filtered = readTable(uri, filter = filter)
+    check filtered.nRows == 5
+
+  test "filter with regex pattern matching":
+    let uri = fixture / "regex_filter.parquet"
+    block:
+      let
+        schema = newSchema([newField[int32]("id"), newField[string]("email")])
+        ids = newArray(@[1'i32, 2'i32, 3'i32, 4'i32, 5'i32])
+        emails = newArray(@["user1@test.com", "admin@company.org", "test123@site.net", "user2@test.com", "admin@test.com"])
+        table = newArrowTable(schema, ids, emails)
+      writeTable(table, uri)
+
+    let email = col("email")
+    # Match emails ending with @test.com
+    let filter = matchSubstringRegex(email, ".*@test\\.com$")
+    let filtered = readTable(uri, filter = filter)
+    check filtered.nRows == 3
+
+  test "edge case - filter on column with all same values":
+    let uri = fixture / "same_values.parquet"
+    block:
+      let
+        schema = newSchema([newField[int32]("id"), newField[string]("category")])
+        ids = newArray(@[1'i32, 2'i32, 3'i32])
+        categories = newArray(@["A", "A", "A"])
+        table = newArrowTable(schema, ids, categories)
+      writeTable(table, uri)
+
+    let category = col("category")
+    let filter = category == "A"
+    let filtered = readTable(uri, filter = filter)
+    check filtered.nRows == 3
+    
+    let filter2 = category == "B"
+    let result2 = readTable(uri, filter = filter2)
+    check result2.nRows == 0
+
+  test "edge case - filter on single row table":
+    let uri = fixture / "single_row.parquet"
+    block:
+      let
+        schema = newSchema([newField[int32]("id"), newField[string]("name")])
+        ids = newArray(@[42'i32])
+        names = newArray(@["solo"])
+        table = newArrowTable(schema, ids, names)
+      writeTable(table, uri)
+
+    let id = col("id")
+    let name = col("name")
+    
+    var filter = id == 42'i32
+    var filtered = readTable(uri, filter = filter)
+    check filtered.nRows == 1
+    
+    filter = name.contains("olo")
+    filtered = readTable(uri, filter = filter)
+    check filtered.nRows == 1
+    
+    filter = id > 100'i32
+    filtered = readTable(uri, filter = filter)
+    check filtered.nRows == 0

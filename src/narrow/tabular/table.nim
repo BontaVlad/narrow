@@ -326,6 +326,13 @@ proc readAll*(reader: RecordBatchReader): ArrowTable =
   let handle = check garrow_record_batch_reader_read_all(reader.toPtr)
   result = newArrowTable(handle)
 
+iterator batches*(reader: RecordBatchReader): RecordBatch =
+  while true:
+    let handle = check garrow_record_batch_reader_read_next_record_batch(reader.toPtr)
+    if isNil(handle):
+      break
+    yield newRecordBatch(handle)
+
 proc getColumnData*[T](tbl: ArrowTable, idx: int): ChunkedArray[T] =
   when defined(debug):
     let schema = tbl.schema

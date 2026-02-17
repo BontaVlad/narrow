@@ -1,6 +1,6 @@
 import std/[strutils]
 import unittest2
-import ../src/narrow/[tabular/table, types/gtypes, column/primitive, column/primitive, column/metadata, tabular/batch]
+import ../src/narrow/[tabular/table, types/gtypes, column/primitive, column/primitive, column/metadata, tabular/batch, compute/acero]
 
 suite "ArrowTable Construction Tests":
 
@@ -311,7 +311,84 @@ suite "ArrowTable String Representation":
     let schema = newSchema([newField[int32]("id")])
     let arr = newArray[int32](@[1'i32, 2'i32, 3'i32])
     let table = newArrowTable(schema, arr)
-    
+
     let str = $table
     check str.len > 0
     check "id" in str
+
+suite "RecordBatchReader - batches iterator":
+  test "iterate over batches from reader":
+    # Create a table with multiple record batches
+    let schema = newSchema([
+      newField[int32]("id"),
+      newField[string]("name")
+    ])
+
+    let ids = newArray(@[1'i32, 2'i32, 3'i32])
+    let names = newArray(@["Alice", "Bob", "Charlie"])
+    let table = newArrowTable(schema, ids, names)
+
+    # Set up an Acero execution plan to get a RecordBatchReader
+    let executor = newThreadPool().toExecutor
+    let ctx = newExecuteContext(executor)
+    let plan = newExecutePlan(ctx)
+
+    let sourceOpts = newSourceNodeOptions(table)
+    let sourceNode = plan.buildSourceNode(sourceOpts)
+
+    let sinkOpts = newSinkNodeOptions()
+    discard plan.buildSinkNode(sourceNode, sinkOpts)
+
+    plan.validate()
+
+    let reader = sinkOpts.getReader(schema)
+    plan.start()
+
+    # Use the batches iterator to collect all batches
+    var collectedBatches: seq[RecordBatch]
+    for batch in reader.batches():
+      collectedBatches.add(batch)
+
+    plan.wait()
+
+    # Verify we got at least one batch
+    check collectedBatches.len >= 1
+
+    # Verify the schema is correct
+    check collectedBatches[0].schema.nFields == 2
+
+    # Verify data integrity
+    let colData = collectedBatches[0].getColumnData[:int32](0)
+    check colData.len == 3
+    check colData[0] == 1'i32
+    check colData[1] == 2'i32
+    check colData[2] == 3'i32
+
+  test "reader schema matches table schema":
+    let schema = newSchema([
+      newField[float64]("value")
+    ])
+
+    let values = newArray(@[1.1, 2.2, 3.3])
+    let table = newArrowTable(schema, values)
+
+    let executor = newThreadPool().toExecutor
+    let ctx = newExecuteContext(executor)
+    let plan = newExecutePlan(ctx)
+
+    let sourceOpts = newSourceNodeOptions(table)
+    let sourceNode = plan.buildSourceNode(sourceOpts)
+
+    let sinkOpts = newSinkNodeOptions()
+    discard plan.buildSinkNode(sourceNode, sinkOpts)
+
+    plan.validate()
+
+    let reader = sinkOpts.getReader(schema)
+    let readerSchema = reader.schema
+
+    check readerSchema.nFields == 1
+    check readerSchema.getField(0).name == "value"
+
+    plan.start()
+    plan.wait()

@@ -6,6 +6,7 @@ import ../tabular/table
 import ../tabular/batch
 import ../core/ffi
 import ../core/error
+import ./match_substring_options
 
 # ============================================================================
 # Kinds
@@ -124,6 +125,21 @@ proc toPtr*[T](sc: Scalar[T]): ptr GArrowScalar {.inline.} =
 proc toPtr*(expr: ExpressionObj): ptr GArrowExpression {.inline.} =
   ## Returns the underlying GArrowExpression pointer
   expr.handle
+
+# ============================================================================
+# Expression Operations
+# ============================================================================
+
+proc `$`*[T: ExpressionObj](expr: T | ExpressionObj): string =
+  ## Returns a string representation of the expression
+  if expr.handle == nil:
+    result = "Expression(nil)"
+  else:
+    result = $newGString(garrow_expression_to_string(expr.handle))
+
+proc `==`*[T: ExpressionObj](a, b: T): bool {.inline.} =
+  ## Compares two expressions (or any subtype) for equality
+  garrow_expression_equal(a.handle, b.handle) != 0
 
 # ============================================================================
 # Scalar Constructors (typed)
@@ -424,20 +440,31 @@ proc newCallExpression*(
   result.functionName = function
   result.referencedFields = allFields
 
-# ============================================================================
-# Expression Operations
-# ============================================================================
+proc newCallExpressionWithOptions*(
+    function: string, options: MatchSubstringOptions, args: varargs[ExpressionObj]
+): CallExpression =
+  ## Creates a call expression with MatchSubstringOptions for functions like
+  ## match_substring, starts_with, ends_with, match_substring_regex
+  ##
+  ## Example:
+  ##   .. code-block:: nim
+  ##     let name = newFieldExpression("name")
+  ##     let opts = newMatchSubstringOptions("pattern")
+  ##     let expr = newCallExpressionWithOptions("match_substring", opts, name)
 
-proc `$`*[T: ExpressionObj](expr: T): string =
-  ## Returns a string representation of the expression
-  if expr.handle == nil:
-    result = "Expression(nil)"
-  else:
-    result = $newGString(garrow_expression_to_string(expr.handle))
-
-proc `==`*[T: ExpressionObj](a, b: T): bool {.inline.} =
-  ## Compares two expressions (or any subtype) for equality
-  garrow_expression_equal(a.handle, b.handle) != 0
+  var argList = newGList[ptr GArrowExpression]()
+  var allFields: seq[string]
+  for arg in args:
+    argList.append(arg.toPtr)
+    # Merge field references from all arguments
+    for f in arg.referencedFields:
+      if f notin allFields:
+        allFields.add(f)
+  result.handle = cast[ptr GArrowExpression](garrow_call_expression_new(
+    function.cstring, argList.toPtr, cast[ptr GArrowFunctionOptions](options.toPtr)
+  ))
+  result.functionName = function
+  result.referencedFields = allFields
 
 # ============================================================================
 # Convenience Constructors for Common Operations
@@ -531,21 +558,49 @@ proc isValid*(field: FieldExpression): CallExpression =
 # String Operations
 # ============================================================================
 
-proc strLength*(field: FieldExpression): CallExpression =
+proc strLength*(expr: ExpressionObj): CallExpression =
   ## Creates a string length expression
-  newCallExpression("utf8_length", field)
+  newCallExpression("utf8_length", expr)
 
-proc strUpper*(field: FieldExpression): CallExpression =
+proc strUpper*(expr: ExpressionObj): CallExpression =
   ## Creates an uppercase expression
-  newCallExpression("utf8_upper", field)
+  newCallExpression("utf8_upper", expr)
 
-proc strLower*(field: FieldExpression): CallExpression =
+proc strLower*(expr: ExpressionObj): CallExpression =
   ## Creates a lowercase expression
-  newCallExpression("utf8_lower", field)
+  newCallExpression("utf8_lower", expr)
 
-proc strContains*(field: FieldExpression, substr: string): CallExpression =
-  ## Creates a string contains expression
-  newCallExpression("match_substring", field, newLiteralExpression(substr))
+proc strContains*(
+    expr: ExpressionObj, substr: string, ignoreCase: bool = false
+): CallExpression =
+  ## Creates a string contains expression (match_substring function)
+  ## Returns true if the substring is found in the input value
+  let options = newMatchSubstringOptions(substr, ignoreCase)
+  newCallExpressionWithOptions("match_substring", options, expr)
+
+proc startsWith*(
+    expr: ExpressionObj, prefix: string, ignoreCase: bool = false
+): CallExpression =
+  ## Creates a starts_with expression
+  ## Returns true if the input value starts with the given prefix
+  let options = newMatchSubstringOptions(prefix, ignoreCase)
+  newCallExpressionWithOptions("starts_with", options, expr)
+
+proc endsWith*(
+    expr: ExpressionObj, suffix: string, ignoreCase: bool = false
+): CallExpression =
+  ## Creates an ends_with expression
+  ## Returns true if the input value ends with the given suffix
+  let options = newMatchSubstringOptions(suffix, ignoreCase)
+  newCallExpressionWithOptions("ends_with", options, expr)
+
+proc matchSubstringRegex*(
+    expr: ExpressionObj, pattern: string, ignoreCase: bool = false
+): CallExpression =
+  ## Creates a match_substring_regex expression
+  ## Returns true if the regex pattern matches within the input value
+  let options = newMatchSubstringOptions(pattern, ignoreCase)
+  newCallExpressionWithOptions("match_substring_regex", options, expr)
 
 # ============================================================================
 # DSL Entry Point
@@ -577,6 +632,44 @@ proc `>`*[T: DatumCompatible](a: FieldExpression, b: T): CallExpression =
 
 proc `>=`*[T: DatumCompatible](a: FieldExpression, b: T): CallExpression =
   ge(a, b)
+
+# Comparison operators for ExpressionObj (enables chaining like name.len() > 3)
+proc `==`*[T: DatumCompatible](a: ExpressionObj, b: T): CallExpression =
+  eq(a, newLiteralExpression(b))
+
+proc `!=`*[T: DatumCompatible](a: ExpressionObj, b: T): CallExpression =
+  neq(a, newLiteralExpression(b))
+
+proc `<`*[T: DatumCompatible](a: ExpressionObj, b: T): CallExpression =
+  lt(a, newLiteralExpression(b))
+
+proc `<=`*[T: DatumCompatible](a: ExpressionObj, b: T): CallExpression =
+  le(a, newLiteralExpression(b))
+
+proc `>`*[T: DatumCompatible](a: ExpressionObj, b: T): CallExpression =
+  gt(a, newLiteralExpression(b))
+
+proc `>=`*[T: DatumCompatible](a: ExpressionObj, b: T): CallExpression =
+  ge(a, newLiteralExpression(b))
+
+# Comparison operators for CallExpression (needed for method chaining)
+proc `==`*[T: DatumCompatible](a: CallExpression, b: T): CallExpression =
+  eq(a.ExpressionObj, newLiteralExpression(b))
+
+proc `!=`*[T: DatumCompatible](a: CallExpression, b: T): CallExpression =
+  neq(a.ExpressionObj, newLiteralExpression(b))
+
+proc `<`*[T: DatumCompatible](a: CallExpression, b: T): CallExpression =
+  lt(a.ExpressionObj, newLiteralExpression(b))
+
+proc `<=`*[T: DatumCompatible](a: CallExpression, b: T): CallExpression =
+  le(a.ExpressionObj, newLiteralExpression(b))
+
+proc `>`*[T: DatumCompatible](a: CallExpression, b: T): CallExpression =
+  gt(a.ExpressionObj, newLiteralExpression(b))
+
+proc `>=`*[T: DatumCompatible](a: CallExpression, b: T): CallExpression =
+  ge(a.ExpressionObj, newLiteralExpression(b))
 
 # ============================================================================
 # Operator Overloading (Logical)
@@ -612,21 +705,23 @@ proc `/`*(a, b: ExpressionObj): CallExpression =
 # String DSL Extensions
 # ============================================================================
 
-proc contains*(field: FieldExpression, substr: string): CallExpression =
-  ## Usage: name.contains("pattern")
-  strContains(field, substr)
+proc contains*(
+    expr: ExpressionObj, substr: string, ignoreCase: bool = false
+): CallExpression =
+  ## Usage: name.contains("pattern") or name.contains("pattern", true)
+  strContains(expr, substr, ignoreCase)
 
-proc len*(field: FieldExpression): CallExpression =
+proc len*(expr: ExpressionObj): CallExpression =
   ## Usage: name.len() > 5
-  strLength(field)
+  strLength(expr)
 
-proc toUpper*(field: FieldExpression): CallExpression =
+proc toUpper*(expr: ExpressionObj): CallExpression =
   ## Usage: name.toUpper() == "ALICE"
-  strUpper(field)
+  strUpper(expr)
 
-proc toLower*(field: FieldExpression): CallExpression =
+proc toLower*(expr: ExpressionObj): CallExpression =
   ## Usage: name.toLower() == "alice"
-  strLower(field)
+  strLower(expr)
 
 # ============================================================================
 # Field Reference Extraction
@@ -712,7 +807,10 @@ proc parseFilter*(cl: FilterClause): CallExpression =
   of ">=":
     return newCallExpression("greater_equal", fieldExpr, valueExpr)
   of "contains":
-    return newCallExpression("match_substring", fieldExpr, valueExpr)
+    # valueExpr is a LiteralExpression containing the substring to search for
+    # Extract the string value from the scalar within the literal expression's datum
+    # For now, we know the value string is in cl.value
+    return strContains(fieldExpr, cl.value)
   else:
     raise newException(ValueError, "Unknown operator: " & cl.op)
 

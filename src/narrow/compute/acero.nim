@@ -190,7 +190,7 @@ proc toPtr*(opts: SinkNodeOptions): ptr GArrowSinkNodeOptions {.inline.} =
 proc toPtr*(pool: ThreadPool): ptr GArrowThreadPool {.inline.} =
   pool.handle
 
-proc toExecutor(pool: ThreadPool): ptr GArrowExecutor {.inline.} =
+proc toExecutor*(pool: ThreadPool): ptr GArrowExecutor {.inline.} =
   cast[ptr GArrowExecutor](pool.handle)
 
 # ============================================================================
@@ -221,7 +221,7 @@ proc newSinkNodeOptions*(): SinkNodeOptions =
   ## Creates new sink node options for capturing output.
   result.handle = garrow_sink_node_options_new()
 
-proc newThreadPool(n_threads: int = countProcessors()): ThreadPool =
+proc newThreadPool*(n_threads: int = countProcessors()): ThreadPool =
   var err = newError()
   let handle = garrow_thread_pool_new(n_threads = n_threads.guint, err.toPtr)
   if err:
