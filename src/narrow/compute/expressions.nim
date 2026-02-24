@@ -634,55 +634,36 @@ proc `>=`*[T: DatumCompatible](a: FieldExpression, b: T): CallExpression =
   ge(a, b)
 
 # Comparison operators for ExpressionObj (enables chaining like name.len() > 3)
-proc `==`*[T: DatumCompatible](a: ExpressionObj, b: T): CallExpression =
+proc `==`*[T: DatumCompatible, K: ExpressionObj](a: K, b: T): CallExpression =
   eq(a, newLiteralExpression(b))
 
-proc `!=`*[T: DatumCompatible](a: ExpressionObj, b: T): CallExpression =
+proc `!=`*[T: DatumCompatible, K: ExpressionObj](a: K, b: T): CallExpression =
   neq(a, newLiteralExpression(b))
 
-proc `<`*[T: DatumCompatible](a: ExpressionObj, b: T): CallExpression =
+proc `<`*[T: DatumCompatible, K: ExpressionObj](a: K, b: T): CallExpression =
   lt(a, newLiteralExpression(b))
 
-proc `<=`*[T: DatumCompatible](a: ExpressionObj, b: T): CallExpression =
+proc `<=`*[T: DatumCompatible, K: ExpressionObj](a: K, b: T): CallExpression =
   le(a, newLiteralExpression(b))
 
-proc `>`*[T: DatumCompatible](a: ExpressionObj, b: T): CallExpression =
+proc `>`*[T: DatumCompatible, K: ExpressionObj](a: K, b: T): CallExpression =
   gt(a, newLiteralExpression(b))
 
-proc `>=`*[T: DatumCompatible](a: ExpressionObj, b: T): CallExpression =
+proc `>=`*[T: DatumCompatible, K: ExpressionObj](a: K, b: T): CallExpression =
   ge(a, newLiteralExpression(b))
-
-# Comparison operators for CallExpression (needed for method chaining)
-proc `==`*[T: DatumCompatible](a: CallExpression, b: T): CallExpression =
-  eq(a.ExpressionObj, newLiteralExpression(b))
-
-proc `!=`*[T: DatumCompatible](a: CallExpression, b: T): CallExpression =
-  neq(a.ExpressionObj, newLiteralExpression(b))
-
-proc `<`*[T: DatumCompatible](a: CallExpression, b: T): CallExpression =
-  lt(a.ExpressionObj, newLiteralExpression(b))
-
-proc `<=`*[T: DatumCompatible](a: CallExpression, b: T): CallExpression =
-  le(a.ExpressionObj, newLiteralExpression(b))
-
-proc `>`*[T: DatumCompatible](a: CallExpression, b: T): CallExpression =
-  gt(a.ExpressionObj, newLiteralExpression(b))
-
-proc `>=`*[T: DatumCompatible](a: CallExpression, b: T): CallExpression =
-  ge(a.ExpressionObj, newLiteralExpression(b))
 
 # ============================================================================
 # Operator Overloading (Logical)
 # ============================================================================
 
 # Nim allows overloading 'and', 'or', and 'not' for non-boolean types
-proc `and`*(a, b: ExpressionObj): CallExpression =
+proc `and`*[T: ExpressionObj](a, b: T): CallExpression =
   andExpr(a, b)
 
-proc `or`*(a, b: ExpressionObj): CallExpression =
+proc `or`*[T: ExpressionObj](a, b: T): CallExpression =
   orExpr(a, b)
 
-proc `not`*(a: ExpressionObj): CallExpression =
+proc `not`*[T: ExpressionObj](a: T): CallExpression =
   notExpr(a)
 
 # ============================================================================

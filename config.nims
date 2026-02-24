@@ -4,6 +4,7 @@ switch("passL", "-lgobject-2.0")
 switch("passL", "-lglib-2.0")
 switch("passL", "-larrow")
 switch("passL", "-lparquet-glib")
+switch("passL", "-larrow-dataset-glib")
 
 when defined(useSanitizers):
   switch("passL", "-fsanitize=address")
