@@ -11,12 +11,16 @@ const
   PropFileType = "type"
 
 type
+  Uri* = object ## URI object for filesystem and resource identification
+    handle*: ptr GUri
+
   FileInfo* = object ## Information about a filesystem entry
     handle*: ptr GArrowFileInfo
 
   FileSelector* = object ## A selector for discovering files in a directory
     handle*: ptr GArrowFileSelector
 
+  # TODO: not sure that I want inheritance here, we might go with distinct types and concepts
   FileSystemObj = object of RootObj ## Base filesystem object
     handle*: ptr GArrowFileSystem
 
@@ -56,6 +60,116 @@ type
     handle*: ptr GArrowOutputStream
 
   StreamError* = object of CatchableError
+
+# =============================================================================
+# Uri Implementation
+# =============================================================================
+
+proc `=destroy`*(u: Uri) =
+  if u.handle != nil:
+    g_uri_unref(u.handle)
+
+proc `=sink`*(dest: var Uri, src: Uri) =
+  if dest.handle != nil and dest.handle != src.handle:
+    g_uri_unref(dest.handle)
+  dest.handle = src.handle
+
+proc `=copy`*(dest: var Uri, src: Uri) =
+  if dest.handle != src.handle:
+    if dest.handle != nil:
+      g_uri_unref(dest.handle)
+    dest.handle = src.handle
+    if src.handle != nil:
+      discard g_uri_ref(dest.handle)
+
+proc newUri*(uriString: string): Uri =
+  let flags = cast[GUriFlags](G_URI_FLAGS_NONE.uint or G_URI_FLAGS_HAS_PASSWORD.uint or
+    G_URI_FLAGS_HAS_AUTH_PARAMS.uint)
+  let parsedUri = g_uri_parse(uriString.cstring, flags, nil)
+  if parsedUri != nil:
+    result.handle = parsedUri
+    return
+
+  if uriString.len > 0 and uriString[0] == '/':
+    let fileUri = "file://" & uriString
+    result.handle = g_uri_parse(fileUri.cstring, flags, nil)
+    if result.handle == nil:
+      raise newException(OperationError, "Invalid URI: " & uriString)
+  else:
+    raise newException(OperationError, "Invalid URI: " & uriString)
+
+proc newUri*(scheme, host, path: string, port: int = -1): Uri =
+  let flags = cast[GUriFlags](G_URI_FLAGS_NONE.uint or G_URI_FLAGS_HAS_PASSWORD.uint or
+    G_URI_FLAGS_HAS_AUTH_PARAMS.uint)
+  let handle = g_uri_build(
+    flags, scheme.cstring, nil, host.cstring, port.gint, path.cstring, nil, nil
+  )
+  if handle == nil:
+    raise newException(OperationError, "Failed to build URI")
+  result.handle = handle
+
+proc isValidUri*(uriString: string): bool =
+  g_uri_is_valid(uriString.cstring, G_URI_FLAGS_NONE, nil) != 0
+
+proc getScheme*(uriString: string): string =
+  let scheme = g_uri_parse_scheme(uriString.cstring)
+  if scheme != nil:
+    result = $scheme
+    g_free(scheme)
+
+proc scheme*(u: Uri): string =
+  let s = g_uri_get_scheme(u.handle)
+  if s != nil:
+    result = $s
+
+proc host*(u: Uri): string =
+  let h = g_uri_get_host(u.handle)
+  if h != nil:
+    result = $h
+
+proc port*(u: Uri): int =
+  let p = g_uri_get_port(u.handle)
+  if p < 0:
+    result = -1
+  else:
+    result = p.int
+
+proc path*(u: Uri): string =
+  let p = g_uri_get_path(u.handle)
+  if p != nil:
+    result = $p
+
+proc query*(u: Uri): string =
+  let q = g_uri_get_query(u.handle)
+  if q != nil:
+    result = $q
+
+proc fragment*(u: Uri): string =
+  let f = g_uri_get_fragment(u.handle)
+  if f != nil:
+    result = $f
+
+proc user*(u: Uri): string =
+  let u = g_uri_get_user(u.handle)
+  if u != nil:
+    result = $u
+
+proc password*(u: Uri): string =
+  let p = g_uri_get_password(u.handle)
+  if p != nil:
+    result = $p
+
+proc `$`*(u: Uri): string =
+  let s = g_uri_to_string(u.handle)
+  if s != nil:
+    result = $s
+    g_free(s)
+
+proc toString*(u: Uri): string =
+  $u
+
+proc toPtr*(u: Uri): ptr GUri =
+  u.handle
 
 template with*(resource, name, body: untyped): untyped =
   block:
@@ -190,13 +304,8 @@ proc exists*(info: FileInfo): bool =
 
 proc `$`*(info: FileInfo): string =
   ## Get a string representation of the FileInfo
-  if info.handle == nil:
-    return "<invalid FileInfo>"
   let cstr = garrow_file_info_to_string(info.handle)
-  if cstr == nil:
-    return "<FileInfo>"
-  result = $cstr
-  g_free(cstr)
+  result = $newGString(cstr)
 
 # =============================================================================
 # FileSelector Implementation
@@ -218,6 +327,69 @@ proc `=copy`*(dest: var FileSelector, src: FileSelector) =
     dest.handle = src.handle
     if src.handle != nil:
       discard g_object_ref(dest.handle)
+
+proc newFileSelector*(
+    baseDir: string,
+    recursive: bool = false,
+    allowNotFound: bool = false,
+    maxRecursion: int32 = 100,
+): FileSelector =
+  ## Create a new file selector for discovering files in a directory
+  ##
+  ## Parameters:
+  ## - `baseDir`: The directory to search in
+  ## - `recursive`: Whether to search subdirectories recursively
+  ## - `allowNotFound`: If true, don't error when baseDir doesn't exist
+  ## - `maxRecursion`: Maximum depth for recursive search
+  ##
+  ## Example:
+  ## ```nim
+  ## let selector = newFileSelector("/data", recursive = true)
+  ## for info in fs.getFileInfos(selector):
+  ##   echo info.path
+  ## ```
+  let handle = g_object_new(
+    garrow_file_selector_get_type(),
+    "base-dir",
+    baseDir.cstring,
+    "recursive",
+    recursive.cint,
+    "allow-not-found",
+    allowNotFound.cint,
+    "max-recursion",
+    maxRecursion,
+    nil,
+  )
+
+  if g_object_is_floating(handle) != 0:
+    discard g_object_ref_sink(handle)
+
+  result.handle = cast[ptr GArrowFileSelector](handle)
+
+proc baseDir*(sel: FileSelector): string =
+  ## Get the base directory of the selector
+  var dir: cstring
+  g_object_get(sel.handle, "base-dir", addr dir, nil)
+  result = $dir
+  g_free(dir)
+
+proc recursive*(sel: FileSelector): bool =
+  ## Get whether the selector is recursive
+  var rec: cint
+  g_object_get(sel.handle, "recursive", addr rec, nil)
+  result = rec != 0
+
+proc allowNotFound*(sel: FileSelector): bool =
+  ## Get whether the selector allows not found
+  var allow: cint
+  g_object_get(sel.handle, "allow-not-found", addr allow, nil)
+  result = allow != 0
+
+proc maxRecursion*(sel: FileSelector): int32 =
+  ## Get the maximum recursion depth
+  var maxRec: cint
+  g_object_get(sel.handle, "max-recursion", addr maxRec, nil)
+  result = maxRec
 
 # =============================================================================
 # Helper: Convert GBytes to seq[byte]
@@ -554,7 +726,7 @@ proc isValid*(fs: FileSystem): bool {.inline.} =
   fs != nil and fs.handle != nil
 
 proc newFileSystem*(uri: string): FileSystem =
-  ## Create a filesystem from a URI
+  ## Create a filesystem from a URI string
   ##
   ## The URI scheme determines the filesystem type:
   ## - `file://` or no scheme: Local filesystem
@@ -569,7 +741,31 @@ proc newFileSystem*(uri: string): FileSystem =
   ## let s3Fs = newFileSystem("s3://my-bucket/prefix")
   ## ```
   new(result)
-  let handle = check garrow_file_system_create(uri.cstring)
+  let scheme = getScheme(uri)
+  let uriString =
+    if scheme.len > 0:
+      uri
+    else:
+      "file://" & uri
+  let handle = check garrow_file_system_create(uriString.cstring)
+
+  # Sink floating reference if present
+  if g_object_is_floating(handle) != 0:
+    discard g_object_ref_sink(handle)
+
+  result.handle = handle
+
+proc newFileSystem*(uri: Uri): FileSystem =
+  ## Create a filesystem from a Uri object
+  ##
+  ## Example:
+  ## ```nim
+  ## let uri = newUri("file:///home/user")
+  ## let localFs = newFileSystem(uri)
+  ## ```
+  let uriString = $uri
+  new(result)
+  let handle = check garrow_file_system_create(uriString.cstring)
 
   # Sink floating reference if present
   if g_object_is_floating(handle) != 0:

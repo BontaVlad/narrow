@@ -109,7 +109,7 @@ _test parallel cores mm mode leaks:
 
     if [ "$PARALLEL" = "true" ]; then
         printf '%s\n' "${TEST_FILES[@]}" \
-            | xargs -n 1 -P "$CORES" -I {} bash -c 'run_test "$1"' _ {}
+            | xargs -P "$CORES" -I {} bash -c 'run_test "$1"' _ {}
     else
         for file in "${TEST_FILES[@]}"; do
             run_test "$file"

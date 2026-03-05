@@ -1,10 +1,6 @@
 switch("path", "$projectDir/../src")
-switch("passL", "-larrow-glib")
-switch("passL", "-lgobject-2.0")
-switch("passL", "-lglib-2.0")
-switch("passL", "-larrow")
-switch("passL", "-lparquet-glib")
-switch("passL", "-larrow-dataset-glib")
+switch("passL", gorge("pkg-config --libs arrow-dataset-glib parquet-glib"))
+switch("passC", gorge("pkg-config --cflags arrow-dataset-glib parquet-glib"))
 
 when defined(useSanitizers):
   switch("passL", "-fsanitize=address")

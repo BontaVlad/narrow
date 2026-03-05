@@ -1,4 +1,3 @@
-import std/[os]
 import unittest2
 import testfixture
 import ../src/narrow

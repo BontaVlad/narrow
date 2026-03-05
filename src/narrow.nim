@@ -9,11 +9,11 @@ import
     gfixedshapetensortype, guuid, gmap, glist,
   ]
 import narrow/column/[primitive, nested, metadata]
-import narrow/tabular/[table, batch]
+import narrow/tabular/[table, batch, dataset]
 import narrow/compute/[filters, expressions, acero]
 import narrow/io/[parquet, csv, filesystem]
 
 export
   ffi, error, concepts, generated, gtypes, gtemporal, glisttype, glargelisttype,
   gfixedsizelisttype, gfixedshapetensortype, guuid, gmap, glist, primitive, nested,
-  metadata, table, batch, filters, expressions, acero, parquet, csv, filesystem
+  metadata, table, batch, filters, expressions, acero, parquet, csv, filesystem, dataset

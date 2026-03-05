@@ -1,6 +1,5 @@
-import std/options
 import unittest2
-import ../src/narrow/[core/ffi, compute/expressions, compute/match_substring_options, column/primitive, tabular/table, column/metadata, compute/filters]
+import ../src/narrow/[compute/expressions, compute/match_substring_options]
 
 suite "MatchSubstringOptions - Creation and Properties":
   test "Create MatchSubstringOptions with pattern":

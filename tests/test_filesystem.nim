@@ -725,3 +725,118 @@ suite "FileSystem - Error Recovery":
   #     check false # Should not reach here
   #   except StreamError:
   #     check true
+
+suite "FileSelector":
+  var fixture: TestFixture
+
+  setup:
+    fixture = newTestFixture("test_fileselector")
+
+  teardown:
+    fixture.cleanup()
+
+  test "newFileSelector - basic creation":
+    let selector = newFileSelector(fixture.basePath)
+    check selector.baseDir == fixture.basePath
+    check selector.recursive == false
+    check selector.allowNotFound == false
+
+  test "newFileSelector - recursive option":
+    let selector = newFileSelector(fixture.basePath, recursive = true)
+    check selector.recursive == true
+
+  test "newFileSelector - allowNotFound option":
+    let selector = newFileSelector("/nonexistent/path", allowNotFound = true)
+    check selector.allowNotFound == true
+
+  test "newFileSelector - maxRecursion option":
+    let selector = newFileSelector(fixture.basePath, maxRecursion = 50)
+    check selector.maxRecursion == 50
+
+  test "newFileSelector - all options":
+    let selector = newFileSelector(
+      fixture.basePath,
+      recursive = true,
+      allowNotFound = true,
+      maxRecursion = 25
+    )
+    check selector.baseDir == fixture.basePath
+    check selector.recursive == true
+    check selector.allowNotFound == true
+    check selector.maxRecursion == 25
+
+  test "newFileSelector - getFileInfos with selector":
+    let fs = newLocalFileSystem()
+    
+    # Create test files
+    for i in 0..4:
+      let path = fixture.basePath / fmt"file_{i}.txt"
+      var stream = fs.openOutputStream(path)
+      stream.write("test")
+      stream.close()
+    
+    # Create subdirectory with files
+    let subdir = fixture.basePath / "subdir"
+    fs.createDir(subdir)
+    for i in 0..2:
+      let path = subdir / fmt"subfile_{i}.txt"
+      var stream = fs.openOutputStream(path)
+      stream.write("test")
+      stream.close()
+    
+    # Non-recursive selector - should include files + the subdir itself
+    let selector = newFileSelector(fixture.basePath, recursive = false)
+    let infos = fs.getFileInfos(selector)
+    
+    # Should find the base files + the subdirectory itself (5 + 1 = 6)
+    check infos.len == 6
+    
+    # Count files (should be 5)
+    var fileCount = 0
+    for info in infos:
+      if info.isFile:
+        inc fileCount
+    check fileCount == 5
+
+  test "newFileSelector - recursive getFileInfos":
+    let fs = newLocalFileSystem()
+    
+    # Create test files
+    for i in 0..4:
+      let path = fixture / fmt"file_{i}.txt"
+      var stream = fs.openOutputStream(path)
+      stream.write("test")
+      stream.close()
+    
+    # Create subdirectory with files
+    let subdir = fixture / "subdir"
+    fs.createDir(subdir)
+    for i in 0..2:
+      let path = subdir / fmt"subfile_{i}.txt"
+      var stream = fs.openOutputStream(path)
+      stream.write("test")
+      stream.close()
+    
+    # Create nested subdirectory
+    let nested = subdir / "nested"
+    fs.createDir(nested)
+    let nestedFile = nested / "nested.txt"
+    var stream = fs.openOutputStream(nestedFile)
+    stream.write("test")
+    stream.close()
+    
+    # Recursive selector
+    let selector = newFileSelector(fixture.basePath, recursive = true)
+    let infos = fs.getFileInfos(selector)
+    
+    # Should find all files (5 + 3 + 1 = 9) plus directories
+    check infos.len >= 9
+
+  test "FileSelector - ARC hooks work correctly":
+    let selector1 = newFileSelector(fixture.basePath)
+    let selector2 = selector1  # Test copy
+    check selector2.baseDir == fixture.basePath
+    
+    var selector3 = newFileSelector(fixture.basePath)
+    selector3 = selector1  # Test sink
+    check selector3.baseDir == fixture.basePath
