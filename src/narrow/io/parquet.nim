@@ -795,7 +795,6 @@ proc nRows*(m: FileMetadata): int64 =
 proc nRowGroups*(m: FileMetadata): int =
   gparquet_file_metadata_get_n_row_groups(m.toPtr)
 
-# TODO: leaks memory
 proc rowGroup*(m: FileMetadata, index: int): RowGroupMetadata =
   newRowGroupMetadata(check gparquet_file_metadata_get_row_group(m.toPtr, index.gint))
 
@@ -1011,6 +1010,7 @@ proc canRowGroupSatisfy(
     # Not a call expression (field or literal)
     return sMaybe
 
+# TODO: AI garbage code - needs proper implementation
 proc readTable*(
     uri: string, filter: ExpressionObj, columns: seq[string] = @[]
 ): ArrowTable =
@@ -1089,6 +1089,3 @@ proc readTable*(
 
   # 6. Apply precise filter via Acero
   result = filterTable(fullTable, filter)
-
-  # Note: Column projection after filtering is disabled due to lifetime issues
-  # Users can manually select columns from the result if needed

@@ -24,3 +24,8 @@ leak:testfixture.nim
 
 # Test runner globals (unittest2)
 leak:unittest2
+
+# Bug in parquet-glib: GParquetRowGroupMetadata finalize doesn't free C++ internals
+# Reproduces in pure C — not a Nim issue (tested with parquet-glib 23.0.1)
+leak:gparquet_file_metadata_get_row_group
+leak:eqdestroy_*RowGroupMetadata*

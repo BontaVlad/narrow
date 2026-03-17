@@ -70,7 +70,6 @@ type PartitioningFactoryOptions* = object
   ## Options for discovering partitioning from file paths
   handle: ptr GADatasetPartitioningFactoryOptions
 
-
 var computeInitialized {.global.} = false
 
 proc ensureComputeInitialized() =
@@ -179,6 +178,23 @@ proc `=sink`*(dest: var DatasetFactory, src: DatasetFactory) =
   dest.handle = src.handle
 
 proc `=copy`*(dest: var DatasetFactory, src: DatasetFactory) =
+  if dest.handle != src.handle:
+    if dest.handle != nil:
+      g_object_unref(dest.handle)
+    dest.handle = src.handle
+    if src.handle != nil:
+      discard g_object_ref(dest.handle)
+
+proc `=destroy`*(factory: FileSystemDatasetFactory) =
+  if factory.handle != nil:
+    g_object_unref(factory.handle)
+
+proc `=sink`*(dest: var FileSystemDatasetFactory, src: FileSystemDatasetFactory) =
+  if dest.handle != nil and dest.handle != src.handle:
+    g_object_unref(dest.handle)
+  dest.handle = src.handle
+
+proc `=copy`*(dest: var FileSystemDatasetFactory, src: FileSystemDatasetFactory) =
   if dest.handle != src.handle:
     if dest.handle != nil:
       g_object_unref(dest.handle)
@@ -349,6 +365,9 @@ proc newFileFormat*(format: FileFormatTp): FileFormat =
     result.handle = cast[ptr GADatasetFileFormat](gadataset_parquet_file_format_new())
   result.kind = format
 
+proc kind*(fmt: FileFormat): FileFormatTp =
+  fmt.kind
+
 proc newPartitioningFactoryOptions*(): PartitioningFactoryOptions =
   ## Creates default options for discovering partitioning from paths
   result.handle = gadataset_partitioning_factory_options_new()
@@ -408,35 +427,35 @@ proc newFileSystemDatasetFactory*(format: FileFormat): FileSystemDatasetFactory 
   result.handle = cast[ptr GADatasetDatasetFactory](handle)
 
 proc setFileSystem*(
-    factory: FileSystemDatasetFactory, fs: FileSystem
-): FileSystemDatasetFactory =
+    factory: var FileSystemDatasetFactory, fs: FileSystem
+): var FileSystemDatasetFactory =
   ## Sets the filesystem to use (local, S3, etc.)
   ## Returns self for method chaining.
   check gadataset_file_system_dataset_factory_set_file_system(
     cast[ptr GADatasetFileSystemDatasetFactory](factory.handle), fs.handle
   )
-  result = factory
+  return factory
 
 proc setFileSystemUri*(
-    factory: FileSystemDatasetFactory, uri: string
-): FileSystemDatasetFactory =
+    factory: var FileSystemDatasetFactory, uri: string
+): var FileSystemDatasetFactory =
   ## Sets the filesystem from a URI (e.g., "file:///data", "s3://bucket/path")
   ## Returns self for method chaining.
   check gadataset_file_system_dataset_factory_set_file_system_uri(
     cast[ptr GADatasetFileSystemDatasetFactory](factory.handle), uri.cstring
   )
-  result = factory
+  return factory
 
 proc addPath*(
-    factory: FileSystemDatasetFactory, path: string
-): FileSystemDatasetFactory =
+    factory: var FileSystemDatasetFactory, path: string
+): var FileSystemDatasetFactory =
   ## Adds a path to scan for files
   ## Can be called multiple times to add multiple paths.
   ## Returns self for method chaining.
   check gadataset_file_system_dataset_factory_add_path(
     cast[ptr GADatasetFileSystemDatasetFactory](factory.handle), path.cstring
   )
-  result = factory
+  return factory
 
 proc inspectNFragments*(opts: FinishOptions): int =
   ## Gets the number of fragments to inspect for schema inference
@@ -469,14 +488,11 @@ proc `validateFragments=`*(opts: var FinishOptions, validate: bool) =
   ## Sets whether to validate fragments against the schema
   g_object_set(opts.toPtr, "validate-fragments", validate.gboolean, nil)
 
-
 proc finish*(factory: DatasetFactory, schema: Schema): Dataset =
   ## Builds the Dataset from the configured factory
   var opts = newFinishOptions()
   opts.schema = schema
-  let handle = check gadataset_dataset_factory_finish(
-    factory.toPtr, opts.toPtr
-  )
+  let handle = check gadataset_dataset_factory_finish(factory.toPtr, opts.toPtr)
   result.handle = cast[ptr GADatasetDataset](handle)
 
 proc finish*(
@@ -488,31 +504,57 @@ proc finish*(
   )
   result.handle = cast[ptr GADatasetDataset](handle)
 
-# def dataset(source, schema=None, format=None, filesystem=None,
-#             partitioning=None, partition_base_dir=None,
-#             exclude_invalid_files=None, ignore_prefixes=None):
-proc files*(ds: Dataset): seq[FileInfo] =
-  var glist: ptr GList
-  g_object_get(
-    cast[ptr GObject](ds.handle), "files", addr glist, nil
-  )
-  if glist == nil:
-    return @[]
-  let n = g_list_length(glist)
-  result = newSeq[FileInfo](n)
-  for i in 0..<n:
-    let data = g_list_nth_data(glist, cuint(i))
-    let fileInfo = cast[ptr GArrowFileInfo](data)
-    if fileInfo != nil:
-      discard g_object_ref(fileInfo)
-    result[i] = FileInfo(handle: fileInfo)
+proc `fileSystem=`*(ds: var Dataset, fs: FileSystem) =
+  ## Sets the filesystem associated with the dataset
+  g_object_set(ds.toPtr, "file-system", fs.handle, nil)
 
-proc newDataset*(path: string, format: FileFormatTp = Parquet): Dataset =
-  let format = newFileFormat(format)
+proc fileSystem*(ds: Dataset): FileSystem =
+  ## Gets the filesystem associated with the dataset (if any)
+  var fsPtr: ptr GArrowFileSystem
+  g_object_get(ds.toPtr, "file-system", addr fsPtr, nil)
+  echo repr fsPtr
+  if fsPtr != nil:
+    result = newFileSystem(fsPtr)
+
+proc `format=`*(ds: var Dataset, fmt: FileFormat) =
+  ## Sets the file format associated with the dataset
+  g_object_set(ds.toPtr, "format", fmt.handle, nil)
+
+proc format*(ds: Dataset): FileFormat =
+  ## Gets the file format associated with the dataset (if any)
+  var formatPtr: ptr GADatasetFileFormat
+  g_object_get(ds.toPtr, "format", addr formatPtr, nil)
+  if formatPtr != nil:
+    let typeName = $gadataset_file_format_get_type_name(formatPtr)
+    let kind =
+      case typeName
+      of "GArrowCSVFileFormat": CSV
+      of "GArrowIPCFileFormat": IPC
+      of "GArrowParquetFileFormat": Parquet
+      else: Parquet
+    result = newFileFormat(kind)
+    result.handle = formatPtr
+
+proc `partitioning=`*(ds: var Dataset, part: Partitioning) =
+  ## Sets the partitioning scheme associated with the dataset
+  g_object_set(ds.toPtr, "partitioning", part.handle, nil)
+
+proc partitioning*(ds: Dataset): Partitioning =
+  ## Gets the partitioning scheme associated with the dataset (if any)
+  var partPtr: ptr GADatasetPartitioning
+  g_object_get(ds.toPtr, "partitioning", addr partPtr, nil)
+  if partPtr != nil:
+    result.handle = partPtr
+
+proc files*(ds: Dataset): seq[FileInfo] =
+  echo repr ds
+  result = @[]
+
+proc newDataset*(path: string, formatType: FileFormatTp = Parquet): Dataset =
+  let fmt = newFileFormat(formatType)
   let fs = newFileSystem(path)
-  var factory = newFileSystemDatasetFactory(format)
-  factory = factory.setFileSystem(fs).addPath(path)
-  result = factory.finish()
+  var factory = newFileSystemDatasetFactory(fmt)
+  result = factory.setFileSystem(fs).addPath(path).finish()
 
 proc newScannerBuilder*(ds: Dataset): ScannerBuilder =
   ## Creates a scanner builder from a dataset

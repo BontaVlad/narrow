@@ -74,20 +74,26 @@ proc `=copy`*(dest: var ExecutePlan, src: ExecutePlan) =
 
 # ============================================================================
 # ARC Hooks — ExecuteNode
-# NOTE: ExecuteNodes are owned by the ExecutePlan. We do NOT call g_object_unref
-# in destroy because the plan manages their lifetime. We still need sink/copy
-# for when ExecuteNode values are moved/copied around.
+# ExecuteNodes are GObjects returned by garrow_execute_plan_build_*_node
+# and must be unreferenced when no longer needed.
 # ============================================================================
 
 proc `=destroy`*(node: ExecuteNode) =
-  # No-op: nodes are owned by the plan
-  discard
+  if node.handle != nil:
+    g_object_unref(node.handle)
 
 proc `=sink`*(dest: var ExecuteNode, src: ExecuteNode) =
+  if dest.handle != nil and dest.handle != src.handle:
+    g_object_unref(dest.handle)
   dest.handle = src.handle
 
 proc `=copy`*(dest: var ExecuteNode, src: ExecuteNode) =
-  dest.handle = src.handle
+  if dest.handle != src.handle:
+    if dest.handle != nil:
+      g_object_unref(dest.handle)
+    dest.handle = src.handle
+    if src.handle != nil:
+      discard g_object_ref(dest.handle)
 
 # ============================================================================
 # ARC Hooks — ThreadPool

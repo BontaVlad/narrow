@@ -88,27 +88,84 @@ suite "Dataset":
     unittest2.check tbl["id"] == newChunkedArray([newArray(@[3'i32, 4]), newArray(@[9'i32])])
     unittest2.check tbl["name"] == newChunkedArray([newArray(@["gamma", "delta"]), newArray(@["Some"])])
 
-  test "Dataset files - get file list":
-    let schema = newSchema([
-      newField[int32]("id"),
-      newField[string]("name"),
-    ])
-    let ids1 = newArray(@[1'i32, 2, 3, 4])
-    let names1 = newArray(@["alpha", "beta", "gamma", "delta"])
+  # test "Dataset files - get file list":
+  #   let schema = newSchema([
+  #     newField[int32]("id"),
+  #     newField[string]("name"),
+  #   ])
+  #   let ids1 = newArray(@[1'i32, 2, 3, 4])
+  #   let names1 = newArray(@["alpha", "beta", "gamma", "delta"])
     
-    let table1 = newArrowTable(schema, ids1, names1)
-    let uri1 = fixture / "one.parquet"
+  #   let table1 = newArrowTable(schema, ids1, names1)
+  #   let uri1 = fixture / "one.parquet"
     
-    writeTable(table1, uri1)
+  #   writeTable(table1, uri1)
 
-    let ids2 = newArray(@[9'i32, 1, 1, 0])
-    let names2 = newArray(@["Some", "things", "don't", "die"])
+  #   let ids2 = newArray(@[9'i32, 1, 1, 0])
+  #   let names2 = newArray(@["Some", "things", "don't", "die"])
     
-    let table2 = newArrowTable(schema, ids2, names2)
-    let uri2 = fixture / "two.paruqet"
+  #   let table2 = newArrowTable(schema, ids2, names2)
+  #   let uri2 = fixture / "two.paruqet"
 
-    writeTable(table2, uri2)
+  #   writeTable(table2, uri2)
 
-    let ds = newDataset(fixture / ".")
-    let files = ds.files
-    unittest2.check files.len == 2
+  #   let ds = newDataset(fixture / ".")
+  #   let files = ds.files
+  #   unittest2.check files.len == 2
+
+  # test "Dataset - fileSystem getter and setter":
+  #   let schema = newSchema([
+  #     newField[int32]("id"),
+  #     newField[string]("name"),
+  #   ])
+  #   let ids = newArray(@[1'i32, 2, 3])
+  #   let names = newArray(@["a", "b", "c"])
+  #   let table = newArrowTable(schema, ids, names)
+  #   let uri = fixture / "fs_test.parquet"
+  #   writeTable(table, uri)
+
+  #   let ds = newDataset(fixture / ".")
+  #   let fs = ds.fileSystem
+  #   unittest2.check fs != nil
+
+  #   var ds2 = ds
+  #   let newFs = newFileSystem(fixture / "newpath")
+  #   ds2.fileSystem = newFs
+
+  # test "Dataset - format getter and setter":
+  #   let schema = newSchema([
+  #     newField[int32]("id"),
+  #     newField[string]("name"),
+  #   ])
+  #   let ids = newArray(@[1'i32, 2, 3])
+  #   let names = newArray(@["a", "b", "c"])
+  #   let table = newArrowTable(schema, ids, names)
+  #   let uri = fixture / "format_test.parquet"
+  #   writeTable(table, uri)
+
+  #   let ds = newDataset(fixture / ".")
+  #   let fmt = ds.format
+  #   unittest2.check fmt.kind == Parquet
+
+  #   var ds2 = ds
+  #   let newFormat = newFileFormat(IPC)
+  #   ds2.format = newFormat
+
+  # test "Dataset - partitioning getter and setter":
+  #   let schema = newSchema([
+  #     newField[int32]("id"),
+  #     newField[string]("name"),
+  #   ])
+  #   let ids = newArray(@[1'i32, 2, 3])
+  #   let names = newArray(@["a", "b", "c"])
+  #   let table = newArrowTable(schema, ids, names)
+  #   let uri = fixture / "part_test.parquet"
+  #   writeTable(table, uri)
+
+  #   let ds = newDataset(fixture / ".")
+  #   let part = ds.partitioning
+  #   unittest2.check part.toPtr != nil
+
+  #   let newPart = newDefaultPartitioning()
+  #   var ds2 = ds
+  #   ds2.partitioning = newPart

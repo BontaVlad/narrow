@@ -25,10 +25,6 @@ type
     handle*: ptr GArrowFileSystem
 
   FileSystem* = ref FileSystemObj
-    ## Abstract filesystem interface
-    ##
-    ## FileSystem provides a unified interface for interacting with different
-    ## storage backends, including local filesystems, cloud storage, and HDFS.
 
   LocalFileSystemOptions* = object ## Options for creating a local filesystem
     handle*: ptr GArrowLocalFileSystemOptions
@@ -724,6 +720,10 @@ proc `=destroy`*(fs: FileSystemObj) =
 proc isValid*(fs: FileSystem): bool {.inline.} =
   ## Check if the filesystem handle is valid
   fs != nil and fs.handle != nil
+
+proc newFileSystem*(p: ptr GArrowFileSystem): FileSystem =
+  new(result)
+  result.handle = p
 
 proc newFileSystem*(uri: string): FileSystem =
   ## Create a filesystem from a URI string
