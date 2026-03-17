@@ -47,21 +47,27 @@ jobs:
     - name: Cache apt packages
       uses: awalsh128/cache-apt-pkgs-action@latest
       with:
-        packages: clang libclang-dev libarrow-dev libarrow-glib-dev libparquet-glib-dev libglib2.0-dev libgirepository1.0-dev pkg-config
+        packages: clang libclang-dev libarrow-dev libarrow-glib-dev libarrow-dataset-glib-dev libparquet-glib-dev libglib2.0-dev libgirepository1.0-dev pkg-config
         version: 1.0
 
     - name: Verify installations
       run: |
-        echo "=== Arrow GLib ==="
-        pkg-config --modversion arrow-glib
+        echo "=== Arrow Libraries ==="
+        pkg-config --modversion arrow || echo "arrow not found"
+        pkg-config --modversion arrow-glib || echo "arrow-glib not found"
+        pkg-config --modversion arrow-dataset-glib || echo "arrow-dataset-glib not found"
+        echo "=== Parquet ==="
+        pkg-config --modversion parquet-glib || echo "parquet-glib not found"
         echo "=== GObject ==="
         pkg-config --modversion gobject-2.0
         echo "=== GLib ==="
         pkg-config --modversion glib-2.0
         echo "=== Clang ==="
         clang --version
-        echo "=== Include paths ==="
-        pkg-config --cflags-only-I arrow-glib gobject-2.0 glib-2.0
+        echo "=== Arrow Include paths ==="
+        pkg-config --cflags-only-I arrow-glib arrow-dataset-glib parquet-glib gobject-2.0 glib-2.0
+        echo "=== Arrow Library paths ==="
+        pkg-config --libs arrow-glib arrow-dataset-glib parquet-glib
 
     - name: Install Nim dependencies
       run: nimble install -y
