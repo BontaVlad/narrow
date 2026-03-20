@@ -2,7 +2,7 @@ import std/[os, sequtils]
 import unittest2
 import ../testfixture
 
-import ../../src/narrow/[column/primitive, column/metadata, tabular/table, io/parquet]
+import ../../src/narrow/[column/primitive, column/metadata, tabular/table, io/parquet, compute/expressions]
 
 suite "Reading and Writing Data":
 
@@ -24,15 +24,16 @@ suite "Reading and Writing Data":
     let uri = fixture / "table.parquet"
     writeTable(table, uri)
 
-  test "Read a Parquet file":
+  test "Reading a Parquet file":
     let uri = getCurrentDir() & "/tests/fatboy.parquet"
     let table = readTable(uri)
     check table["int64_col"].len == 10
 
   test "Reading a subset of Parquet data":
     let uri = getCurrentDir() & "/tests/fatboy.parquet"
-    let table = readTable(uri, columns = @["int64_col", "string_col"])
-    check table["int64_col"].len == 10
+    let filter = col("int64_col") >  1000000'i64 and col("int64_col") < 5000000'i64
+    let table = readTable(uri, columns = @["int64_col", "string_col"], filter=filter)
+    check table["int64_col"].len == 3
 
 suite "Creating Arrow Objects":
   test "Creating Arrays":

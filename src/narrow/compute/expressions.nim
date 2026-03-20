@@ -25,7 +25,7 @@ type DatumKind* = enum
 # ============================================================================
 
 type
-  Datum*[K: static DatumKind = DatumKind.none] = object
+  Datum*[T: static DatumKind = DatumKind.none] = object
     handle: ptr GArrowDatum
 
   Scalar*[T: ArrowPrimitive = void] = object
@@ -145,8 +145,11 @@ proc `==`*[T: ExpressionObj](a, b: T): bool {.inline.} =
 # Scalar Constructors (typed)
 # ============================================================================
 
-proc newScalar*(): Scalar =
+proc newScalar*(): Scalar[void] =
   result.handle = cast[ptr GArrowScalar](garrow_null_scalar_new())
+
+proc newScalar*(handle: ptr): Scalar[void] =
+  result.handle = handle
 
 proc newScalar*(v: bool): Scalar[bool] =
   result.handle = cast[ptr GArrowScalar](garrow_boolean_scalar_new(v.gboolean))
@@ -230,6 +233,14 @@ proc newDatum*(tb: ArrowTable): Datum[DatumKind.table] =
 proc newDatum*(rb: RecordBatch): Datum[DatumKind.recordBatch] =
   result.handle = cast[ptr GArrowDatum](garrow_record_batch_datum_new(rb.toPtr))
 
+proc newDatum*(handle: ptr GArrowDatum): Datum[none] =
+  ## Creates a Datum from a raw GArrowDatum handle.
+  ## Takes ownership of the handle (does NOT add a ref).
+  ##
+  ## This is primarily used internally when receiving Datum results from
+  ## Arrow compute functions.
+  result.handle = handle
+
 # ============================================================================
 # Datum Runtime Type Checks
 # ============================================================================
@@ -246,11 +257,24 @@ proc isScalar*(dt: Datum): bool {.inline.} =
 proc isValue*(dt: Datum): bool {.inline.} =
   garrow_datum_is_value(dt.handle) != 0
 
-proc `==`*[T](a, b: Datum[T]): bool {.inline.} =
+proc `==`*[T, K](a: Datum[T], b: Datum[K]): bool {.inline.} =
   garrow_datum_equal(a.toPtr, b.toPtr) != 0
 
-proc `$`*[T](dt: Datum[T]): string =
+proc `$`*(dt: Datum): string =
   result = $newGString(garrow_datum_to_string(dt.handle))
+
+# ============================================================================
+# Datum Extraction Methods
+# ============================================================================
+
+proc toScalar*(dt: Datum): Scalar[void] =
+  ## Extracts a Scalar from a scalar Datum
+  ## Raises ValueError if the Datum is not a scalar
+  if not dt.isScalar:
+    raise newException(ValueError, "Datum is not a scalar")
+  var scalarPtr: ptr GArrowScalar
+  g_object_get(dt.handle, "value", addr scalarPtr, nil)
+  result.handle = scalarPtr
 
 # ============================================================================
 # Datum Kind (compile-time first, runtime fallback)

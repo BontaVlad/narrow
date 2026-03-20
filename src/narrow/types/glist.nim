@@ -54,3 +54,8 @@ proc newGList*[T](items: openArray[T]): GAList[T] =
   for i in items:
     lst.append(i)
   result = lst
+
+proc toSeq*[T](wrapper: GAList[T]): seq[T] =
+  result = @[]
+  for item in wrapper.items:
+    result.add(item)
