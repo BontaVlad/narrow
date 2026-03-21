@@ -25,18 +25,7 @@ proc `=copy`*(dest: var UUIDType, src: UUIDType) =
       discard g_object_ref(dest.handle)
 
 proc newUUIDType*(): UUIDType =
-  var err: ptr GError
-  result.handle = garrow_uuid_data_type_new(addr err)
-  if not isNil(err):
-    let msg =
-      if not isNil(err.message):
-        $err.message
-      else:
-        "Failed to create UUIDType"
-    g_error_free(err)
-    raise newException(OperationError, msg)
-  if result.handle.isNil:
-    raise newException(OperationError, "Failed to create UUIDType")
+  result.handle = check garrow_uuid_data_type_new()
 
 proc extensionName*(u: UUIDType): string =
   let namePtr = garrow_extension_data_type_get_extension_name(

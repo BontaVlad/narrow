@@ -197,19 +197,7 @@ proc newMapArray*[K, V](
     offsets: Array[int32], keys: Array[K], items: Array[V]
 ): MapArray[K, V] =
   var err: ptr GError
-  let handle = garrow_map_array_new(
-    cast[ptr GArrowArray](offsets.toPtr), keys.toPtr, items.toPtr, addr err
-  )
-
-  if not err.isNil:
-    let msg =
-      if not err.message.isNil:
-        $err.message
-      else:
-        "MapArray creation failed"
-    g_error_free(err)
-    raise newException(OperationError, msg)
-
+  let handle = check garrow_map_array_new(cast[ptr GArrowArray](offsets.toPtr), keys.toPtr, items.toPtr)
   result = MapArray[K, V](handle: handle)
 
 proc newMapArray*[K, V](handle: ptr GArrowMapArray): MapArray[K, V] =

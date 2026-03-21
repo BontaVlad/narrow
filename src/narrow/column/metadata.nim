@@ -50,8 +50,6 @@ proc newField*(name: string, dataType: GADType): Field =
   let handle = garrow_field_new(name.cstring, dataType.handle)
   if handle.isNil:
     raise newException(OperationError, "Failed to create field")
-  if g_object_is_floating(handle) != 0:
-    discard g_object_ref_sink(handle)
   result.handle = handle
 
 proc name*(field: Field): string =
@@ -103,21 +101,7 @@ proc newSchema*(fields: openArray[Field]): Schema =
   result.handle = garrow_schema_new(fieldList.list)
 
 proc newSchema*(gptr: pointer): Schema =
-  var err: ptr GError
-  let handle = garrow_schema_import(gptr, addr err)
-
-  if not isNil(err):
-    let msg =
-      if not isNil(err.message):
-        $err.message
-      else:
-        "Schema import failed"
-    g_error_free(err)
-    raise newException(OperationError, msg)
-
-  if g_object_is_floating(handle) != 0:
-    discard g_object_ref_sink(handle)
-
+  let handle = check garrow_schema_import(gptr)
   result.handle = handle
 
 proc newSchema*(handle: ptr GArrowSchema): Schema =
@@ -179,4 +163,5 @@ iterator items*(schema: Schema): Field =
     yield field
 
 proc `==`*(a, b: Schema): bool {.inline.} =
+
   garrow_schema_equal(a.handle, b.handle).bool
