@@ -37,13 +37,13 @@ type
 proc `=destroy`*(reader: IpcFileReader) =
   if reader.handle != nil:
     g_object_unref(reader.handle)
-  # stream field is destroyed automatically by its own =destroy hook
+  `=destroy`(reader.stream)
 
 proc `=sink`*(dest: var IpcFileReader, src: IpcFileReader) =
   if dest.handle != nil and dest.handle != src.handle:
     g_object_unref(dest.handle)
   dest.handle = src.handle
-  dest.stream = src.stream  # Uses SeekableInputStream's =sink
+  `=sink`(dest.stream, src.stream)
 
 proc `=copy`*(dest: var IpcFileReader, src: IpcFileReader) =
   if dest.handle != src.handle:
@@ -52,7 +52,7 @@ proc `=copy`*(dest: var IpcFileReader, src: IpcFileReader) =
     dest.handle = src.handle
     if src.handle != nil:
       discard g_object_ref(dest.handle)
-  dest.stream = src.stream  # Uses SeekableInputStream's =copy
+  `=copy`(dest.stream, src.stream)
 
 proc toPtr*(reader: IpcFileReader): ptr GArrowRecordBatchFileReader {.inline.} =
   reader.handle

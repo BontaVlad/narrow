@@ -14,10 +14,6 @@ type
   JsonReader* = object
     handle*: ptr GArrowJSONReader
 
-# ============================================================================
-# JsonReadOptions - Construction & ARC Hooks
-# ============================================================================
-#
 proc newJsonReadOptions*(): JsonReadOptions =
   let handle = garrow_json_read_options_new()
   if handle.isNil:
@@ -54,10 +50,6 @@ proc `=copy`*(dest: var JsonReadOptions, src: JsonReadOptions) =
     if src.handle != nil:
       discard g_object_ref(dest.handle)
 
-# ============================================================================
-# JsonReadOptions - Property Getters/Setters
-# ============================================================================
-
 proc unexpectedFieldBehavior*(options: JsonReadOptions): JsonUnexpectedFieldBehavior =
   var value: gint
   g_object_get(options.handle, "unexpected-field-behavior", addr value, nil)
@@ -67,10 +59,6 @@ proc `unexpectedFieldBehavior=`*(
     options: JsonReadOptions, value: JsonUnexpectedFieldBehavior
 ) =
   g_object_set(options.handle, "unexpected-field-behavior", gint(value.ord), nil)
-
-# ============================================================================
-# JsonReader - Construction & ARC Hooks
-# ============================================================================
 
 proc `=destroy`*(r: JsonReader) =
   if r.handle != nil:
@@ -96,17 +84,9 @@ proc newJsonReader*(stream: InputStream, options: JsonReadOptions): JsonReader =
   let handle = check garrow_json_reader_new(stream.handle, options.handle)
   result.handle = handle
 
-# ============================================================================
-# JsonReader - Read Operations
-# ============================================================================
-
 proc read*(reader: JsonReader): ArrowTable =
   let tablePtr = check garrow_json_reader_read(reader.handle)
   result = newArrowTable(tablePtr)
-
-# ============================================================================
-# High-level API
-# ============================================================================
 
 proc readJSON*(uri: string, options: JsonReadOptions): ArrowTable =
   let fs = newFileSystem(uri)
