@@ -16,5 +16,5 @@ import narrow/io/[parquet, csv, filesystem, json, ipc]
 export
   ffi, error, concepts, gtypes, gtemporal, glisttype, glargelisttype,
   gfixedsizelisttype, gfixedshapetensortype, guuid, gmap, glist, primitive, nested,
-  metadata, table, batch, filters, expressions, acero, parquet, csv, filesystem,
-  json, ipc, dataset, functions
+  metadata, table, batch, filters, expressions, acero, parquet, csv, filesystem, json,
+  ipc, dataset, functions

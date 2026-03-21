@@ -16,23 +16,22 @@ type
 # ARC Hooks - Function
 # ============================================================================
 
-# proc `=destroy`*(fn: Function) =
-#   echo "Ref count before unref: ", getRefCount(fn.handle)
-#   if not isNil(fn.handle):
-#     g_object_unref(fn.handle)
+proc `=destroy`*(fn: Function) =
+  if not isNil(fn.handle):
+    g_object_unref(fn.handle)
 
-# proc `=sink`*(dest: var Function, src: Function) =
-#   if not isNil(dest.handle) and dest.handle != src.handle:
-#     g_object_unref(dest.handle)
-#   dest.handle = src.handle
+proc `=sink`*(dest: var Function, src: Function) =
+  if not isNil(dest.handle) and dest.handle != src.handle:
+    g_object_unref(dest.handle)
+  dest.handle = src.handle
 
-# proc `=copy`*(dest: var Function, src: Function) =
-#   if dest.handle != src.handle:
-#     if not isNil(dest.handle):
-#       g_object_unref(dest.handle)
-#     dest.handle = src.handle
-#     if not isNil(src.handle):
-#       discard g_object_ref(dest.handle)
+proc `=copy`*(dest: var Function, src: Function) =
+  if dest.handle != src.handle:
+    if not isNil(dest.handle):
+      g_object_unref(dest.handle)
+    dest.handle = src.handle
+    if not isNil(src.handle):
+      discard g_object_ref(dest.handle)
 
 # ============================================================================
 # ARC Hooks - FunctionOptions
@@ -101,7 +100,8 @@ proc find*(name: string): Function =
 
 proc name*(fn: Function): string =
   let cstr = garrow_function_get_name(fn.handle)
-  result = $newGString(cstr)
+  result = $cstr
+  # result = $newGString(cstr)
 
 proc listFunctions*(): seq[Function] =
   for f in newGList[ptr GArrowFunction](garrow_function_all()):
@@ -117,24 +117,19 @@ proc `==`*(a, b: Function): bool =
 # Function Introspection
 # ============================================================================
 
-# TODO: refactor this to use newFunctionDoc
 proc doc*(fn: Function): FunctionDoc =
   ## Returns the documentation for this function
   let handle = garrow_function_get_doc(fn.handle)
   if not isNil(handle):
     result.handle = cast[ptr GArrowFunctionDoc](g_object_ref(handle))
 
-# TODO: refactor these to use newGString or else it will leak memory
 proc summary*(doc: FunctionDoc): string =
   ## Returns a one-line summary of the function
-  let cstr = garrow_function_doc_get_summary(doc.handle)
-  result = $cstr
+  result = $newGString(garrow_function_doc_get_summary(doc.handle))
 
-# TODO: refactor these to use newGString or else it will leak memory
 proc description*(doc: FunctionDoc): string =
   ## Returns a detailed description of the function
-  let cstr = garrow_function_doc_get_description(doc.handle)
-  result = $cstr
+  result = $newGString(garrow_function_doc_get_description(doc.handle))
 
 proc defaultOptions*(fn: Function): FunctionOptions =
   ## Returns the default options for this function

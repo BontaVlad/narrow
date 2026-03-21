@@ -19,7 +19,7 @@ type
 
   RecordBatchReader* = object
     handle*: ptr GArrowRecordBatchReader
-    streamHandle*: ptr GArrowInputStream  # Keep stream alive as long as reader exists
+    streamHandle*: ptr GArrowInputStream # Keep stream alive as long as reader exists
 
   WriteOptions* = object
     handle: ptr GArrowWriteOptions

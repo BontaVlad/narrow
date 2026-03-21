@@ -84,17 +84,40 @@ macro newArrowTable*(schema: Schema, args: varargs[typed]): ArrowTable =
   ## - RecordBatch objects
   ## - Array[T] objects (can be mixed types)
   ## - ChunkedArray[T] objects (can be mixed types)
+  ## - seq of any of the above (e.g. seq[RecordBatch])
   if args.len == 0:
     error("newArrowTable requires at least one argument after schema")
 
-  var bracket = newNimNode(nnkBracket)
+  var parts: seq[NimNode] = @[]
+
   for arg in args:
-    bracket.add quote do:
-      `arg`.toPtr
+    let argType = arg.getType()
+    let isSeq = argType.kind == nnkBracketExpr and
+                argType.len > 0 and
+                argType[0].kind == nnkSym and
+                argType[0].strVal == "seq"
 
-  let seqExpr = newNimNode(nnkPrefix).add(ident"@").add(bracket)
+    if isSeq:
+      # Map toPtr over every element, inferring the pointer type from the
+      # element type so we don't hard-code it here.
+      parts.add quote do:
+        (block:
+          var tmp: seq[typeof(`arg`[0].toPtr)] = @[]
+          for item in `arg`:
+            tmp.add(item.toPtr)
+          tmp)
+    else:
+      parts.add quote do:
+        @[`arg`.toPtr]
 
-  result = quote:
+  # Fold all parts into one seq expression via `&`
+  var seqExpr = parts[0]
+  for i in 1 ..< parts.len:
+    let part = parts[i]
+    seqExpr = quote do:
+      `seqExpr` & `part`
+
+  result = quote do:
     dispatchNewTable(`schema`, `seqExpr`)
 
 macro newArrowTable*(rows: typed): ArrowTable =

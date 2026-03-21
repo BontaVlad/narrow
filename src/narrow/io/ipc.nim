@@ -231,42 +231,33 @@ proc newIpcStreamWriter*(fs: FileSystem, path: string, schema: Schema): IpcStrea
   result = newIpcStreamWriter(stream, schema)
 
 
-# TODO: this is crap, new should change newArrowTable macro to accept a seq
 proc readAll*(reader: IpcFileReader): ArrowTable =
   ## Read all record batches as a table
-  var batches: seq[ptr GArrowRecordBatch] = @[]
+  var batches: seq[RecordBatch] = @[]
   for i in 0 ..< reader.nRecordBatches:
-    let batch = reader.readRecordBatch(i)
-    let ptr_batch = batch.toPtr
-    discard g_object_ref(ptr_batch)  # Increment ref count to keep it alive
-    batches.add(ptr_batch)
+    batches.add(reader.readRecordBatch(i))
   
-  result = newArrowTableFromRecordBatches(reader.schema, batches)
-  
-  # Cleanup: after creating the table, unref our references
-  # (the table now owns its own references)
-  for batch in batches:
-    g_object_unref(batch)
+  result = newArrowTable(reader.schema, batches)
 
-proc writeTable*(writer: IpcStreamWriter | IpcFileWriter, table: ArrowTable) =
+proc writeTable*(writer: IpcFileWriter | IpcStreamWriter, table: ArrowTable) =
   ## Write a table to the stream
   check garrow_record_batch_writer_write_table(
     cast[ptr GArrowRecordBatchWriter](writer.handle), table.toPtr
   )
 
-proc writeRecordBatch*(writer: IpcStreamWriter | IpcFileWriter, batch: RecordBatch) =
+proc writeRecordBatch*(writer: IpcFileWriter, batch: RecordBatch) =
   ## Write a record batch to the file
   check garrow_record_batch_writer_write_record_batch(
     cast[ptr GArrowRecordBatchWriter](writer.handle), batch.handle
   )
 
-proc close*(writer: IpcStreamWriter | IpcFileWriter) =
+proc close*(writer: IpcFileWriter | IpcStreamWriter) =
   ## Close the writer
   check garrow_record_batch_writer_close(
     cast[ptr GArrowRecordBatchWriter](writer.handle)
   )
 
-proc isClosed*(writer: IpcStreamWriter | IpcFileWriter): bool =
+proc isClosed*(writer: IpcFileWriter | IpcStreamWriter): bool =
   ## Check if the writer is closed
   bool(garrow_record_batch_writer_is_closed(
     cast[ptr GArrowRecordBatchWriter](writer.handle)
@@ -290,25 +281,19 @@ proc newIpcFileWriter*(fs: FileSystem, path: string, schema: Schema): IpcFileWri
 # High-level Convenience API
 # ============================================================================
 
-# TODO: this is not streamed read or write, this is wrong
-proc readIpcStream*(uri: string): ArrowTable =
-  ## Read an entire IPC stream file into a table
-  let fs = newFileSystem(uri)
-  let reader = newIpcStreamReader(fs, uri)
-  result = reader.readAll()
-
 proc readIpcFile*(uri: string): ArrowTable =
   ## Read an entire IPC file into a table
   let fs = newFileSystem(uri)
   let reader = newIpcFileReader(fs, uri)
   result = reader.readAll()
 
-proc writeIpcStream*(uri: string, table: ArrowTable) =
-  ## Write a table to an IPC stream file
+proc readIpcStream*(uri: string): ArrowTable =
+  ## Read an entire IPC stream file into a table
   let fs = newFileSystem(uri)
-  let writer = newIpcStreamWriter(fs, uri, table.schema)
-  defer: writer.close()
-  writer.writeTable(table)
+
+  with fs.openInputStream(uri), stream:
+    let reader = newIpcStreamReader(stream)
+    result = reader.readAll()
 
 proc writeIpcFile*(uri: string, table: ArrowTable) =
   ## Write a table to an IPC file format
@@ -317,16 +302,16 @@ proc writeIpcFile*(uri: string, table: ArrowTable) =
   defer: writer.close()
   writer.writeTable(table)
 
-proc writeIpcStream*(uri: string, batch: RecordBatch) =
-  ## Write a record batch to an IPC stream file
-  let fs = newFileSystem(uri)
-  let writer = newIpcStreamWriter(fs, uri, batch.schema)
-  defer: writer.close()
-  writer.writeRecordBatch(batch)
-
 proc writeIpcFile*(uri: string, batch: RecordBatch) =
   ## Write a record batch to an IPC file format
   let fs = newFileSystem(uri)
   let writer = newIpcFileWriter(fs, uri, batch.schema)
   defer: writer.close()
   writer.writeRecordBatch(batch)
+
+proc writeIpcStream*(uri: string, table: ArrowTable) =
+  ## Write a table to an IPC stream file
+  let fs = newFileSystem(uri)
+  let writer = newIpcStreamWriter(fs, uri, table.schema)
+  defer: writer.close()
+  writer.writeTable(table)

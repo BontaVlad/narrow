@@ -25,7 +25,7 @@ proc newJsonReadOptions*(): JsonReadOptions =
   result.handle = handle
 
 proc newJsonReadOptions*(
-    unexpectedFieldBehavior: JsonUnexpectedFieldBehavior,
+    unexpectedFieldBehavior: JsonUnexpectedFieldBehavior
 ): JsonReadOptions =
   let handle = garrow_json_read_options_new()
   if handle.isNil:
@@ -34,10 +34,7 @@ proc newJsonReadOptions*(
 
   # Set the unexpected field behavior
   g_object_set(
-    result.handle,
-    "unexpected-field-behavior",
-    gint(unexpectedFieldBehavior.ord),
-    nil,
+    result.handle, "unexpected-field-behavior", gint(unexpectedFieldBehavior.ord), nil
   )
 
 proc `=destroy`*(o: JsonReadOptions) =
@@ -66,10 +63,10 @@ proc unexpectedFieldBehavior*(options: JsonReadOptions): JsonUnexpectedFieldBeha
   g_object_get(options.handle, "unexpected-field-behavior", addr value, nil)
   result = JsonUnexpectedFieldBehavior(value)
 
-proc `unexpectedFieldBehavior=`*(options: JsonReadOptions, value: JsonUnexpectedFieldBehavior) =
+proc `unexpectedFieldBehavior=`*(
+    options: JsonReadOptions, value: JsonUnexpectedFieldBehavior
+) =
   g_object_set(options.handle, "unexpected-field-behavior", gint(value.ord), nil)
-
-
 
 # ============================================================================
 # JsonReader - Construction & ARC Hooks
