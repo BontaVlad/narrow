@@ -11,10 +11,10 @@ import
 import narrow/column/[primitive, nested, metadata]
 import narrow/tabular/[table, batch, dataset]
 import narrow/compute/[filters, expressions, acero, functions]
-import narrow/io/[parquet, csv, filesystem, json]
+import narrow/io/[parquet, csv, filesystem, json, ipc]
 
 export
   ffi, error, concepts, gtypes, gtemporal, glisttype, glargelisttype,
   gfixedsizelisttype, gfixedshapetensortype, guuid, gmap, glist, primitive, nested,
   metadata, table, batch, filters, expressions, acero, parquet, csv, filesystem,
-  json, dataset, functions
+  json, ipc, dataset, functions

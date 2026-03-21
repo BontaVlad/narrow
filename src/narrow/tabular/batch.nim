@@ -19,6 +19,7 @@ type
 
   RecordBatchReader* = object
     handle*: ptr GArrowRecordBatchReader
+    streamHandle*: ptr GArrowInputStream  # Keep stream alive as long as reader exists
 
   WriteOptions* = object
     handle: ptr GArrowWriteOptions
@@ -52,11 +53,16 @@ proc `=copy`*(dest: var RecordBatch, src: RecordBatch) =
 proc `=destroy`*(reader: RecordBatchReader) =
   if reader.handle != nil:
     g_object_unref(reader.handle)
+  if reader.streamHandle != nil:
+    g_object_unref(reader.streamHandle)
 
 proc `=sink`*(dest: var RecordBatchReader, src: RecordBatchReader) =
   if dest.handle != nil and dest.handle != src.handle:
     g_object_unref(dest.handle)
+  if dest.streamHandle != nil and dest.streamHandle != src.streamHandle:
+    g_object_unref(dest.streamHandle)
   dest.handle = src.handle
+  dest.streamHandle = src.streamHandle
 
 proc `=copy`*(dest: var RecordBatchReader, src: RecordBatchReader) =
   if dest.handle != src.handle:
@@ -65,6 +71,12 @@ proc `=copy`*(dest: var RecordBatchReader, src: RecordBatchReader) =
     dest.handle = src.handle
     if src.handle != nil:
       discard g_object_ref(dest.handle)
+  if dest.streamHandle != src.streamHandle:
+    if dest.streamHandle != nil:
+      g_object_unref(dest.streamHandle)
+    dest.streamHandle = src.streamHandle
+    if src.streamHandle != nil:
+      discard g_object_ref(dest.streamHandle)
 
 proc `=destroy`*(it: RecordBatchIterator) =
   if it.handle != nil:

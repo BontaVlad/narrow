@@ -241,5 +241,20 @@ _test-gcov:
         "$outdir/$name" || true
     done
 
+dbg file:
+    out="{{file}}"; \
+    out=$${out##*/}; \
+    out=$${out%.nim}; \
+    nim c --cc:clang \
+          -g --debuginfo --linedir:on \
+          --opt:none \
+          --stacktrace:on --linetrace:on \
+          --checks:on --assertions:on \
+          -d:debug \
+          --passC:"-O0 -g3 -fno-omit-frame-pointer" \
+          --passL:"-g" \
+          "{{file}}" && \
+    lldb "./$$out"
+
 clean:
     rm -rf nimcache
