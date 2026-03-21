@@ -838,8 +838,7 @@ proc readTable*(uri: string, columns: sink seq[string]): ArrowTable =
   let tSchema = newSchema(fieldsInfo.mapIt(it.field))
   result = newArrowTableFromChunkedArrays(tSchema, data)
 
-proc writeTable*[T: Writable](writable: T, uri: string, chunk_size: int = 65536) =
-  let wp = newWriterProperties()
+proc writeTable*[T: Writable](writable: T, uri: string, chunk_size: int = 65536, wp: WriterProperties = newWriterProperties()) =
   let writer = newFileWriter(uri, writable.schema, wp)
   defer:
     writer.close()

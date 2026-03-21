@@ -197,7 +197,9 @@ proc newMapArray*[K, V](
     offsets: Array[int32], keys: Array[K], items: Array[V]
 ): MapArray[K, V] =
   var err: ptr GError
-  let handle = check garrow_map_array_new(cast[ptr GArrowArray](offsets.toPtr), keys.toPtr, items.toPtr)
+  let handle = check garrow_map_array_new(
+    cast[ptr GArrowArray](offsets.toPtr), keys.toPtr, items.toPtr
+  )
   result = MapArray[K, V](handle: handle)
 
 proc newMapArray*[K, V](handle: ptr GArrowMapArray): MapArray[K, V] =

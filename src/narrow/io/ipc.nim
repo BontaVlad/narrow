@@ -12,7 +12,7 @@ type
     ## Random-access IPC file format reader
     ## Wraps GArrowRecordBatchFileReader (separate from RecordBatchReader hierarchy)
     handle: ptr GArrowRecordBatchFileReader
-    stream: SeekableInputStream  # Keep stream alive as long as reader exists
+    stream: SeekableInputStream # Keep stream alive as long as reader exists
 
   IpcStreamWriter* = object
     ## Streaming IPC format writer
@@ -28,7 +28,7 @@ type
     handle: ptr GArrowWriteOptions
 
   IpcReadOptions* = object
-    handle: ptr GArrowReadOptions
+    handle*: ptr GArrowReadOptions
 
 # ============================================================================
 # IpcFileReader - ARC Hooks (separate type, NOT a RecordBatchReader)
@@ -165,16 +165,18 @@ proc newIpcReadOptions*(): IpcReadOptions =
     raise newException(IOError, "Failed to create IpcReadOptions")
   result.handle = handle
 
-# ============================================================================
-# IpcStreamReader - Uses existing RecordBatchReader type
-# ============================================================================
+proc newMemoryMappedInputStream*(path: string): SeekableInputStream =
+  ## Create a memory-mapped input stream for reading files.
+  ## Returns a SeekableInputStream since GArrowMemoryMappedInputStream inherits from it.
+  let mmapHandle = check garrow_memory_mapped_input_stream_new(path.cstring)
+  result.handle = cast[ptr GArrowSeekableInputStream](mmapHandle)
 
 proc newIpcStreamReader*(stream: InputStream): RecordBatchReader =
   ## Create a streaming IPC reader from an input stream
   let handle = check garrow_record_batch_stream_reader_new(stream.handle)
   result.handle = cast[ptr GArrowRecordBatchReader](handle)
-  result.streamHandle = stream.handle  # Store stream to keep it alive
-  discard g_object_ref(result.streamHandle)  # Increment ref count
+  result.streamHandle = stream.handle # Store stream to keep it alive
+  discard g_object_ref(result.streamHandle) # Increment ref count
 
 proc newIpcStreamReader*(fs: FileSystem, path: string): RecordBatchReader =
   ## Create a streaming IPC reader from a filesystem path
@@ -189,7 +191,7 @@ proc newIpcFileReader*(stream: SeekableInputStream): IpcFileReader =
   ## Create a file IPC reader from a seekable input stream
   let handle = check garrow_record_batch_file_reader_new(stream.handle)
   result.handle = handle
-  result.stream = stream  # Store stream to keep it alive
+  result.stream = stream # Store stream to keep it alive
 
 proc newIpcFileReader*(fs: FileSystem, path: string): IpcFileReader =
   ## Create a file IPC reader from a filesystem path
@@ -211,9 +213,8 @@ proc version*(reader: IpcFileReader): GArrowMetadataVersion =
 
 proc readRecordBatch*(reader: IpcFileReader, index: int): RecordBatch =
   ## Read a specific record batch by index (random access)
-  let handle = check garrow_record_batch_file_reader_read_record_batch(
-    reader.handle, guint(index)
-  )
+  let handle =
+    check garrow_record_batch_file_reader_read_record_batch(reader.handle, guint(index))
   result = newRecordBatch(handle)
 
 # ============================================================================
@@ -225,18 +226,19 @@ proc newIpcStreamWriter*(stream: OutputStream, schema: Schema): IpcStreamWriter 
   let handle = check garrow_record_batch_stream_writer_new(stream.handle, schema.handle)
   result.handle = handle
 
-proc newIpcStreamWriter*(fs: FileSystem, path: string, schema: Schema): IpcStreamWriter =
+proc newIpcStreamWriter*(
+    fs: FileSystem, path: string, schema: Schema
+): IpcStreamWriter =
   ## Create a streaming IPC writer to a filesystem path
   let stream = fs.openOutputStream(path)
   result = newIpcStreamWriter(stream, schema)
-
 
 proc readAll*(reader: IpcFileReader): ArrowTable =
   ## Read all record batches as a table
   var batches: seq[RecordBatch] = @[]
   for i in 0 ..< reader.nRecordBatches:
     batches.add(reader.readRecordBatch(i))
-  
+
   result = newArrowTable(reader.schema, batches)
 
 proc writeTable*(writer: IpcFileWriter | IpcStreamWriter, table: ArrowTable) =
@@ -259,9 +261,11 @@ proc close*(writer: IpcFileWriter | IpcStreamWriter) =
 
 proc isClosed*(writer: IpcFileWriter | IpcStreamWriter): bool =
   ## Check if the writer is closed
-  bool(garrow_record_batch_writer_is_closed(
-    cast[ptr GArrowRecordBatchWriter](writer.handle)
-  ))
+  bool(
+    garrow_record_batch_writer_is_closed(
+      cast[ptr GArrowRecordBatchWriter](writer.handle)
+    )
+  )
 
 # ============================================================================
 # IpcFileWriter - File format with footer
@@ -299,19 +303,22 @@ proc writeIpcFile*(uri: string, table: ArrowTable) =
   ## Write a table to an IPC file format
   let fs = newFileSystem(uri)
   let writer = newIpcFileWriter(fs, uri, table.schema)
-  defer: writer.close()
+  defer:
+    writer.close()
   writer.writeTable(table)
 
 proc writeIpcFile*(uri: string, batch: RecordBatch) =
   ## Write a record batch to an IPC file format
   let fs = newFileSystem(uri)
   let writer = newIpcFileWriter(fs, uri, batch.schema)
-  defer: writer.close()
+  defer:
+    writer.close()
   writer.writeRecordBatch(batch)
 
 proc writeIpcStream*(uri: string, table: ArrowTable) =
   ## Write a table to an IPC stream file
   let fs = newFileSystem(uri)
   let writer = newIpcStreamWriter(fs, uri, table.schema)
-  defer: writer.close()
+  defer:
+    writer.close()
   writer.writeTable(table)

@@ -163,5 +163,4 @@ iterator items*(schema: Schema): Field =
     yield field
 
 proc `==`*(a, b: Schema): bool {.inline.} =
-
   garrow_schema_equal(a.handle, b.handle).bool

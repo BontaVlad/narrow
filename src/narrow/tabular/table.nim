@@ -92,20 +92,21 @@ macro newArrowTable*(schema: Schema, args: varargs[typed]): ArrowTable =
 
   for arg in args:
     let argType = arg.getType()
-    let isSeq = argType.kind == nnkBracketExpr and
-                argType.len > 0 and
-                argType[0].kind == nnkSym and
-                argType[0].strVal == "seq"
+    let isSeq =
+      argType.kind == nnkBracketExpr and argType.len > 0 and argType[0].kind == nnkSym and
+      argType[0].strVal == "seq"
 
     if isSeq:
       # Map toPtr over every element, inferring the pointer type from the
       # element type so we don't hard-code it here.
       parts.add quote do:
-        (block:
-          var tmp: seq[typeof(`arg`[0].toPtr)] = @[]
-          for item in `arg`:
-            tmp.add(item.toPtr)
-          tmp)
+        (
+          block:
+            var tmp: seq[typeof(`arg`[0].toPtr)] = @[]
+            for item in `arg`:
+              tmp.add(item.toPtr)
+            tmp
+        )
     else:
       parts.add quote do:
         @[`arg`.toPtr]
@@ -114,10 +115,10 @@ macro newArrowTable*(schema: Schema, args: varargs[typed]): ArrowTable =
   var seqExpr = parts[0]
   for i in 1 ..< parts.len:
     let part = parts[i]
-    seqExpr = quote do:
+    seqExpr = quote:
       `seqExpr` & `part`
 
-  result = quote do:
+  result = quote:
     dispatchNewTable(`schema`, `seqExpr`)
 
 macro newArrowTable*(rows: typed): ArrowTable =
