@@ -69,7 +69,7 @@ jobs:
         PCRE2_VERSION: "10.44"
       run: |
         sudo apt-get install -y ninja-build python3-pip libz-dev
-        pip3 install meson --break-system-packages
+        sudo pip3 install meson --break-system-packages
 
         cd /tmp
 
