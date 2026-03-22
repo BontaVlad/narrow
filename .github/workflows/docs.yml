@@ -53,9 +53,10 @@ jobs:
         run: nimble install -y
 
       - name: Generate docs
-        run: nimble doc --project --outdir:docs src/narrow.nim
-        mv docs/theindex.html docs/index.html
-        touch docs/.nojekyll
+        run: |
+          nimble doc --project --outdir:docs src/narrow.nim
+          mv docs/theindex.html docs/index.html
+          touch docs/.nojekyll
 
       - uses: actions/configure-pages@v4
 
