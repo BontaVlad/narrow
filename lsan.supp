@@ -1,31 +1,31 @@
+# === GLib/GObject one-time type system allocations ===
+# These are intentional process-lifetime allocations.
+# Using module path matching since CI GLib may lack debug symbols.
+leak:libgobject-2.0
+leak:libglib-2.0
+leak:g_malloc
+leak:g_slice_alloc
+leak:g_realloc
+
+# === Arrow C++ / Parquet GLib ===
 leak:arrow::csv::ConvertOptions::Defaults
 leak:garrow_csv_read_options_add_schema
 leak:garrow_csv_read_options_init
+leak:gparquet_file_metadata_get_row_group
+
+# === System / threading ===
 leak:execute_native_thread_routine
 leak:std::_Hashtable
 
-# LeakSanitizer suppressions for Nim runtime and test infrastructure
-# These are one-time allocations that are not true memory leaks
-
-# Nim system allocator
+# === Nim runtime (one-time global state) ===
 leak:allocImpl
 leak:reallocImpl
-
-# Nim random number generator (global state)
 leak:initRand
-
-# Nim string operations
 leak:rawNewString
 leak:rawNewStringNoInit
 leak:setLengthStr
 
-# Module-level globals in testfixture
+# === Test infrastructure ===
 leak:testfixture.nim
-
-# Test runner globals (unittest2)
 leak:unittest2
-
-# Bug in parquet-glib: GParquetRowGroupMetadata finalize doesn't free C++ internals
-# Reproduces in pure C — not a Nim issue (tested with parquet-glib 23.0.1)
-leak:gparquet_file_metadata_get_row_group
 leak:eqdestroy_*RowGroupMetadata*
