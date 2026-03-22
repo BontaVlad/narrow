@@ -15,7 +15,11 @@ jobs:
         version:
           - binary:stable
         os:
-          - ubuntu-latest
+          - ubuntu-24.04
+    env:
+      GLIB_PREFIX: /opt/glib
+      PKG_CONFIG_PATH: /opt/glib/lib/x86_64-linux-gnu/pkgconfig:/opt/glib/lib/pkgconfig
+      LD_LIBRARY_PATH: /opt/glib/lib/x86_64-linux-gnu:/opt/glib/lib
     steps:
     - uses: actions/checkout@v4
 
@@ -38,6 +42,67 @@ jobs:
 
     - uses: extractions/setup-just@v2
 
+    - name: Add LLVM repository
+      run: |
+        wget https://apt.llvm.org/llvm.sh
+        chmod +x llvm.sh
+        sudo ./llvm.sh 22
+
+    - name: Install Clang 22
+      run: |
+        sudo apt-get install -y clang-22 libclang-22-dev
+        sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-22 100
+        sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-22 100
+        sudo update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-22 100
+
+    - name: Cache GLib 2.86
+      id: cache-glib
+      uses: actions/cache@v3
+      with:
+        path: /opt/glib
+        key: ${{ runner.os }}-glib-2.86.4
+
+    - name: Build GLib 2.86.4
+      if: steps.cache-glib.outputs.cache-hit != 'true'
+      env:
+        GLIB_VERSION: "2.86.4"
+        PCRE2_VERSION: "10.44"
+      run: |
+        sudo apt-get install -y ninja-build python3-pip libz-dev
+        pip3 install meson --break-system-packages
+
+        cd /tmp
+
+        # libffi
+        wget -q https://github.com/libffi/libffi/releases/download/v3.4.8/libffi-3.4.8.tar.gz
+        tar xzf libffi-3.4.8.tar.gz
+        cd libffi-3.4.8
+        ./configure --prefix=$GLIB_PREFIX
+        make -j$(nproc)
+        sudo make install
+        cd /tmp
+
+        # PCRE2
+        wget -q https://github.com/PCRE2Project/pcre2/releases/download/pcre2-${PCRE2_VERSION}/pcre2-${PCRE2_VERSION}.tar.gz
+        tar xzf pcre2-${PCRE2_VERSION}.tar.gz
+        cd pcre2-${PCRE2_VERSION}
+        ./configure --prefix=$GLIB_PREFIX --enable-jit --disable-static
+        make -j$(nproc)
+        sudo make install
+        cd /tmp
+
+        # GLib
+        wget -q https://download.gnome.org/sources/glib/2.86/glib-${GLIB_VERSION}.tar.xz
+        tar xJf glib-${GLIB_VERSION}.tar.xz
+        cd glib-${GLIB_VERSION}
+        meson setup build \
+          --prefix=$GLIB_PREFIX \
+          --default-library=shared \
+          -Dtests=false \
+          -Dlibmount=disabled
+        ninja -C build
+        sudo ninja -C build install
+
     - name: Install Apache Arrow repository
       run: |
         wget https://apache.jfrog.io/artifactory/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
@@ -47,7 +112,7 @@ jobs:
     - name: Cache apt packages
       uses: awalsh128/cache-apt-pkgs-action@latest
       with:
-        packages: clang libclang-dev libarrow-dev libarrow-glib-dev libarrow-dataset-glib-dev libparquet-glib-dev libglib2.0-dev libgirepository1.0-dev pkg-config
+        packages: libarrow-dev libarrow-glib-dev libarrow-dataset-glib-dev libparquet-glib-dev libgirepository1.0-dev pkg-config
         version: 1.0
 
     - name: Verify installations
@@ -64,9 +129,9 @@ jobs:
         pkg-config --modversion glib-2.0
         echo "=== Clang ==="
         clang --version
-        echo "=== Arrow Include paths ==="
+        echo "=== Include paths ==="
         pkg-config --cflags-only-I arrow-glib arrow-dataset-glib parquet-glib gobject-2.0 glib-2.0
-        echo "=== Arrow Library paths ==="
+        echo "=== Library paths ==="
         pkg-config --libs arrow-glib arrow-dataset-glib parquet-glib
 
     - name: Install Nim dependencies

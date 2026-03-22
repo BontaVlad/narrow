@@ -1,0 +1,67 @@
+name: Docs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: iffy/install-nim@v5
+        with:
+          version: binary:stable
+
+      - name: Install Apache Arrow repository
+        run: |
+          wget https://apache.jfrog.io/artifactory/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
+          sudo apt-get install -y ./apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
+          sudo apt-get update
+
+      - name: Cache apt packages
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: clang libarrow-glib-dev libarrow-dataset-glib-dev libparquet-glib-dev libglib2.0-dev pkg-config
+          version: 1.0
+
+      - name: Cache Nim
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.nimble
+            ~/.cache/nim
+          key: ${{ runner.os }}-nim-docs-${{ hashFiles('*.nimble') }}
+          restore-keys: |
+            ${{ runner.os }}-nim-docs-
+
+      - name: Install Nim dependencies
+        run: nimble install -y
+
+      - name: Generate docs
+        run: nimble doc --project --outdir:docs src/narrow.nim
+
+      - uses: actions/configure-pages@v4
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: actions/deploy-pages@v4
