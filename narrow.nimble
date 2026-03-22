@@ -116,3 +116,7 @@ task format, "Recursively format all Nim files in a specific directory":
       let output = gorge(fmt"nph {file}")
       if len(output) > 0:
         echo output
+
+task docs, "Generate documentation with runnable examples":
+  let libs = gorge("pkg-config --libs arrow-dataset-glib parquet-glib")
+  exec "nim doc --docCmd:\"--passL:'" & libs & "'\" --project --outdir:docs src/narrow.nim"
