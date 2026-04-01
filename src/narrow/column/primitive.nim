@@ -95,9 +95,6 @@ proc newArrayBuilder*[T](): ArrayBuilder[T] =
   if isNil(handle):
     raise newException(OperationError, "Error creating the builder")
 
-  if g_object_is_floating(handle) != 0:
-    discard g_object_ref_sink(handle)
-
   result = ArrayBuilder[T](handle: cast[ptr GArrowArrayBuilder](handle))
 
 proc append*[T](builder: ArrayBuilder[T], val: sink T) =
@@ -405,6 +402,7 @@ proc `==`*[T, U](a: Array[T], b: Array[U]): bool =
     return a.handle == b.handle
   garrow_array_equal(a.handle, b.handle).bool
 
+# useful for testing or debugging
 proc `==`*[T](a: Array[T], b: openArray[T]): bool =
   if a.len != b.len:
     return false

@@ -1,28 +1,9 @@
-import ../core/[ffi, error]
+import ../core/[ffi, error, utils]
 import ./gtypes
 
-type FixedShapeTensorType* = object
-  handle*: ptr GArrowFixedShapeTensorDataType
-
-proc toPtr*(t: FixedShapeTensorType): ptr GArrowFixedShapeTensorDataType {.inline.} =
-  t.handle
-
-proc `=destroy`*(t: FixedShapeTensorType) =
-  if not isNil(t.handle):
-    g_object_unref(t.handle)
-
-proc `=sink`*(dest: var FixedShapeTensorType, src: FixedShapeTensorType) =
-  if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-
-proc `=copy`*(dest: var FixedShapeTensorType, src: FixedShapeTensorType) =
-  if dest.handle != src.handle:
-    if not isNil(dest.handle):
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if not isNil(dest.handle):
-      discard g_object_ref(dest.handle)
+arcGObject:
+  type FixedShapeTensorType* = object
+    handle*: ptr GArrowFixedShapeTensorDataType
 
 proc newFixedShapeTensorType*(
     valueType: GADType,

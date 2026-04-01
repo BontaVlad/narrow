@@ -1,22 +1,22 @@
 import unittest2
-import std/[algorithm]
+import std/[algorithm, sets]
 import ../src/narrow
 
 suite "Expression - Field Reference Extraction":
   test "extract fields from simple comparison":
     let expr = col("age") >= 18'i32
     let fields = extractFieldReferences(expr)
-    unittest2.check fields == @["age"]
+    unittest2.check fields == toHashSet(@["age"])
 
   test "extract fields from AND expression":
     let expr = (col("age") >= 18'i32) and (col("name") == "Alice")
-    let fields = extractFieldReferences(expr).sorted
-    unittest2.check fields == @["age", "name"]
+    let fields = extractFieldReferences(expr)
+    unittest2.check fields == toHashSet(@["age", "name"])
 
   test "extract fields deduplicates":
     let expr = (col("x") > 1'i32) and (col("x") < 10'i32)
     let fields = extractFieldReferences(expr)
-    unittest2.check fields == @["x"]
+    unittest2.check fields == toHashSet(@["x"])
 
   test "extract fields from literal-only returns empty":
     let expr = newLiteralExpression(42'i32)
@@ -25,8 +25,8 @@ suite "Expression - Field Reference Extraction":
 
   test "complex nested expression":
     let expr = ((col("a") > 1'i32) or (col("b") < 5'i32)) and (col("c") == 3'i32)
-    let fields = extractFieldReferences(expr).sorted
-    unittest2.check fields == @["a", "b", "c"]
+    let fields = extractFieldReferences(expr)
+    unittest2.check fields == toHashSet(@["a", "b", "c"])
 
   test "fieldName extraction from FieldExpression":
     let expr = col("age")

@@ -1,5 +1,5 @@
 import std/[strformat, sets, options]
-import ../core/[ffi, error]
+import ../core/[ffi, error, utils]
 import ../types/[gtypes, glist]
 import ./primitive
 
@@ -7,32 +7,13 @@ import ./primitive
 # Field and Schema Definitions
 # ============================================================================
 
-type
-  Field* = object
-    handle: ptr GArrowField
+arcGObject:
+  type
+    Field* = object
+      handle*: ptr GArrowField
 
-  Schema* = object
-    handle*: ptr GArrowSchema
-
-proc `=destroy`*(field: Field) =
-  if field.handle != nil:
-    g_object_unref(field.handle)
-
-proc `=sink`*(dest: var Field, src: Field) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-
-proc `=copy`*(dest: var Field, src: Field) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
-
-proc toPtr*(f: Field): ptr GArrowField {.inline.} =
-  f.handle
+    Schema* = object
+      handle*: ptr GArrowSchema
 
 proc newField*[T](name: string): Field =
   let gType = newGType(T)
@@ -66,26 +47,6 @@ proc `$`*(field: Field): string {.inline.} =
 
 proc `==`*(a, b: Field): bool {.inline.} =
   garrow_field_equal(a.handle, b.handle).bool
-
-proc `=destroy`*(schema: Schema) =
-  if schema.handle != nil:
-    g_object_unref(schema.handle)
-
-proc `=sink`*(dest: var Schema, src: Schema) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-
-proc `=copy`*(dest: var Schema, src: Schema) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
-
-proc toPtr*(s: Schema): ptr GArrowSchema {.inline.} =
-  s.handle
 
 proc newSchema*(fields: openArray[Field]): Schema =
   var seen = initHashSet[string]()

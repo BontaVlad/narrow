@@ -1,29 +1,10 @@
-import ../core/[ffi, error]
+import ../core/[ffi, error, utils]
 import ./gtypes
 import ../column/metadata
 
-type ListType* = object
-  handle*: ptr GArrowListDataType
-
-proc toPtr*(l: ListType): ptr GArrowListDataType {.inline.} =
-  l.handle
-
-proc `=destroy`*(l: ListType) =
-  if not isNil(l.handle):
-    g_object_unref(l.handle)
-
-proc `=sink`*(dest: var ListType, src: ListType) =
-  if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-
-proc `=copy`*(dest: var ListType, src: ListType) =
-  if dest.handle != src.handle:
-    if not isNil(dest.handle):
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if not isNil(dest.handle):
-      discard g_object_ref(dest.handle)
+arcGObject:
+  type ListType* = object
+    handle*: ptr GArrowListDataType
 
 proc newListType*(valueField: Field): ListType =
   result.handle = garrow_list_data_type_new(valueField.toPtr)

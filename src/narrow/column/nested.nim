@@ -117,10 +117,6 @@ proc `@`*[T](arr: ListArray[T]): seq[seq[T]] {.inline.} =
 
 proc `==`*[T](a, b: ListArray[T]): bool =
   ## Check equality of two list arrays
-  if a.handle == b.handle:
-    return true
-  if a.handle == nil or b.handle == nil:
-    return false
   result =
     garrow_array_equal(cast[ptr GArrowArray](a.handle), cast[ptr GArrowArray](b.handle)) !=
     0
@@ -258,10 +254,6 @@ iterator items*[K, V](arr: MapArray[K, V]): MapEntry[K, V] =
 
 proc `==`*[K, V](a, b: MapArray[K, V]): bool =
   ## Check equality of two map arrays
-  if a.handle == b.handle:
-    return true
-  if a.handle == nil or b.handle == nil:
-    return false
   result =
     garrow_array_equal(cast[ptr GArrowArray](a.handle), cast[ptr GArrowArray](b.handle)) !=
     0
@@ -498,10 +490,6 @@ iterator items*(sa: StructArray): StructRow =
       yield StructRow(array: sa, index: i)
 
 proc `==`*(a, b: StructArray): bool =
-  if a.handle == b.handle:
-    return true
-  if a.handle == nil or b.handle == nil:
-    return false
   result =
     garrow_array_equal(cast[ptr GArrowArray](a.toPtr), cast[ptr GArrowArray](b.toPtr)) !=
     0

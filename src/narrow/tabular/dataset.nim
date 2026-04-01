@@ -11,10 +11,11 @@ import ./batch
 ## multiple files. This sharding of data may indicate partitioning, which
 ## can accelerate queries that only touch some partitions (files).
 type
-  Dataset* {.inheritable.} = object
+  Dataset* = object
     handle: ptr GADatasetDataset
 
-  FileSystemDataset* = object of Dataset
+  FileSystemDataset* = object
+    handle: ptr GADatasetFileSystemDataset
 
 type
   Fragment* {.inheritable.} = object
@@ -502,7 +503,7 @@ proc finish*(
   let handle = check gadataset_file_system_dataset_factory_finish(
     cast[ptr GADatasetFileSystemDatasetFactory](factory.handle), opts.toPtr
   )
-  result.handle = cast[ptr GADatasetDataset](handle)
+  result.handle = handle
 
 proc `fileSystem=`*(ds: var Dataset, fs: FileSystem) =
   ## Sets the filesystem associated with the dataset
@@ -554,17 +555,19 @@ proc newDataset*(path: string, formatType: FileFormatTp = Parquet): Dataset =
   let fmt = newFileFormat(formatType)
   let fs = newFileSystem(path)
   var factory = newFileSystemDatasetFactory(fmt)
-  result = factory.setFileSystem(fs).addPath(path).finish()
+  # Capture specific type first, then upcast to base Dataset type
+  let ds = factory.setFileSystem(fs).addPath(path).finish()
+  result = Dataset(handle: cast[ptr GADatasetDataset](ds.handle))
 
 proc newScannerBuilder*(ds: Dataset): ScannerBuilder =
   ## Creates a scanner builder from a dataset
   result.handle = check gadataset_scanner_builder_new(ds.toPtr)
 
-proc `filter=`*(sb: var ScannerBuilder, filter: ExpressionObj) =
+proc `filter=`*(sb: var ScannerBuilder, filter: Expression) =
   ## Sets a filter expression for push-down filtering.
   check gadataset_scanner_builder_set_filter(sb.toPtr, filter.toPtr)
 
-proc setFilter*(sb: ScannerBuilder, filter: ExpressionObj): ScannerBuilder =
+proc setFilter*(sb: ScannerBuilder, filter: Expression): ScannerBuilder =
   ## Sets a filter expression for push-down filtering.
   ## Returns self for method chaining.
   check gadataset_scanner_builder_set_filter(sb.toPtr, filter.toPtr)

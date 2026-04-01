@@ -1,28 +1,9 @@
-import ../core/[ffi, error]
+import ../core/[ffi, error, utils]
 import ./gtypes
 
-type MapType* = object
-  handle*: ptr GArrowMapDataType
-
-proc toPtr*(m: MapType): ptr GArrowMapDataType {.inline.} =
-  m.handle
-
-proc `=destroy`*(m: MapType) =
-  if not isNil(m.handle):
-    g_object_unref(m.handle)
-
-proc `=sink`*(dest: var MapType, src: MapType) =
-  if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-
-proc `=copy`*(dest: var MapType, src: MapType) =
-  if dest.handle != src.handle:
-    if not isNil(dest.handle):
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if not isNil(dest.handle):
-      discard g_object_ref(dest.handle)
+arcGObject:
+  type MapType* = object
+    handle*: ptr GArrowMapDataType
 
 proc newMapType*(keyType, itemType: GADType): MapType =
   result.handle = garrow_map_data_type_new(keyType.handle, itemType.handle)

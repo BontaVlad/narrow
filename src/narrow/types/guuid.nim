@@ -1,28 +1,9 @@
-import ../core/[ffi, error]
+import ../core/[ffi, error, utils]
 import ./gtypes
 
-type UUIDType* = object
-  handle*: ptr GArrowUUIDDataType
-
-proc toPtr*(u: UUIDType): ptr GArrowUUIDDataType {.inline.} =
-  u.handle
-
-proc `=destroy`*(u: UUIDType) =
-  if not isNil(u.handle):
-    g_object_unref(u.handle)
-
-proc `=sink`*(dest: var UUIDType, src: UUIDType) =
-  if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-
-proc `=copy`*(dest: var UUIDType, src: UUIDType) =
-  if dest.handle != src.handle:
-    if not isNil(dest.handle):
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if not isNil(dest.handle):
-      discard g_object_ref(dest.handle)
+arcGObject:
+  type UUIDType* = object
+    handle*: ptr GArrowUUIDDataType
 
 proc newUUIDType*(): UUIDType =
   result.handle = check garrow_uuid_data_type_new()

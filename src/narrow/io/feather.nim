@@ -133,7 +133,9 @@ proc readNames*(reader: FeatherReader, names: openArray[string]): ArrowTable =
 # FeatherWriteProperties - Properties
 # ============================================================================
 
-proc `compression=`*(props: FeatherWriteProperties, compression: GArrowCompressionType) =
+proc `compression=`*(
+    props: FeatherWriteProperties, compression: GArrowCompressionType
+) =
   ## Set the compression type for writing Feather files
   ## Only UNCOMPRESSED, LZ4, and ZSTD are supported by Feather format
   g_object_set(props.handle, "compression", compression.cint, nil)

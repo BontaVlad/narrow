@@ -2,7 +2,7 @@
 #
 # This module provides a high-level, memory-safe wrapper around Apache Arrow's C API.
 
-import narrow/core/[ffi, error, concepts]
+import narrow/core/[ffi, error]
 import
   narrow/types/[
     gtypes, gtemporal, glisttype, glargelisttype, gfixedsizelisttype,
@@ -10,11 +10,11 @@ import
   ]
 import narrow/column/[primitive, nested, metadata]
 import narrow/tabular/[table, batch, dataset]
-import narrow/compute/[filters, expressions, acero, functions]
+import narrow/compute/[filters, expressions, acero, functions, statistics]
 import narrow/io/[parquet, csv, filesystem, json, ipc, feather]
 
 export
-  ffi, error, concepts, gtypes, gtemporal, glisttype, glargelisttype,
+  ffi, error, gtypes, gtemporal, glisttype, glargelisttype,
   gfixedsizelisttype, gfixedshapetensortype, guuid, gmap, glist, primitive, nested,
   metadata, table, batch, filters, expressions, acero, parquet, csv, filesystem, json,
-  ipc, feather, dataset, functions
+  ipc, feather, dataset, functions, statistics

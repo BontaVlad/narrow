@@ -1,4 +1,4 @@
-import ../core/[ffi, error]
+import ../core/[ffi, error, utils]
 import ../types/[gtypes, glist]
 
 const
@@ -10,24 +10,41 @@ const
   PropMtime = "mtime"
   PropFileType = "type"
 
-type
-  Uri* = object ## URI object for filesystem and resource identification
+# URI uses custom ref/unref functions
+arcRef("g_uri_unref", "g_uri_ref"):
+  type Uri* = object ## URI object for filesystem and resource identification
     handle*: ptr GUri
 
-  FileInfo* = object ## Information about a filesystem entry
-    handle*: ptr GArrowFileInfo
+# Standard GObject types use arcGObject
+arcGObject:
+  type
+    FileInfo* = object ## Information about a filesystem entry
+      handle*: ptr GArrowFileInfo
 
-  FileSelector* = object ## A selector for discovering files in a directory
-    handle*: ptr GArrowFileSelector
+    FileSelector* = object ## A selector for discovering files in a directory
+      handle*: ptr GArrowFileSelector
 
-  # TODO: not sure that I want inheritance here, we might go with distinct types and concepts
-  FileSystemObj = object of RootObj ## Base filesystem object
+    LocalFileSystemOptions* = object ## Options for creating a local filesystem
+      handle*: ptr GArrowLocalFileSystemOptions
+
+    InputStream* = object ## A readable stream
+      handle*: ptr GArrowInputStream
+
+    SeekableInputStream* = object
+      ## A readable stream that supports random access (seeking)
+      handle*: ptr GArrowSeekableInputStream
+
+# Manual ARC — these don't use the macro
+type OutputStream* = object ## A writable stream (manual: flush-on-destroy)
+  handle*: ptr GArrowOutputStream
+
+# TODO: not sure that I want inheritance here, we might go with distinct types and concepts
+type
+  FileSystemObj = object of RootObj
+    ## Base filesystem object (manual: ref type with inheritance)
     handle*: ptr GArrowFileSystem
 
   FileSystem* = ref FileSystemObj
-
-  LocalFileSystemOptions* = object ## Options for creating a local filesystem
-    handle*: ptr GArrowLocalFileSystemOptions
 
   LocalFileSystem* = ref object of FileSystemObj
     ## Filesystem implementation for local disk access
@@ -45,38 +62,11 @@ type
     ## A filesystem wrapper that adds artificial latency (for testing)
     averageLatency*: float64
 
-  InputStream* = object ## A readable stream
-    handle*: ptr GArrowInputStream
-
-  SeekableInputStream* = object
-    ## A readable stream that supports random access (seeking)
-    handle*: ptr GArrowSeekableInputStream
-
-  OutputStream* = object ## A writable stream
-    handle*: ptr GArrowOutputStream
-
-  StreamError* = object of CatchableError
+type StreamError* = object of CatchableError
 
 # =============================================================================
 # Uri Implementation
 # =============================================================================
-
-proc `=destroy`*(u: Uri) =
-  if u.handle != nil:
-    g_uri_unref(u.handle)
-
-proc `=sink`*(dest: var Uri, src: Uri) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_uri_unref(dest.handle)
-  dest.handle = src.handle
-
-proc `=copy`*(dest: var Uri, src: Uri) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_uri_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_uri_ref(dest.handle)
 
 proc newUri*(uriString: string): Uri =
   let flags = cast[GUriFlags](G_URI_FLAGS_NONE.uint or G_URI_FLAGS_HAS_PASSWORD.uint or
@@ -164,9 +154,6 @@ proc `$`*(u: Uri): string =
 proc toString*(u: Uri): string =
   $u
 
-proc toPtr*(u: Uri): ptr GUri =
-  u.handle
-
 template with*(resource, name, body: untyped): untyped =
   block:
     var name = resource
@@ -177,23 +164,6 @@ template with*(resource, name, body: untyped): untyped =
 # =============================================================================
 # LocalFileSystemOptions Implementation
 # =============================================================================
-
-proc `=destroy`*(opts: LocalFileSystemOptions) =
-  if opts.handle != nil:
-    g_object_unref(opts.handle)
-
-proc `=sink`*(dest: var LocalFileSystemOptions, src: LocalFileSystemOptions) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-
-proc `=copy`*(dest: var LocalFileSystemOptions, src: LocalFileSystemOptions) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
 
 proc newLocalFileSystemOptions*(): LocalFileSystemOptions =
   var handle = garrow_local_file_system_options_new()
@@ -216,23 +186,6 @@ proc newFileInfo*(): FileInfo =
     discard g_object_ref_sink(handle)
 
   result.handle = handle
-
-proc `=destroy`*(info: FileInfo) =
-  if info.handle != nil:
-    g_object_unref(info.handle)
-
-proc `=sink`*(dest: var FileInfo, src: FileInfo) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-
-proc `=copy`*(dest: var FileInfo, src: FileInfo) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
 
 proc isValid*(info: FileInfo): bool {.inline.} =
   ## Check if the FileInfo handle is valid
@@ -306,23 +259,6 @@ proc `$`*(info: FileInfo): string =
 # =============================================================================
 # FileSelector Implementation
 # =============================================================================
-
-proc `=destroy`*(sel: FileSelector) =
-  if sel.handle != nil:
-    g_object_unref(sel.handle)
-
-proc `=sink`*(dest: var FileSelector, src: FileSelector) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-
-proc `=copy`*(dest: var FileSelector, src: FileSelector) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
 
 proc newFileSelector*(
     baseDir: string,
@@ -441,23 +377,6 @@ proc toPtr*(stream: OutputStream): ptr GArrowOutputStream {.inline.} =
 # InputStream Implementation
 # =============================================================================
 
-proc `=destroy`*(stream: InputStream) =
-  if stream.handle != nil:
-    g_object_unref(stream.handle)
-
-proc `=sink`*(dest: var InputStream, src: InputStream) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-
-proc `=copy`*(dest: var InputStream, src: InputStream) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
-
 proc isValid*(stream: InputStream): bool {.inline.} =
   stream.handle != nil
 
@@ -513,23 +432,6 @@ proc readAllString*(stream: InputStream): string =
 # SeekableInputStream Implementation
 # =============================================================================
 
-proc `=destroy`*(stream: SeekableInputStream) =
-  if stream.handle != nil:
-    g_object_unref(stream.handle)
-
-proc `=sink`*(dest: var SeekableInputStream, src: SeekableInputStream) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-
-proc `=copy`*(dest: var SeekableInputStream, src: SeekableInputStream) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
-
 proc isValid*(stream: SeekableInputStream): bool {.inline.} =
   stream.handle != nil
 
@@ -538,9 +440,6 @@ proc close*(stream: SeekableInputStream) =
   discard
   # if stream.handle != nil:
   #   g_object_unref(stream.handle)
-
-proc toPtr*(sis: SeekableInputStream): ptr GArrowSeekableInputStream {.inline.} =
-  sis.handle
 
 proc size*(stream: SeekableInputStream): uint64 =
   ## Get the total size of the stream in bytes

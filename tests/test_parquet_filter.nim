@@ -42,7 +42,6 @@ suite "Filtering parquet at reading":
     # Note: Currently returns all columns due to projection being disabled
     let filtered = readTable(uri, col("age") >= 18'i32, @["name"])
     unittest2.check filtered.nRows == 2
-    # After projection is implemented: check filtered.nColumns == 1
     unittest2.check filtered.nColumns == 2  # Currently returns filter + requested cols
 
   test "readTable with filter on non-existent column raises KeyError":
@@ -76,3 +75,12 @@ suite "Filtering parquet at reading":
 
     expect(KeyError):
       discard readTable(uri, col("x") > 0'i32, @["nonexistent"])
+
+  # test "foo":
+  #   let filter = ((col("role") == "admin") and (col("age") >= 25'i32)) or ((col("active") == true) and (col("age") < 30'i32))
+  #   echo "\nFilter expression:  \n", filter
+  #   echo "\nTree:\n---------------"
+
+  #   walk(filter, ExprVisitor(
+  #       onCallPost: proc(e: Expression) = echo e
+  #   ))

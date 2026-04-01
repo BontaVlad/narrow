@@ -1,5 +1,5 @@
 import std/[macros, options]
-import ../core/[ffi, error]
+import ../core/[ffi, error, utils]
 import ../types/[gtypes, glist]
 import ../column/[primitive, metadata]
 import ./batch
@@ -8,63 +8,38 @@ import ./batch
 # ArrowTable
 # ============================================================================
 
-type ArrowTable* = object
-  handle: ptr GArrowTable
-
-proc `=destroy`*(tbl: ArrowTable) =
-  if tbl.handle != nil:
-    g_object_unref(tbl.handle)
-
-proc `=sink`*(dest: var ArrowTable, src: ArrowTable) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-
-proc `=copy`*(dest: var ArrowTable, src: ArrowTable) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
-
-proc toPtr*(tbl: ArrowTable): ptr GArrowTable {.inline.} =
-  tbl.handle
+arcGObject:
+  type ArrowTable* = object
+    handle*: ptr GArrowTable
 
 proc newArrowTableFromRecordBatches*(
     schema: Schema, recordBatches: seq[ptr GArrowRecordBatch]
 ): ArrowTable =
   if recordBatches.len == 0:
-    raise newException(ValueError, "Cannot create table from empty record batches")
-
-  let handle = check garrow_table_new_record_batches(
-    schema.toPtr, addr recordBatches[0], recordBatches.len.gsize
-  )
-
-  result.handle = handle
+    result.handle = check garrow_table_new_record_batches(schema.toPtr, nil, 0.gsize)
+  else:
+    result.handle = check garrow_table_new_record_batches(
+      schema.toPtr, addr recordBatches[0], recordBatches.len.gsize
+    )
 
 proc newArrowTableFromArrays*(
     schema: Schema, arrays: seq[ptr GArrowArray]
 ): ArrowTable =
   if arrays.len == 0:
-    raise newException(ValueError, "Cannot create table from empty arrays")
-
-  let handle =
-    check garrow_table_new_arrays(schema.toPtr, addr arrays[0], arrays.len.gsize)
-
-  result.handle = handle
+    # raise newException(ValueError, "Cannot create table from empty arrays")
+    result.handle = check garrow_table_new_arrays(schema.toPtr, nil, 0.gsize)
+  else:
+    result.handle = check garrow_table_new_arrays(schema.toPtr, addr arrays[0], arrays.len.gsize)
 
 proc newArrowTableFromChunkedArrays*(
     schema: Schema, chunkedArrays: seq[ptr GArrowChunkedArray]
 ): ArrowTable =
   if chunkedArrays.len == 0:
-    raise newException(ValueError, "Cannot create table from empty chunked arrays")
-
-  let handle = check garrow_table_new_chunked_arrays(
-    schema.toPtr, addr chunkedArrays[0], chunkedArrays.len.gsize
-  )
-
-  result.handle = handle
+    result.handle = check garrow_table_new_chunked_arrays(schema.toPtr, nil, 0.gsize)
+  else:
+    result.handle = check garrow_table_new_chunked_arrays(
+      schema.toPtr, addr chunkedArrays[0], chunkedArrays.len.gsize
+    )
 
 template dispatchNewTable(
     schema: Schema, ptrs: seq[ptr GArrowRecordBatch]

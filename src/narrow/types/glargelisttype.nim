@@ -1,29 +1,10 @@
-import ../core/[ffi, error]
+import ../core/[ffi, error, utils]
 import ./gtypes
 import ../column/metadata
 
-type LargeListType* = object
-  handle*: ptr GArrowLargeListDataType
-
-proc toPtr*(l: LargeListType): ptr GArrowLargeListDataType {.inline.} =
-  l.handle
-
-proc `=destroy`*(l: LargeListType) =
-  if not isNil(l.handle):
-    g_object_unref(l.handle)
-
-proc `=sink`*(dest: var LargeListType, src: LargeListType) =
-  if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-
-proc `=copy`*(dest: var LargeListType, src: LargeListType) =
-  if dest.handle != src.handle:
-    if not isNil(dest.handle):
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if not isNil(dest.handle):
-      discard g_object_ref(dest.handle)
+arcGObject:
+  type LargeListType* = object
+    handle*: ptr GArrowLargeListDataType
 
 proc newLargeListType*(valueField: Field): LargeListType =
   result.handle = garrow_large_list_data_type_new(valueField.toPtr)

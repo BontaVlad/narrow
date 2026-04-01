@@ -1,101 +1,218 @@
-## Statistics-Based Row Group Pruning
-##
-## This module provides a thin, conservative layer for pruning row groups
-## based on Parquet statistics. When in doubt, it returns sMaybe (read the row group).
-## All correctness is guaranteed by the post-read Acero filter.
+import std/options
+import ../core/[ffi, utils]
+import ../column/primitive
+import ../tabular/table
+import ../tabular/batch
 
-import ../core/[error, generated]
-import ../column/metadata
-import ../compute/expressions
-import ../io/parquet
+arcGObject:
+  type
+    Statistics* = object
+      handle*: ptr GParquetStatistics
 
-type Satisfiability* = enum
-  ## Whether a row group can possibly satisfy a predicate.
-  ## Conservative: when in doubt, return sMaybe.
-  sNever ## Provably cannot satisfy -> skip row group
-  sMaybe ## Cannot determine -> must read
+    BooleanStatistics* = object
+      handle*: ptr GParquetBooleanStatistics
 
-proc canRowGroupSatisfy*(
-    filter: ExpressionObj, rgMeta: RowGroupMetadata, schema: Schema
-): Satisfiability =
-  ## Conservative row group pruning. Only handles simple patterns:
-  ##   col <cmp> literal
-  ## combined with AND/OR. Everything else returns sMaybe.
-  ##
-  ## IMPORTANT: This is a thin optimization layer. When in doubt, return sMaybe.
-  ## All correctness is guaranteed by the post-read Acero filter in readTable.
+    Int32Statistics* = object
+      handle*: ptr GParquetInt32Statistics
 
-  result = sMaybe # default: read the row group
+    Int64Statistics* = object
+      handle*: ptr GParquetInt64Statistics
 
-  # Only handle CallExpressions (comparisons and logical ops)
-  when filter is CallExpression:
-    let callExpr = CallExpression(filter)
-    let fn = callExpr.functionName
+    FloatStatistics* = object
+      handle*: ptr GParquetFloatStatistics
 
-    # Handle logical operators
-    if fn == "and":
-      # AND: if either child is sNever, result is sNever
-      # For simplicity with multiple args, we need to handle them all
-      # Since we track fields, we can't easily access children
-      # Return sMaybe for now - conservative
-      return sMaybe
-    elif fn == "or":
-      # OR: only sNever if both children are sNever
-      return sMaybe
+    DoubleStatistics* = object
+      handle*: ptr GParquetDoubleStatistics
 
-    # Handle comparison operators
-    elif fn in ["equal", "not_equal", "less", "less_equal", "greater", "greater_equal"]:
-      # Need one field and one literal
-      if filter.referencedFields.len != 1:
-        return sMaybe
+    ByteArrayStatistics* = object
+      handle*: ptr GParquetByteArrayStatistics
 
-      let fieldName = filter.referencedFields[0]
-      let fieldIdx = schema.getFieldIndex(fieldName)
-      if fieldIdx < 0:
-        return sMaybe
+    FixedLengthByteArrayStatistics* = object
+      handle*: ptr GParquetFixedLengthByteArrayStatistics
 
-      # Get column chunk metadata for this field in this row group
-      if fieldIdx >= rgMeta.nColumns:
-        return sMaybe
+proc gType*(s: Statistics): GType =
+  s.toPtr[].parent_instance.g_type_instance.g_class.g_type
 
-      let colChunk = rgMeta.columnChunk(fieldIdx)
-      let stats = colChunk.statistics
+proc newStatistics*(handle: ptr GParquetStatistics): Statistics =
+  result.handle = handle
 
-      if not stats.hasMinMax:
-        return sMaybe
+proc newBooleanStatistics*(handle: ptr GParquetBooleanStatistics): BooleanStatistics =
+  result.handle = handle
 
-      # Get field type to cast statistics correctly
-      let field = schema.getField(fieldIdx)
-      let dataType = field.dataType
+proc newInt32Statistics*(handle: ptr GParquetInt32Statistics): Int32Statistics =
+  result.handle = handle
 
-      # Try to evaluate based on type
-      # For now, handle Int32 and Int64 (most common)
-      case dataType.kind
-      of Int32:
-        let int32Stats =
-          Int32Statistics(handle: cast[ptr GParquetInt32Statistics](stats.handle))
-        let minVal = int32Stats.min
-        let maxVal = int32Stats.max
+proc newInt64Statistics*(handle: ptr GParquetInt64Statistics): Int64Statistics =
+  result.handle = handle
 
-        # For comparisons, we need the literal value
-        # Since we don't have easy access to the literal from the expression,
-        # we'll parse it from the string representation
-        let exprStr = $filter
-        # This is fragile - better approach would be to store literal value
-        # For now, return sMaybe to be safe
-        return sMaybe
-      of Int64:
-        let int64Stats =
-          Int64Statistics(handle: cast[ptr GParquetInt64Statistics](stats.handle))
-        let minVal = int64Stats.min
-        let maxVal = int64Stats.max
-        return sMaybe
-      else:
-        # Other types not yet supported for statistics evaluation
-        return sMaybe
-    else:
-      # Unknown function
-      return sMaybe
-  else:
-    # Not a call expression (field or literal)
-    return sMaybe
+proc newFloatStatistics*(handle: ptr GParquetFloatStatistics): FloatStatistics =
+  result.handle = handle
+
+proc newDoubleStatistics*(handle: ptr GParquetDoubleStatistics): DoubleStatistics =
+  result.handle = handle
+
+proc newByteArrayStatistics*(
+    handle: ptr GParquetByteArrayStatistics
+): ByteArrayStatistics =
+  result.handle = handle
+
+proc newFixedLengthByteArrayStatistics*(
+    handle: ptr GParquetFixedLengthByteArrayStatistics
+): FixedLengthByteArrayStatistics =
+  result.handle = handle
+
+proc `==`*(a, b: Statistics): bool =
+  gparquet_statistics_equal(a.toPtr, b.toPtr) == 1
+
+proc hasNulls*(s: Statistics): bool =
+  gparquet_statistics_has_n_nulls(s.toPtr) == 1
+
+proc nullCount*(s: Statistics): int64 =
+  gparquet_statistics_get_n_nulls(s.toPtr)
+
+proc hasDistinctValues*(s: Statistics): bool =
+  gparquet_statistics_has_n_distinct_values(s.toPtr) == 1
+
+proc distinctValueCount*(s: Statistics): int64 =
+  gparquet_statistics_get_n_distinct_values(s.toPtr)
+
+proc valueCount*(s: Statistics): int64 =
+  gparquet_statistics_get_n_values(s.toPtr)
+
+proc hasMinMax*(s: Statistics): bool =
+  gparquet_statistics_has_min_max(s.toPtr) == 1
+
+proc min*(s: BooleanStatistics): bool =
+  gparquet_boolean_statistics_get_min(s.toPtr) == 1
+
+proc max*(s: BooleanStatistics): bool =
+  gparquet_boolean_statistics_get_max(s.toPtr) == 1
+
+proc min*(s: Int32Statistics): int32 =
+  gparquet_int32_statistics_get_min(s.toPtr)
+
+proc max*(s: Int32Statistics): int32 =
+  gparquet_int32_statistics_get_max(s.toPtr)
+
+proc min*(s: Int64Statistics): int64 =
+  gparquet_int64_statistics_get_min(s.toPtr)
+
+proc max*(s: Int64Statistics): int64 =
+  gparquet_int64_statistics_get_max(s.toPtr)
+
+proc min*(s: FloatStatistics): float32 =
+  gparquet_float_statistics_get_min(s.toPtr)
+
+proc max*(s: FloatStatistics): float32 =
+  gparquet_float_statistics_get_max(s.toPtr)
+
+proc min*(s: DoubleStatistics): float64 =
+  gparquet_double_statistics_get_min(s.toPtr)
+
+proc max*(s: DoubleStatistics): float64 =
+  gparquet_double_statistics_get_max(s.toPtr)
+
+proc min*(s: ByteArrayStatistics): seq[byte] =
+  let bytes = gparquet_byte_array_statistics_get_min(s.toPtr)
+  if not isNil(bytes):
+    let size = g_bytes_get_size(bytes)
+    let data = g_bytes_get_data(bytes, nil)
+    result = newSeq[byte](size)
+    if size > 0:
+      copyMem(result[0].addr, data, size)
+
+proc max*(s: ByteArrayStatistics): seq[byte] =
+  let bytes = gparquet_byte_array_statistics_get_max(s.toPtr)
+  if not isNil(bytes):
+    let size = g_bytes_get_size(bytes)
+    let data = g_bytes_get_data(bytes, nil)
+    result = newSeq[byte](size)
+    if size > 0:
+      copyMem(result[0].addr, data, size)
+
+proc toString*(bytes: seq[byte]): string =
+  if bytes.len > 0:
+    result = newString(bytes.len)
+    copyMem(result[0].addr, bytes[0].unsafeAddr, bytes.len)
+
+proc min*(s: FixedLengthByteArrayStatistics): seq[byte] =
+  let bytes = gparquet_fixed_length_byte_array_statistics_get_min(s.toPtr)
+  if not isNil(bytes):
+    let size = g_bytes_get_size(bytes)
+    let data = g_bytes_get_data(bytes, nil)
+    result = newSeq[byte](size)
+    if size > 0:
+      copyMem(result[0].addr, data, size)
+
+proc max*(s: FixedLengthByteArrayStatistics): seq[byte] =
+  let bytes = gparquet_fixed_length_byte_array_statistics_get_max(s.toPtr)
+  if not isNil(bytes):
+    let size = g_bytes_get_size(bytes)
+    let data = g_bytes_get_data(bytes, nil)
+    result = newSeq[byte](size)
+    if size > 0:
+      copyMem(result[0].addr, data, size)
+
+# ============================================================================
+# Type Checking Functions
+# ============================================================================
+
+proc isBooleanStatistics*(s: Statistics): bool =
+  s.gType == gparquet_boolean_statistics_get_type()
+
+proc isInt32Statistics*(s: Statistics): bool =
+  s.gType == gparquet_int32_statistics_get_type()
+
+proc isInt64Statistics*(s: Statistics): bool =
+  s.gType == gparquet_int64_statistics_get_type()
+
+proc isFloatStatistics*(s: Statistics): bool =
+  s.gType == gparquet_float_statistics_get_type()
+
+proc isDoubleStatistics*(s: Statistics): bool =
+  s.gType == gparquet_double_statistics_get_type()
+
+proc isByteArrayStatistics*(s: Statistics): bool =
+  s.gType == gparquet_byte_array_statistics_get_type()
+
+proc isFixedLengthByteArrayStatistics*(s: Statistics): bool =
+  s.gType == gparquet_fixed_length_byte_array_statistics_get_type()
+
+# ============================================================================
+# Type Conversion Functions
+# ============================================================================
+
+proc toBooleanStatistics*(s: Statistics): BooleanStatistics =
+  let handle = cast[ptr GParquetBooleanStatistics](s.toPtr)
+  discard g_object_ref(handle)
+  newBooleanStatistics(handle)
+
+proc toInt32Statistics*(s: Statistics): Int32Statistics =
+  let handle = cast[ptr GParquetInt32Statistics](s.toPtr)
+  discard g_object_ref(handle)
+  newInt32Statistics(handle)
+
+proc toInt64Statistics*(s: Statistics): Int64Statistics =
+  let handle = cast[ptr GParquetInt64Statistics](s.toPtr)
+  discard g_object_ref(handle)
+  newInt64Statistics(handle)
+
+proc toFloatStatistics*(s: Statistics): FloatStatistics =
+  let handle = cast[ptr GParquetFloatStatistics](s.toPtr)
+  discard g_object_ref(handle)
+  newFloatStatistics(handle)
+
+proc toDoubleStatistics*(s: Statistics): DoubleStatistics =
+  let handle = cast[ptr GParquetDoubleStatistics](s.toPtr)
+  discard g_object_ref(handle)
+  newDoubleStatistics(handle)
+
+proc toByteArrayStatistics*(s: Statistics): ByteArrayStatistics =
+  let handle = cast[ptr GParquetByteArrayStatistics](s.toPtr)
+  discard g_object_ref(handle)
+  newByteArrayStatistics(handle)
+
+proc toFixedLengthByteArrayStatistics*(s: Statistics): FixedLengthByteArrayStatistics =
+  let handle = cast[ptr GParquetFixedLengthByteArrayStatistics](s.toPtr)
+  discard g_object_ref(handle)
+  newFixedLengthByteArrayStatistics(handle)

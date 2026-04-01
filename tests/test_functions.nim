@@ -42,7 +42,7 @@ suite "Test Arrow Functions - Execution":
     unittest2.check output == newDatum(newArray(@[11'i32, 22, 33]))
 
     unittest2.check output.isArray
-    unittest2.check output.kind == DatumKind.array
+    unittest2.check output.kind == DatumKind.dkArray
 
   test "call convenience function returns Datum":
     let a = newDatum(newArray(@[5'i32, 10, 15]))
@@ -51,7 +51,7 @@ suite "Test Arrow Functions - Execution":
     let output = call("multiply", [a, b], FunctionOptions(), nil)
 
     unittest2.check output.isArray
-    unittest2.check output.kind == DatumKind.array
+    unittest2.check output.kind == DatumKind.dkArray
     unittest2.check output == newDatum(newArray(@[10'i32, 30, 60]))
 
   test "call with single argument returns Datum":
@@ -61,7 +61,7 @@ suite "Test Arrow Functions - Execution":
 
     unittest2.check res == newDatum(newArray(@[1.0'f64, 2.0, 3.0]))
     unittest2.check res.isArray
-    unittest2.check res.kind == DatumKind.array
+    unittest2.check res.kind == DatumKind.dkArray
 
   test "execute sum aggregation returns scalar Datum":
     let arr = newDatum(newArray(@[1'i32, 2, 3, 4, 5]))
@@ -70,7 +70,7 @@ suite "Test Arrow Functions - Execution":
     let res = sumFn.execute([arr])
 
     unittest2.check res.isScalar
-    unittest2.check res.kind == DatumKind.scalar
+    unittest2.check res.kind == DatumKind.dkScalar
 
     let scalar = res.toScalar()
     # Sum of int32 returns int64 to avoid overflow

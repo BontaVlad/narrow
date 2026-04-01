@@ -219,7 +219,7 @@ proc newSourceNodeOptions*(batch: RecordBatch): SourceNodeOptions =
   ## Creates source node options from a record batch.
   result.handle = garrow_source_node_options_new_record_batch(batch.toPtr)
 
-proc newFilterNodeOptions*(expr: ExpressionObj): FilterNodeOptions =
+proc newFilterNodeOptions*(expr: Expression): FilterNodeOptions =
   ## Creates filter node options from an expression.
   result.handle = garrow_filter_node_options_new(expr.toPtr)
 
@@ -313,7 +313,7 @@ proc ensureComputeInitialized() =
 
     computeInitialized = true
 
-proc filterTable*(table: ArrowTable, filter: ExpressionObj): ArrowTable =
+proc filterTable*(table: ArrowTable, filter: Expression): ArrowTable =
   ## Applies a filter expression to a table using the Acero engine.
   ## Returns a new table with only rows matching the filter.
   ##

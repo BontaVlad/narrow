@@ -145,12 +145,12 @@ proc optionsType*(fn: Function): GType =
 # Function Execution
 # ============================================================================
 
-proc execute*[T](
+proc execute*(
     fn: Function,
-    args: openArray[Datum[T]],
+    args: openArray[Datum],
     options: FunctionOptions = FunctionOptions(),
     ctx: ptr GArrowExecuteContext = nil,
-): Datum[none] =
+): Datum =
   ## Execute a function with the given arguments
   ##
   ## Parameters:
@@ -188,12 +188,12 @@ proc execute*[T](
 # Convenience API - Direct call by name
 # ============================================================================
 
-proc call*[T](
+proc call*(
     name: string,
-    args: varargs[Datum[T]],
+    args: varargs[Datum],
     options: FunctionOptions = FunctionOptions(),
     ctx: ptr GArrowExecuteContext = nil,
-): Datum[none] =
+): Datum =
   ## Convenience function to call an Arrow function by name
   ##
   ## Parameters:

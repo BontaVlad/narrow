@@ -1,29 +1,10 @@
-import ../core/[ffi, error]
+import ../core/[ffi, error, utils]
 import ./gtypes
 import ../column/metadata
 
-type FixedSizeListType* = object
-  handle*: ptr GArrowFixedSizeListDataType
-
-proc toPtr*(f: FixedSizeListType): ptr GArrowFixedSizeListDataType {.inline.} =
-  f.handle
-
-proc `=destroy`*(f: FixedSizeListType) =
-  if not isNil(f.handle):
-    g_object_unref(f.handle)
-
-proc `=sink`*(dest: var FixedSizeListType, src: FixedSizeListType) =
-  if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-
-proc `=copy`*(dest: var FixedSizeListType, src: FixedSizeListType) =
-  if dest.handle != src.handle:
-    if not isNil(dest.handle):
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if not isNil(dest.handle):
-      discard g_object_ref(dest.handle)
+arcGObject:
+  type FixedSizeListType* = object
+    handle*: ptr GArrowFixedSizeListDataType
 
 proc newFixedSizeListType*(valueType: GADType, listSize: int32): FixedSizeListType =
   result.handle =

@@ -33,7 +33,43 @@ NEVER import generated.nim directly, this will be included by ffi
 - Test files: `test_*.nim`
 
 ### Memory Management (ARC/ORC)
-Always implement custom hooks for C pointer wrappers:
+
+#### Using the `arcGObject` Statement Macro (Preferred)
+
+For standard GObject types, use the `arcGObject` statement macro from `utils.nim`. This automatically generates `=destroy`, `=sink`, `=copy`, and `toPtr` for all object types in the block:
+
+```nim
+import ../core/[utils, ffi]
+
+arcGObject:
+  type
+    FileInfo* = object
+      handle*: ptr GArrowFileInfo
+    
+    FileSelector* = object
+      handle*: ptr GArrowFileSelector
+```
+
+For custom ref/unref functions, use `arcRef`:
+
+```nim
+arcRef("g_uri_unref", "g_uri_ref"):
+  type
+    Uri* = object
+      handle*: ptr GUri
+```
+
+#### Manual Implementation
+
+Only implement hooks manually for special cases:
+- Types with inheritance (`of RootObj`) — not supported by macros
+- Types with custom cleanup logic (e.g., `OutputStream` flushes on destroy)
+- Types with multiple handles (e.g., `RecordBatchReader` with streamHandle)
+- Generic types (macros don't support generics)
+
+**Important:** Keep manual types in separate `type` blocks from macro-wrapped types.
+
+Example manual implementation:
 ```nim
 type
   Array*[T] = object
@@ -55,6 +91,55 @@ proc `=copy`*[T](dest: var Array[T], src: Array[T]) =
     dest.handle = src.handle
     if not isNil(dest.handle):
       discard g_object_ref(dest.handle)
+
+proc toPtr*[T](ar: Array[T]): ptr GArrowArray {.inline.} =
+  ar.handle
+```
+
+For custom ref/unref functions, use `arcRef`:
+
+```nim
+arcRef("g_uri_unref", "g_uri_ref"):
+  type
+    Uri* = object
+      handle*: ptr GUri
+```
+
+#### Manual Implementation
+
+Only implement hooks manually for special cases:
+- Types with inheritance (`of RootObj`) — not supported by macros
+- Types with custom cleanup logic (e.g., `OutputStream` flushes on destroy)
+- Types with multiple handles (e.g., `RecordBatchReader` with streamHandle)
+- Generic types (macros don't support generics)
+
+**Important:** Keep manual types in separate `type` blocks from macro-wrapped types.
+
+Example manual implementation:
+```nim
+type
+  Array*[T] = object
+    handle: ptr GArrowArray
+
+proc `=destroy`*[T](ar: Array[T]) =
+  if not isNil(ar.handle):
+    g_object_unref(ar.handle)
+
+proc `=sink`*[T](dest: var Array[T], src: Array[T]) =
+  if not isNil(dest.handle) and dest.handle != src.handle:
+    g_object_unref(dest.handle)
+  dest.handle = src.handle
+
+proc `=copy`*[T](dest: var Array[T], src: Array[T]) =
+  if dest.handle != src.handle:
+    if not isNil(dest.handle):
+      g_object_unref(dest.handle)
+    dest.handle = src.handle
+    if not isNil(dest.handle):
+      discard g_object_ref(dest.handle)
+
+proc toPtr*[T](ar: Array[T]): ptr GArrowArray {.inline.} =
+  ar.handle
 ```
 
 ### `src/narrow/core/error.nim` — Error Handling Pattern
