@@ -12,6 +12,7 @@ leak:arrow::csv::ConvertOptions::Defaults
 leak:garrow_csv_read_options_add_schema
 leak:garrow_csv_read_options_init
 leak:gparquet_file_metadata_get_row_group
+leak:gparquet_row_group_metadata_get_column_chunk
 
 # === System / threading ===
 leak:execute_native_thread_routine
