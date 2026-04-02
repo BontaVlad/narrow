@@ -51,17 +51,13 @@ The `apache-arrow-glib` Homebrew formula includes all required components:
 - GLib and GObject (dependencies of apache-arrow-glib)
 
 **Windows (MSYS2):**
+
+Install [MSYS2](https://www.msys2.org/), then open a **MSYS2 MINGW64** terminal and run:
 ```bash
-# Install MSYS2 from https://www.msys2.org/
-# Then in the MSYS2 MINGW64 terminal:
 pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-pkg-config mingw-w64-x86_64-glib2 mingw-w64-x86_64-arrow
 ```
 
-Make sure the MinGW64 bin directory is in your PATH:
-```powershell
-$env:PATH = "C:\msys64\mingw64\bin;$env:PATH"
-$env:PKG_CONFIG_PATH = "C:\msys64\mingw64\lib\pkgconfig"
-```
+All subsequent commands (`nimble install`, `nimble test`, etc.) must also be run from the **MSYS2 MINGW64** terminal, as `pkg-config` and the compiler are only available there.
 
 ## Installation
 

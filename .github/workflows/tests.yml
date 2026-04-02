@@ -196,7 +196,13 @@ jobs:
         echo "=== Library paths ==="
         pkg-config --libs arrow-glib parquet-glib
 
-    - name: Install Nim dependencies
+    - name: Install Nim dependencies (Unix)
+      if: runner.os != 'Windows'
+      run: nimble install -y
+
+    - name: Install Nim dependencies (Windows)
+      if: runner.os == 'Windows'
+      shell: msys2 {0}
       run: nimble install -y
 
     - name: Test (Linux with sanitizers)
