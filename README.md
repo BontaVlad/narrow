@@ -54,7 +54,7 @@ The `apache-arrow-glib` Homebrew formula includes all required components:
 ```bash
 # Install MSYS2 from https://www.msys2.org/
 # Then in the MSYS2 MINGW64 terminal:
-pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-pkg-config mingw-w64-x86_64-glib2 mingw-w64-x86_64-arrow mingw-w64-x86_64-parquet
+pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-pkg-config mingw-w64-x86_64-glib2 mingw-w64-x86_64-arrow
 ```
 
 Make sure the MinGW64 bin directory is in your PATH:

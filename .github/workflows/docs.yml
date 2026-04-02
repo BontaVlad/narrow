@@ -23,10 +23,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: iffy/install-nim@v5
-        with:
-          version: binary:stable
-
       - name: Install Apache Arrow repository
         run: |
           wget https://apache.jfrog.io/artifactory/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
@@ -40,14 +36,21 @@ jobs:
           version: 1.0
 
       - name: Cache Nim
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
+            ~/nimdir
             ~/.nimble
             ~/.cache/nim
           key: ${{ runner.os }}-nim-docs-${{ hashFiles('*.nimble') }}
           restore-keys: |
             ${{ runner.os }}-nim-docs-
+
+      - uses: iffy/install-nim@v5
+        with:
+          version: binary:stable
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Nim dependencies
         run: nimble install -y

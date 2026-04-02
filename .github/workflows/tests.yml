@@ -51,31 +51,12 @@ jobs:
       with:
         msystem: MINGW64
         update: true
+        cache: true
         install: >-
           mingw-w64-x86_64-gcc
           mingw-w64-x86_64-pkg-config
           mingw-w64-x86_64-glib2
           mingw-w64-x86_64-arrow
-          mingw-w64-x86_64-parquet
-
-    - name: Cache Nim
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.nimble
-          ~/.cache/nim
-        key: ${{ runner.os }}-nim-${{ matrix.version }}-${{ hashFiles('*.nimble') }}
-        restore-keys: |
-          ${{ runner.os }}-nim-${{ matrix.version }}-
-          ${{ runner.os }}-nim-
-
-    - uses: iffy/install-nim@v5
-      with:
-        version: ${{ matrix.version }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - uses: extractions/setup-just@v2
 
     - name: Add LLVM repository
       if: runner.os == 'Linux'
@@ -95,7 +76,7 @@ jobs:
     - name: Cache GLib 2.86
       if: runner.os == 'Linux'
       id: cache-glib
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: /opt/glib
         key: ${{ runner.os }}-glib-2.86.4
@@ -154,6 +135,25 @@ jobs:
       with:
         packages: libclang-dev libarrow-dev libarrow-glib-dev libarrow-dataset-glib-dev libparquet-glib-dev libgirepository1.0-dev pkg-config
         version: 1.0
+
+    - name: Cache Nim
+      if: runner.os != 'Windows'
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/nimdir
+          ~/.nimble
+          ~/.cache/nim
+        key: ${{ runner.os }}-nim-${{ matrix.version }}-${{ hashFiles('*.nimble') }}
+        restore-keys: |
+          ${{ runner.os }}-nim-${{ matrix.version }}-
+          ${{ runner.os }}-nim-
+
+    - uses: iffy/install-nim@v5
+      with:
+        version: ${{ matrix.version }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Verify installations (Unix)
       if: runner.os != 'Windows'
