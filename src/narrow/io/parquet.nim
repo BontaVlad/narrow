@@ -262,7 +262,6 @@ proc rowGroupGuarantee*(
 
   if guarantee.isNil:
     guarantee = newLiteralExpression(true)
-      # No stats available, so this row group cannot be ruled out
 
   result = guarantee
 
@@ -351,7 +350,7 @@ proc readTable*(
     result = newArrowTableFromArrays(newSchema(neededColumns.mapIt(schema[it])), @[])
   else:
     for rgi in rowGroupIndices:
-        tables.add(reader.readRowGroup(rgi, columnIndices))
+      tables.add(reader.readRowGroup(rgi, columnIndices))
     result = filterTable(tables[0].concatenate(tables[1 ..^ 1]), filter)
 
 proc writeTable*[T: Writable](

@@ -29,7 +29,8 @@ proc newArrowTableFromArrays*(
     # raise newException(ValueError, "Cannot create table from empty arrays")
     result.handle = check garrow_table_new_arrays(schema.toPtr, nil, 0.gsize)
   else:
-    result.handle = check garrow_table_new_arrays(schema.toPtr, addr arrays[0], arrays.len.gsize)
+    result.handle =
+      check garrow_table_new_arrays(schema.toPtr, addr arrays[0], arrays.len.gsize)
 
 proc newArrowTableFromChunkedArrays*(
     schema: Schema, chunkedArrays: seq[ptr GArrowChunkedArray]

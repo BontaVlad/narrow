@@ -1,37 +1,53 @@
-import std/options
-import ../core/[ffi, utils]
-import ../column/primitive
-import ../tabular/table
-import ../tabular/batch
+import ../core/[ffi]
 
-arcGObject:
-  type
-    Statistics* = object
-      handle*: ptr GParquetStatistics
+type
+  Statistics* = object
+    handle*: ptr GParquetStatistics
 
-    BooleanStatistics* = object
-      handle*: ptr GParquetBooleanStatistics
+  BooleanStatistics* = object
+    handle*: ptr GParquetBooleanStatistics
 
-    Int32Statistics* = object
-      handle*: ptr GParquetInt32Statistics
+  Int32Statistics* = object
+    handle*: ptr GParquetInt32Statistics
 
-    Int64Statistics* = object
-      handle*: ptr GParquetInt64Statistics
+  Int64Statistics* = object
+    handle*: ptr GParquetInt64Statistics
 
-    FloatStatistics* = object
-      handle*: ptr GParquetFloatStatistics
+  FloatStatistics* = object
+    handle*: ptr GParquetFloatStatistics
 
-    DoubleStatistics* = object
-      handle*: ptr GParquetDoubleStatistics
+  DoubleStatistics* = object
+    handle*: ptr GParquetDoubleStatistics
 
-    ByteArrayStatistics* = object
-      handle*: ptr GParquetByteArrayStatistics
+  ByteArrayStatistics* = object
+    handle*: ptr GParquetByteArrayStatistics
 
-    FixedLengthByteArrayStatistics* = object
-      handle*: ptr GParquetFixedLengthByteArrayStatistics
+  FixedLengthByteArrayStatistics* = object
+    handle*: ptr GParquetFixedLengthByteArrayStatistics
 
-proc gType*(s: Statistics): GType =
-  s.toPtr[].parent_instance.g_type_instance.g_class.g_type
+proc toPtr*(s: Statistics): ptr GParquetStatistics =
+  s.handle
+
+proc toPtr*(s: BooleanStatistics): ptr GParquetBooleanStatistics =
+  s.handle
+
+proc toPtr*(s: Int32Statistics): ptr GParquetInt32Statistics =  
+  s.handle
+
+proc toPtr*(s: Int64Statistics): ptr GParquetInt64Statistics =
+  s.handle
+
+proc toPtr*(s: FloatStatistics): ptr GParquetFloatStatistics =  
+  s.handle
+
+proc toPtr*(s: DoubleStatistics): ptr GParquetDoubleStatistics =        
+  s.handle
+
+proc toPtr*(s: ByteArrayStatistics): ptr GParquetByteArrayStatistics =
+  s.handle
+
+proc toPtr*(s: FixedLengthByteArrayStatistics): ptr GParquetFixedLengthByteArrayStatistics =    
+  s.handle  
 
 proc newStatistics*(handle: ptr GParquetStatistics): Statistics =
   result.handle = handle
@@ -120,6 +136,7 @@ proc min*(s: ByteArrayStatistics): seq[byte] =
     result = newSeq[byte](size)
     if size > 0:
       copyMem(result[0].addr, data, size)
+    g_bytes_unref(bytes)
 
 proc max*(s: ByteArrayStatistics): seq[byte] =
   let bytes = gparquet_byte_array_statistics_get_max(s.toPtr)
@@ -129,11 +146,13 @@ proc max*(s: ByteArrayStatistics): seq[byte] =
     result = newSeq[byte](size)
     if size > 0:
       copyMem(result[0].addr, data, size)
+    g_bytes_unref(bytes)
 
 proc toString*(bytes: seq[byte]): string =
+  ## Converts a byte sequence to a string.
+  result = newString(bytes.len)
   if bytes.len > 0:
-    result = newString(bytes.len)
-    copyMem(result[0].addr, bytes[0].unsafeAddr, bytes.len)
+    copyMem(addr result[0], unsafeAddr bytes[0], bytes.len)
 
 proc min*(s: FixedLengthByteArrayStatistics): seq[byte] =
   let bytes = gparquet_fixed_length_byte_array_statistics_get_min(s.toPtr)
@@ -143,6 +162,7 @@ proc min*(s: FixedLengthByteArrayStatistics): seq[byte] =
     result = newSeq[byte](size)
     if size > 0:
       copyMem(result[0].addr, data, size)
+    g_bytes_unref(bytes)
 
 proc max*(s: FixedLengthByteArrayStatistics): seq[byte] =
   let bytes = gparquet_fixed_length_byte_array_statistics_get_max(s.toPtr)
@@ -152,31 +172,39 @@ proc max*(s: FixedLengthByteArrayStatistics): seq[byte] =
     result = newSeq[byte](size)
     if size > 0:
       copyMem(result[0].addr, data, size)
+    g_bytes_unref(bytes)
 
 # ============================================================================
 # Type Checking Functions
 # ============================================================================
 
 proc isBooleanStatistics*(s: Statistics): bool =
-  s.gType == gparquet_boolean_statistics_get_type()
+  let inst = cast[ptr GTypeInstance](s.handle)
+  g_type_check_instance_is_a(inst, garrow_null_scalar_get_type()) != 0
 
 proc isInt32Statistics*(s: Statistics): bool =
-  s.gType == gparquet_int32_statistics_get_type()
+  let inst = cast[ptr GTypeInstance](s.handle)
+  g_type_check_instance_is_a(inst, gparquet_int32_statistics_get_type()) != 0
 
 proc isInt64Statistics*(s: Statistics): bool =
-  s.gType == gparquet_int64_statistics_get_type()
+  let inst = cast[ptr GTypeInstance](s.handle)
+  g_type_check_instance_is_a(inst, gparquet_int64_statistics_get_type()) != 0
 
 proc isFloatStatistics*(s: Statistics): bool =
-  s.gType == gparquet_float_statistics_get_type()
+  let inst = cast[ptr GTypeInstance](s.handle)
+  g_type_check_instance_is_a(inst, gparquet_float_statistics_get_type()) != 0
 
 proc isDoubleStatistics*(s: Statistics): bool =
-  s.gType == gparquet_double_statistics_get_type()
+  let inst = cast[ptr GTypeInstance](s.handle)
+  g_type_check_instance_is_a(inst, gparquet_double_statistics_get_type()) != 0
 
 proc isByteArrayStatistics*(s: Statistics): bool =
-  s.gType == gparquet_byte_array_statistics_get_type()
+  let inst = cast[ptr GTypeInstance](s.handle)
+  g_type_check_instance_is_a(inst, gparquet_byte_array_statistics_get_type()) != 0
 
 proc isFixedLengthByteArrayStatistics*(s: Statistics): bool =
-  s.gType == gparquet_fixed_length_byte_array_statistics_get_type()
+  let inst = cast[ptr GTypeInstance](s.handle)
+  g_type_check_instance_is_a(inst, gparquet_fixed_length_byte_array_statistics_get_type()) != 0
 
 # ============================================================================
 # Type Conversion Functions

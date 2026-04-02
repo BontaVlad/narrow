@@ -266,24 +266,3 @@ suite "Parquet Statistics - Edge Cases":
         let stats = cc.statistics
         unittest2.check not stats.handle.isNil
         unittest2.check stats.valueCount > 0
-
-suite "Parquet Statistics - gType accessor":
-  let uri = getCurrentDir() & "/tests/fatboy.parquet"
-  let reader = newFileReader(uri)
-  let metadata = reader.metadata
-  let rg = metadata.rowGroup(0)
-
-  test "gType returns valid GType for statistics":
-    let cc = rg.columnChunk(5)  # int32_col
-    let stats = cc.statistics
-    let gtype = stats.gType
-    unittest2.check gtype > 0
-
-  test "Different types have different gTypes":
-    let ccInt32 = rg.columnChunk(5)  # int32_col
-    let ccInt64 = rg.columnChunk(7)  # int64_col
-    let ccFloat = rg.columnChunk(9)  # float32_col
-    
-    unittest2.check ccInt32.statistics.gType != ccInt64.statistics.gType
-    unittest2.check ccInt32.statistics.gType != ccFloat.statistics.gType
-    unittest2.check ccInt64.statistics.gType != ccFloat.statistics.gType

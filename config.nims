@@ -1,9 +1,9 @@
 # --- Global Settings ---
-switch("backend", "cpp")
-# --- Silence Output ---
-switch("warnings", "off")   # Hides Nim compiler warnings
-switch("hints", "off")      # Hides Nim "Hint:" messages
-switch("passC", "-w")       # Hides all C++ compiler warnings
+# switch("backend", "cpp")
+# # --- Silence Output ---
+# switch("warnings", "off")   # Hides Nim compiler warnings
+# switch("hints", "off")      # Hides Nim "Hint:" messages
+# switch("passC", "-w")       # Hides all C++ compiler warnings
 
 # Project paths ---
 switch("path", "$projectDir/../src")

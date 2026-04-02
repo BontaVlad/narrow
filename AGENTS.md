@@ -6,8 +6,9 @@
 - **Run single test**: Compile and run manually:
   ```
   nim c --verbosity:0 --hints:off --mm:orc -o:nimcache/tests/test_file tests/test_file.nim
-  nimcache/tests/test_file
+  ./nimcache/tests/test_file
   ```
+  **IMPORTANT**: The output filename must NOT match the test filename (e.g., use `test_expr` not `test_expressions` for `tests/test_expressions.nim`), otherwise you'll get "permission denied" or "is a directory" errors.
 - **Debug tests**: `just test-debug` or `just test-debug-par` (parallel)
 - **Release tests**: `just test-release`
 - **With coverage**: `just test-coverage`

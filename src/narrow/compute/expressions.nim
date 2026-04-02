@@ -1,4 +1,4 @@
-import std/[strutils, sets, options, hashes]
+import std/[strutils, sets, options]
 import ../column/primitive
 import ../types/gtypes
 import ../types/glist
@@ -56,9 +56,11 @@ type
   Datum* = object
     handle: ptr GArrowDatum
 
-  Scalar* = object
+  ScalarObj = object
     handle*: ptr GArrowScalar
     kind*: ScalarKind
+
+  Scalar* = ref ScalarObj
 
   DatumCompatible* = ArrowPrimitive | Array | ChunkedArray | ArrowTable | RecordBatch
 
@@ -96,54 +98,15 @@ proc `=copy`*(dest: var Datum, src: Datum) =
       discard g_object_ref(dest.handle)
 
 # ============================================================================
-# ARC Hooks — Scalar
+# ARC Hooks — Scalar (ref type, only need destroy for the object)
 # ============================================================================
 
-proc `=destroy`*(sc: Scalar) =
+proc `=destroy`*(sc: ScalarObj) =
   if not isNil(sc.handle):
     g_object_unref(sc.handle)
 
-proc `=sink`*(dest: var Scalar, src: Scalar) =
-  if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-  dest.kind = src.kind
-
-proc `=copy`*(dest: var Scalar, src: Scalar) =
-  if dest.handle != src.handle:
-    if not isNil(dest.handle):
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    dest.kind = src.kind
-    if not isNil(dest.handle):
-      discard g_object_ref(dest.handle)
-
-# proc `=destroy`*(expr: ExpressionObj) =
-#     if not isNil(expr.handle):
-#       g_object_unref(expr.handle)
-
-# ============================================================================
-# Expression ref — prevent double-free of GLib handle via ref semantics
-# ============================================================================
-# Expression is a `ref object`, so Nim's GC handles lifetime.
-# We add a destructor on the ref target via invoke mechanism.
-
-# proc finalizeExpression(expr: ExpressionObj) =
-#   if expr.handle != nil:
-#     g_object_unref(expr.handle)
-
-# proc newExpressionRef(kind: ExpressionKind): Expression =
-#   ## Internal helper to allocate an Expression ref with destructor
-#   case kind
-#   of ekLiteral:
-#     new(result, proc(x: ExpressionObj) = finalizeExpression(x))
-#     result[] = ExpressionObj(kind: ekLiteral, handle: nil)
-#   of ekField:
-#     new(result, proc(x: ExpressionObj) = finalizeExpression(x))
-#     result[] = ExpressionObj(kind: ekField, handle: nil, fieldName: "")
-#   of ekCall:
-#     new(result, proc(x: ExpressionObj) = finalizeExpression(x))
-#     result[] = ExpressionObj(kind: ekCall, handle: nil, functionName: "", args: @[])
+proc newScalar*(handle: ptr GArrowScalar, kind: ScalarKind): Scalar =
+  result = Scalar(handle: handle, kind: kind)
 
 # ============================================================================
 # Pointer Converters
@@ -153,7 +116,7 @@ proc toPtr*(dt: Datum): ptr GArrowDatum {.inline.} =
   dt.handle
 
 proc toPtr*(sc: Scalar): ptr GArrowScalar {.inline.} =
-  sc.handle
+  if sc.isNil: nil else: sc.handle
 
 proc toPtr*(expr: Expression): ptr GArrowExpression {.inline.} =
   if expr.isNil: nil else: expr.handle
@@ -301,95 +264,117 @@ proc nodeCount*(expr: Expression): int =
 # ============================================================================
 
 proc newScalar*(): Scalar =
-  Scalar(handle: cast[ptr GArrowScalar](garrow_null_scalar_new()), kind: skNull)
+  new(result)
+  result.handle = cast[ptr GArrowScalar](garrow_null_scalar_new())
+  result.kind = skNull
 
 proc newScalar*(handle: ptr GArrowScalar): Scalar =
-  Scalar(handle: handle, kind: skNull)
+  new(result)
+  result.handle = handle
+  result.kind = skNull
 
 proc newScalar*(v: bool): Scalar =
-  Scalar(
-    handle: cast[ptr GArrowScalar](garrow_boolean_scalar_new(v.gboolean)), kind: skBool
-  )
+  new(result)
+  result.handle = cast[ptr GArrowScalar](garrow_boolean_scalar_new(v.gboolean))
+  result.kind = skBool
 
 proc newScalar*(v: int8): Scalar =
-  Scalar(handle: cast[ptr GArrowScalar](garrow_int8_scalar_new(v.gint8)), kind: skInt8)
+  new(result)
+  result.handle = cast[ptr GArrowScalar](garrow_int8_scalar_new(v.gint8))
+  result.kind = skInt8
 
 proc newScalar*(v: int16): Scalar =
-  Scalar(
-    handle: cast[ptr GArrowScalar](garrow_int16_scalar_new(v.gint16)), kind: skInt16
-  )
+  new(result)
+  result.handle = cast[ptr GArrowScalar](garrow_int16_scalar_new(v.gint16))
+  result.kind = skInt16
 
 proc newScalar*(v: int32): Scalar =
-  Scalar(
-    handle: cast[ptr GArrowScalar](garrow_int32_scalar_new(v.gint32)), kind: skInt32
-  )
+  new(result)
+  result.handle = cast[ptr GArrowScalar](garrow_int32_scalar_new(v.gint32))
+  result.kind = skInt32
 
 proc newScalar*(v: int64): Scalar =
-  Scalar(
-    handle: cast[ptr GArrowScalar](garrow_int64_scalar_new(v.gint64)), kind: skInt64
-  )
+  new(result)
+  result.handle = cast[ptr GArrowScalar](garrow_int64_scalar_new(v.gint64))
+  result.kind = skInt64
 
 proc newScalar*(v: uint8): Scalar =
-  Scalar(
-    handle: cast[ptr GArrowScalar](garrow_uint8_scalar_new(v.guint8)), kind: skUInt8
-  )
+  new(result)
+  result.handle = cast[ptr GArrowScalar](garrow_uint8_scalar_new(v.guint8))
+  result.kind = skUInt8
 
 proc newScalar*(v: uint16): Scalar =
-  Scalar(
-    handle: cast[ptr GArrowScalar](garrow_uint16_scalar_new(v.guint16)), kind: skUInt16
-  )
+  new(result)
+  result.handle = cast[ptr GArrowScalar](garrow_uint16_scalar_new(v.guint16))
+  result.kind = skUInt16
 
 proc newScalar*(v: uint32): Scalar =
-  Scalar(
-    handle: cast[ptr GArrowScalar](garrow_uint32_scalar_new(v.guint32)), kind: skUInt32
-  )
+  new(result)
+  result.handle = cast[ptr GArrowScalar](garrow_uint32_scalar_new(v.guint32))
+  result.kind = skUInt32
 
 proc newScalar*(v: uint64): Scalar =
-  Scalar(
-    handle: cast[ptr GArrowScalar](garrow_uint64_scalar_new(v.guint64)), kind: skUInt64
-  )
+  new(result)
+  result.handle = cast[ptr GArrowScalar](garrow_uint64_scalar_new(v.guint64))
+  result.kind = skUInt64
 
 proc newScalar*(v: float32): Scalar =
-  Scalar(
-    handle: cast[ptr GArrowScalar](garrow_float_scalar_new(v.gfloat)), kind: skFloat32
-  )
+  new(result)
+  result.handle = cast[ptr GArrowScalar](garrow_float_scalar_new(v.gfloat))
+  result.kind = skFloat32
 
 proc newScalar*(v: float64): Scalar =
-  Scalar(
-    handle: cast[ptr GArrowScalar](garrow_double_scalar_new(v.gdouble)), kind: skFloat64
-  )
+  new(result)
+  result.handle = cast[ptr GArrowScalar](garrow_double_scalar_new(v.gdouble))
+  result.kind = skFloat64
 
+# proc newScalar*(v: string): Scalar =
+#   let buffer = garrow_buffer_new(cast[ptr guint8](v.cstring), v.len.gint64)
+#   new(result)
+#   result.handle = cast[ptr GArrowScalar](garrow_string_scalar_new(buffer))
+#   result.kind = skString
+#   g_object_unref(buffer)
 proc newScalar*(v: string): Scalar =
-  let buffer = garrow_buffer_new(cast[ptr guint8](v.cstring), v.len.gint64)
-  result = Scalar(
-    handle: cast[ptr GArrowScalar](garrow_string_scalar_new(buffer)), kind: skString
-  )
+  new(result)
+  # garrow_buffer_new_bytes with GBytes creates a buffer that OWNS a copy
+  let gbytes = g_bytes_new(cast[gconstpointer](v.cstring), v.len.gsize)
+  let buffer = garrow_buffer_new_bytes(gbytes)
+  g_bytes_unref(gbytes) # buffer holds a ref to gbytes internally
+  result.handle = cast[ptr GArrowScalar](garrow_string_scalar_new(buffer))
+  result.kind = skString
   g_object_unref(buffer)
 
+# proc newScalar*(v: seq[byte]): Scalar =
+#   let buffer = garrow_buffer_new(cast[ptr guint8](v[0].unsafeAddr), v.len.gint64)
+#   new(result)
+#   result.handle = cast[ptr GArrowScalar](garrow_binary_scalar_new(buffer))
+#   result.kind = skBinary
+#   g_object_unref(buffer)
+
 proc newScalar*(v: seq[byte]): Scalar =
-  let buffer = garrow_buffer_new(cast[ptr guint8](v[0].unsafeAddr), v.len.gint64)
-  result = Scalar(
-    handle: cast[ptr GArrowScalar](garrow_binary_scalar_new(buffer)), kind: skBinary
-  )
+  new(result)
+  let gbytes = g_bytes_new(cast[gconstpointer](v[0].unsafeAddr), v.len.gsize)
+  let buffer = garrow_buffer_new_bytes(gbytes)
+  g_bytes_unref(gbytes)
+  result.handle = cast[ptr GArrowScalar](garrow_binary_scalar_new(buffer))
+  result.kind = skBinary
   g_object_unref(buffer)
 
 proc newScalar*(v: Date32): Scalar =
-  Scalar(
-    handle: cast[ptr GArrowScalar](garrow_date32_scalar_new(v.int32.gint32)),
-    kind: skDate32,
-  )
+  new(result)
+  result.handle = cast[ptr GArrowScalar](garrow_date32_scalar_new(v.int32.gint32))
+  result.kind = skDate32
 
 proc newScalar*(v: Date64): Scalar =
-  Scalar(
-    handle: cast[ptr GArrowScalar](garrow_date64_scalar_new(v.int64.gint64)),
-    kind: skDate64,
-  )
+  new(result)
+  result.handle = cast[ptr GArrowScalar](garrow_date64_scalar_new(v.int64.gint64))
+  result.kind = skDate64
 
 proc newScalar*(v: MonthInterval): Scalar =
-  Scalar(
-    handle: cast[ptr GArrowScalar](garrow_month_interval_scalar_new(v.int32.gint32)),
-    kind: skMonthInterval,
-  )
+  new(result)
+  result.handle =
+    cast[ptr GArrowScalar](garrow_month_interval_scalar_new(v.int32.gint32))
+  result.kind = skMonthInterval
 
 # ============================================================================
 # Datum Constructors
@@ -489,7 +474,10 @@ proc detectScalarKind*(handle: ptr GArrowScalar): ScalarKind =
   return skNull
 
 proc kind*(sc: Scalar): ScalarKind {.inline.} =
+  if sc.isNil:
+    return skNull
   detectScalarKind(sc.handle)
+
 # ============================================================================
 # Datum Extraction Methods
 # ============================================================================
@@ -499,7 +487,9 @@ proc toScalar*(dt: Datum): Scalar =
     raise newException(ValueError, "Datum is not a scalar")
   var scalarPtr: ptr GArrowScalar
   g_object_get(dt.handle, "value", addr scalarPtr, nil)
-  result = Scalar(handle: scalarPtr, kind: detectScalarKind(scalarPtr))
+  new(result)
+  result.handle = scalarPtr
+  result.kind = detectScalarKind(scalarPtr)
 
 # ============================================================================
 # Datum Kind (runtime)
@@ -526,76 +516,24 @@ proc kind*(dt: Datum): DatumKind {.inline.} =
 # ============================================================================
 
 proc isValid*(sc: Scalar): bool {.inline.} =
+  if sc.isNil or sc.handle.isNil:
+    return false
   garrow_scalar_is_valid(sc.handle) != 0
 
 proc `==`*(a, b: Scalar): bool {.inline.} =
+  if a.isNil and b.isNil:
+    return true
+  if a.isNil or b.isNil:
+    return false
+  if a.handle.isNil and b.handle.isNil:
+    return true
+  if a.handle.isNil or b.handle.isNil:
+    return false
   garrow_scalar_equal(a.handle, b.handle) != 0
 
-proc `<`*[T: SomeNumber](sc: Scalar, val: T): bool =
-  ## Compare scalar < value. Only works for numeric scalars.
-  case sc.kind
-  of skInt8: sc.getInt8() < val
-  of skInt16: sc.getInt16() < val
-  of skInt32: sc.getInt32() < val
-  of skInt64: sc.getInt64() < val
-  of skUInt8: sc.getUInt8() < val
-  of skUInt16: sc.getUInt16() < val
-  of skUInt32: sc.getUInt32() < val
-  of skUInt64: sc.getUInt64() < val
-  of skFloat32: sc.getFloat32() < val
-  of skFloat64: sc.getFloat64() < val
-  else:
-    raise newException(ValueError, "Cannot compare scalar of kind " & $sc.kind & " with <")
-
-proc `<=`*[T: SomeNumber](sc: Scalar, val: T): bool =
-  ## Compare scalar <= value. Only works for numeric scalars.
-  case sc.kind
-  of skInt8: sc.getInt8() <= val
-  of skInt16: sc.getInt16() <= val
-  of skInt32: sc.getInt32() <= val
-  of skInt64: sc.getInt64() <= val
-  of skUInt8: sc.getUInt8() <= val
-  of skUInt16: sc.getUInt16() <= val
-  of skUInt32: sc.getUInt32() <= val
-  of skUInt64: sc.getUInt64() <= val
-  of skFloat32: sc.getFloat32() <= val
-  of skFloat64: sc.getFloat64() <= val
-  else:
-    raise newException(ValueError, "Cannot compare scalar of kind " & $sc.kind & " with <=")
-
-proc `>`*[T: SomeNumber](sc: Scalar, val: T): bool =
-  ## Compare scalar > value. Only works for numeric scalars.
-  case sc.kind
-  of skInt8: sc.getInt8() > val
-  of skInt16: sc.getInt16() > val
-  of skInt32: sc.getInt32() > val
-  of skInt64: sc.getInt64() > val
-  of skUInt8: sc.getUInt8() > val
-  of skUInt16: sc.getUInt16() > val
-  of skUInt32: sc.getUInt32() > val
-  of skUInt64: sc.getUInt64() > val
-  of skFloat32: sc.getFloat32() > val
-  of skFloat64: sc.getFloat64() > val
-  else:
-    raise newException(ValueError, "Cannot compare scalar of kind " & $sc.kind & " with >")
-
-proc `>=`*[T: SomeNumber](sc: Scalar, val: T): bool =
-  ## Compare scalar >= value. Only works for numeric scalars.
-  case sc.kind
-  of skInt8: sc.getInt8() >= val
-  of skInt16: sc.getInt16() >= val
-  of skInt32: sc.getInt32() >= val
-  of skInt64: sc.getInt64() >= val
-  of skUInt8: sc.getUInt8() >= val
-  of skUInt16: sc.getUInt16() >= val
-  of skUInt32: sc.getUInt32() >= val
-  of skUInt64: sc.getUInt64() >= val
-  of skFloat32: sc.getFloat32() >= val
-  of skFloat64: sc.getFloat64() >= val
-  else:
-    raise newException(ValueError, "Cannot compare scalar of kind " & $sc.kind & " with >=")
-
 proc `$`*(sc: Scalar): string =
+  if sc.isNil or sc.handle.isNil:
+    return "Scalar(nil)"
   result = $newGString(garrow_scalar_to_string(sc.handle))
 
 # ============================================================================
@@ -603,111 +541,225 @@ proc `$`*(sc: Scalar): string =
 # ============================================================================
 
 proc getBool*(sc: Scalar): bool =
+  if sc.isNil or sc.handle.isNil:
+    return false
   garrow_boolean_scalar_get_value(cast[ptr GArrowBooleanScalar](sc.handle)) != 0
 
 proc getInt8*(sc: Scalar): int8 =
+  if sc.isNil or sc.handle.isNil:
+    return 0
   garrow_int8_scalar_get_value(cast[ptr GArrowInt8Scalar](sc.handle))
 
 proc getInt16*(sc: Scalar): int16 =
+  if sc.isNil or sc.handle.isNil:
+    return 0
   garrow_int16_scalar_get_value(cast[ptr GArrowInt16Scalar](sc.handle))
 
 proc getInt32*(sc: Scalar): int32 =
+  if sc.isNil or sc.handle.isNil:
+    return 0
   garrow_int32_scalar_get_value(cast[ptr GArrowInt32Scalar](sc.handle))
 
 proc getInt64*(sc: Scalar): int64 =
+  if sc.isNil or sc.handle.isNil:
+    return 0
   garrow_int64_scalar_get_value(cast[ptr GArrowInt64Scalar](sc.handle))
 
 proc getUInt8*(sc: Scalar): uint8 =
+  if sc.isNil or sc.handle.isNil:
+    return 0
   garrow_uint8_scalar_get_value(cast[ptr GArrowUInt8Scalar](sc.handle))
 
 proc getUInt16*(sc: Scalar): uint16 =
+  if sc.isNil or sc.handle.isNil:
+    return 0
   garrow_uint16_scalar_get_value(cast[ptr GArrowUInt16Scalar](sc.handle))
 
 proc getUInt32*(sc: Scalar): uint32 =
+  if sc.isNil or sc.handle.isNil:
+    return 0
   garrow_uint32_scalar_get_value(cast[ptr GArrowUInt32Scalar](sc.handle))
 
 proc getUInt64*(sc: Scalar): uint64 =
+  if sc.isNil or sc.handle.isNil:
+    return 0
   garrow_uint64_scalar_get_value(cast[ptr GArrowUInt64Scalar](sc.handle))
 
 proc getFloat32*(sc: Scalar): float32 =
+  if sc.isNil or sc.handle.isNil:
+    return 0.0
   garrow_float_scalar_get_value(cast[ptr GArrowFloatScalar](sc.handle))
 
 proc getFloat64*(sc: Scalar): float64 =
+  if sc.isNil or sc.handle.isNil:
+    return 0.0
   garrow_double_scalar_get_value(cast[ptr GArrowDoubleScalar](sc.handle))
+
+# proc getString*(sc: Scalar): string =
+# Extract string value from a string scalar.
+# Returns empty string if scalar is not a string type.
+
+# let buffer = garrow_base_binary_scalar_get_value(cast[ptr GArrowBaseBinaryScalar](sc.handle))
+# if buffer.isNil:
+#   return ""
+# let gbytes = garrow_buffer_get_data(buffer)
+# if gbytes.isNil:
+#   return ""
+# var size: gsize = 0
+# let data = g_bytes_get_data(gbytes, addr size)
+# if data.isNil or size == 0:
+#   g_bytes_unref(gbytes)
+#   return ""
+# result = newString(size)
+# copyMem(result[0].unsafeAddr, data, size)
+# g_bytes_unref(gbytes)
 
 # ============================================================================
 # Runtime Value Extraction
 # ============================================================================
 
-proc value*[T: bool](sc: Scalar, _: typedesc[T]): bool =
+proc value*(sc: Scalar, _: typedesc[bool]): bool =
+  if sc.isNil:
+    raise newException(ValueError, "Scalar is nil")
   if sc.kind != skBool:
     raise newException(ValueError, "Scalar is not a bool, got: " & $sc.kind)
   sc.getBool()
 
-proc value*[T: int8](sc: Scalar, _: typedesc[T]): int8 =
+proc value*(sc: Scalar, _: typedesc[int8]): int8 =
+  if sc.isNil:
+    raise newException(ValueError, "Scalar is nil")
   if sc.kind != skInt8:
     raise newException(ValueError, "Scalar is not an int8, got: " & $sc.kind)
   sc.getInt8()
 
-proc value*[T: int16](sc: Scalar, _: typedesc[T]): int16 =
+proc value*(sc: Scalar, _: typedesc[int16]): int16 =
+  if sc.isNil:
+    raise newException(ValueError, "Scalar is nil")
   if sc.kind != skInt16:
     raise newException(ValueError, "Scalar is not an int16, got: " & $sc.kind)
   sc.getInt16()
 
-proc value*[T: int32](sc: Scalar, _: typedesc[T]): int32 =
-  if sc.kind != skInt32:
-    raise newException(ValueError, "Scalar is not an int32, got: " & $sc.kind)
-  sc.getInt32()
+proc value*(sc: Scalar, _: typedesc[int32]): int32 =
+  if sc.isNil:
+    raise newException(ValueError, "Scalar is nil")
+  case sc.kind
+  of skInt32:
+    sc.getInt32()
+  of skDate32, skMonthInterval:
+    sc.getInt32()
+  else:
+    raise newException(
+      ValueError, "Scalar is not an int32/date32/month_interval, got: " & $sc.kind
+    )
 
-proc value*[T: int64](sc: Scalar, _: typedesc[T]): int64 =
-  if sc.kind != skInt64:
-    raise newException(ValueError, "Scalar is not an int64, got: " & $sc.kind)
-  sc.getInt64()
+proc value*(sc: Scalar, _: typedesc[int64]): int64 =
+  if sc.isNil:
+    raise newException(ValueError, "Scalar is nil")
+  case sc.kind
+  of skInt64:
+    sc.getInt64()
+  of skDate64:
+    sc.getInt64()
+  else:
+    raise newException(ValueError, "Scalar is not an int64/date64, got: " & $sc.kind)
 
-proc value*[T: uint8](sc: Scalar, _: typedesc[T]): uint8 =
+proc value*(sc: Scalar, _: typedesc[uint8]): uint8 =
+  if sc.isNil:
+    raise newException(ValueError, "Scalar is nil")
   if sc.kind != skUInt8:
     raise newException(ValueError, "Scalar is not a uint8, got: " & $sc.kind)
   sc.getUInt8()
 
-proc value*[T: uint16](sc: Scalar, _: typedesc[T]): uint16 =
+proc value*(sc: Scalar, _: typedesc[uint16]): uint16 =
+  if sc.isNil:
+    raise newException(ValueError, "Scalar is nil")
   if sc.kind != skUInt16:
     raise newException(ValueError, "Scalar is not a uint16, got: " & $sc.kind)
   sc.getUInt16()
 
-proc value*[T: uint32](sc: Scalar, _: typedesc[T]): uint32 =
+proc value*(sc: Scalar, _: typedesc[uint32]): uint32 =
+  if sc.isNil:
+    raise newException(ValueError, "Scalar is nil")
   if sc.kind != skUInt32:
     raise newException(ValueError, "Scalar is not a uint32, got: " & $sc.kind)
   sc.getUInt32()
 
-proc value*[T: uint64](sc: Scalar, _: typedesc[T]): uint64 =
+proc value*(sc: Scalar, _: typedesc[uint64]): uint64 =
+  if sc.isNil:
+    raise newException(ValueError, "Scalar is nil")
   if sc.kind != skUInt64:
     raise newException(ValueError, "Scalar is not a uint64, got: " & $sc.kind)
   sc.getUInt64()
 
-proc value*[T: float32](sc: Scalar, _: typedesc[T]): float32 =
+proc value*(sc: Scalar, _: typedesc[float32]): float32 =
+  if sc.isNil:
+    raise newException(ValueError, "Scalar is nil")
   if sc.kind != skFloat32:
     raise newException(ValueError, "Scalar is not a float32, got: " & $sc.kind)
   sc.getFloat32()
 
-proc value*[T: float64](sc: Scalar, _: typedesc[T]): float64 =
+proc value*(sc: Scalar, _: typedesc[float64]): float64 =
+  if sc.isNil:
+    raise newException(ValueError, "Scalar is nil")
   if sc.kind != skFloat64:
     raise newException(ValueError, "Scalar is not a float64, got: " & $sc.kind)
   sc.getFloat64()
 
-proc value*[T: int](sc: Scalar, _: typedesc[T]): int =
-  ## Extract int value with automatic dispatch to appropriate size.
-  ## Raises ValueError if scalar is not an integer type.
+proc value*(sc: Scalar, _: typedesc[string]): string =
+  if sc.isNil:
+    raise newException(ValueError, "Scalar is nil")
   case sc.kind
-  of skInt8: sc.getInt8().int
-  of skInt16: sc.getInt16().int
-  of skInt32: sc.getInt32().int
-  of skInt64: sc.getInt64().int
-  of skUInt8: sc.getUInt8().int
-  of skUInt16: sc.getUInt16().int
-  of skUInt32: sc.getUInt32().int
-  of skUInt64: sc.getUInt64().int
+  of skString, skBinary:
+    $sc
   else:
-    raise newException(ValueError, "Scalar is not an integer type, got: " & $sc.kind)
+    raise newException(ValueError, "Scalar is not a string/binary, got: " & $sc.kind)
+
+# ============================================================================
+# Scalar-to-Scalar Comparison Operators
+# ============================================================================
+
+proc `<`*(a, b: Scalar): bool =
+  ## Compare scalar < scalar. Only works for numeric scalars of compatible types.
+  case a.kind
+  of skInt8:
+    a.getInt8() < b.getInt8()
+  of skInt16:
+    a.getInt16() < b.getInt16()
+  of skInt32:
+    a.getInt32() < b.getInt32()
+  of skInt64:
+    a.getInt64() < b.getInt64()
+  of skUInt8:
+    a.getUInt8() < b.getUInt8()
+  of skUInt16:
+    a.getUInt16() < b.getUInt16()
+  of skUInt32:
+    a.getUInt32() < b.getUInt32()
+  of skUInt64:
+    a.getUInt64() < b.getUInt64()
+  of skFloat32:
+    a.getFloat32() < b.getFloat32()
+  of skFloat64:
+    a.getFloat64() < b.getFloat64()
+  of skString:
+    let left = $a
+    let right = $b
+    left < right
+  else:
+    raise
+      newException(ValueError, "Cannot compare scalar of kind " & $a.kind & " with <")
+
+proc `<=`*(a, b: Scalar): bool =
+  ## Compare scalar <= scalar. Only works for numeric scalars.
+  a < b or a == b
+
+proc `>`*(a, b: Scalar): bool =
+  ## Compare scalar > scalar. Only works for numeric scalars.
+  b < a
+
+proc `>=`*(a, b: Scalar): bool =
+  ## Compare scalar >= scalar. Only works for numeric scalars.
+  b < a or a == b
 
 # ============================================================================
 # Expression Constructors — Leaf Nodes
@@ -750,7 +802,7 @@ proc newFieldExpression*(name: string): Expression =
 # Expression Constructors — Call Nodes
 # ============================================================================
 
-proc newCallExpression*(function: string, args: varargs[Expression]): Expression =
+proc newCallExpression*(function: string, args: openArray[Expression]): Expression =
   ## Creates a call expression node.
   ##
   ## Common functions: "equal", "not_equal", "less", "less_equal",
@@ -761,7 +813,7 @@ proc newCallExpression*(function: string, args: varargs[Expression]): Expression
   ##   ```nim
   ##   let age = newFieldExpression("age")
   ##   let threshold = newLiteralExpression(21'i32)
-  ##   let isAdult = newCallExpression("greater_equal", age, threshold)
+  ##   let isAdult = newCallExpression("greater_equal", [age, threshold])
   ##   ```
   var argList = newGList[ptr GArrowExpression]()
   var childExprs: seq[Expression] = @[]
@@ -780,7 +832,7 @@ proc newCallExpression*(function: string, args: varargs[Expression]): Expression
   )
 
 proc newCallExpressionWithOptions*(
-    function: string, options: MatchSubstringOptions, args: varargs[Expression]
+    function: string, options: MatchSubstringOptions, args: openArray[Expression]
 ): Expression =
   ## Creates a call expression with MatchSubstringOptions.
   var argList = newGList[ptr GArrowExpression]()
@@ -804,114 +856,114 @@ proc newCallExpressionWithOptions*(
 # ============================================================================
 
 proc eq*[T: DatumCompatible](field: Expression, value: T): Expression =
-  newCallExpression("equal", field, newLiteralExpression(value))
+  newCallExpression("equal", [field, newLiteralExpression(value)])
 
 proc eq*(a, b: Expression): Expression =
-  newCallExpression("equal", a, b)
+  newCallExpression("equal", [a, b])
 
 proc neq*[T: DatumCompatible](field: Expression, value: T): Expression =
-  newCallExpression("not_equal", field, newLiteralExpression(value))
+  newCallExpression("not_equal", [field, newLiteralExpression(value)])
 
 proc neq*(a, b: Expression): Expression =
-  newCallExpression("not_equal", a, b)
+  newCallExpression("not_equal", [a, b])
 
 proc lt*[T: DatumCompatible](field: Expression, value: T): Expression =
-  newCallExpression("less", field, newLiteralExpression(value))
+  newCallExpression("less", [field, newLiteralExpression(value)])
 
 proc lt*(a, b: Expression): Expression =
-  newCallExpression("less", a, b)
+  newCallExpression("less", [a, b])
 
 proc le*[T: DatumCompatible](field: Expression, value: T): Expression =
-  newCallExpression("less_equal", field, newLiteralExpression(value))
+  newCallExpression("less_equal", [field, newLiteralExpression(value)])
 
 proc le*(a, b: Expression): Expression =
-  newCallExpression("less_equal", a, b)
+  newCallExpression("less_equal", [a, b])
 
 proc gt*[T: DatumCompatible](field: Expression, value: T): Expression =
-  newCallExpression("greater", field, newLiteralExpression(value))
+  newCallExpression("greater", [field, newLiteralExpression(value)])
 
 proc gt*(a, b: Expression): Expression =
-  newCallExpression("greater", a, b)
+  newCallExpression("greater", [a, b])
 
 proc ge*[T: DatumCompatible](field: Expression, value: T): Expression =
-  newCallExpression("greater_equal", field, newLiteralExpression(value))
+  newCallExpression("greater_equal", [field, newLiteralExpression(value)])
 
 proc ge*(a, b: Expression): Expression =
-  newCallExpression("greater_equal", a, b)
+  newCallExpression("greater_equal", [a, b])
 
 # ============================================================================
 # Convenience — Logical
 # ============================================================================
 
 proc andExpr*(a, b: Expression): Expression =
-  newCallExpression("and", a, b)
+  newCallExpression("and", [a, b])
 
 proc orExpr*(a, b: Expression): Expression =
-  newCallExpression("or", a, b)
+  newCallExpression("or", [a, b])
 
 proc notExpr*(expr: Expression): Expression =
-  newCallExpression("invert", expr)
+  newCallExpression("invert", [expr])
 
 # ============================================================================
 # Convenience — Arithmetic
 # ============================================================================
 
 proc add*(a, b: Expression): Expression =
-  newCallExpression("add", a, b)
+  newCallExpression("add", [a, b])
 
 proc sub*(a, b: Expression): Expression =
-  newCallExpression("subtract", a, b)
+  newCallExpression("subtract", [a, b])
 
 proc mul*(a, b: Expression): Expression =
-  newCallExpression("multiply", a, b)
+  newCallExpression("multiply", [a, b])
 
 proc divide*(a, b: Expression): Expression =
-  newCallExpression("divide", a, b)
+  newCallExpression("divide", [a, b])
 
 # ============================================================================
 # Convenience — Null checks
 # ============================================================================
 
 proc isNull*(field: Expression): Expression =
-  newCallExpression("is_null", field)
+  newCallExpression("is_null", [field])
 
 proc isValid*(field: Expression): Expression =
-  newCallExpression("is_valid", field)
+  newCallExpression("is_valid", [field])
 
 # ============================================================================
 # String Operations
 # ============================================================================
 
 proc strLength*(expr: Expression): Expression =
-  newCallExpression("utf8_length", expr)
+  newCallExpression("utf8_length", [expr])
 
 proc strUpper*(expr: Expression): Expression =
-  newCallExpression("utf8_upper", expr)
+  newCallExpression("utf8_upper", [expr])
 
 proc strLower*(expr: Expression): Expression =
-  newCallExpression("utf8_lower", expr)
+  newCallExpression("utf8_lower", [expr])
 
 proc strContains*(
     expr: Expression, substr: string, ignoreCase: bool = false
 ): Expression =
   let options = newMatchSubstringOptions(substr, ignoreCase)
-  newCallExpressionWithOptions("match_substring", options, expr)
+  newCallExpressionWithOptions("match_substring", options, [expr])
 
 proc startsWith*(
     expr: Expression, prefix: string, ignoreCase: bool = false
 ): Expression =
   let options = newMatchSubstringOptions(prefix, ignoreCase)
-  newCallExpressionWithOptions("starts_with", options, expr)
+  newCallExpressionWithOptions("starts_with", options, [expr])
 
 proc endsWith*(expr: Expression, suffix: string, ignoreCase: bool = false): Expression =
   let options = newMatchSubstringOptions(suffix, ignoreCase)
-  newCallExpressionWithOptions("ends_with", options, expr)
+  newCallExpressionWithOptions("ends_with", options, [expr])
 
 proc matchSubstringRegex*(
     expr: Expression, pattern: string, ignoreCase: bool = false
 ): Expression =
   let options = newMatchSubstringOptions(pattern, ignoreCase)
-  newCallExpressionWithOptions("match_substring_regex", options, expr)
+  newCallExpressionWithOptions("match_substring_regex", options, [expr])
 
 # ============================================================================
 # DSL Entry Point
@@ -1159,17 +1211,17 @@ proc parseFilter*(cl: FilterClause): Expression =
   let valueExpr = parseValue(cl.value)
   case cl.op
   of "==":
-    newCallExpression("equal", fieldExpr, valueExpr)
+    newCallExpression("equal", [fieldExpr, valueExpr])
   of "!=":
-    newCallExpression("not_equal", fieldExpr, valueExpr)
+    newCallExpression("not_equal", [fieldExpr, valueExpr])
   of "<":
-    newCallExpression("less", fieldExpr, valueExpr)
+    newCallExpression("less", [fieldExpr, valueExpr])
   of "<=":
-    newCallExpression("less_equal", fieldExpr, valueExpr)
+    newCallExpression("less_equal", [fieldExpr, valueExpr])
   of ">":
-    newCallExpression("greater", fieldExpr, valueExpr)
+    newCallExpression("greater", [fieldExpr, valueExpr])
   of ">=":
-    newCallExpression("greater_equal", fieldExpr, valueExpr)
+    newCallExpression("greater_equal", [fieldExpr, valueExpr])
   of "contains":
     strContains(fieldExpr, cl.value)
   else:
@@ -1180,7 +1232,7 @@ proc parse*(filters: seq[FilterClause]): Expression =
     raise newException(ValueError, "Empty filter sequence")
   result = parseFilter(filters[0])
   for i in 1 ..< filters.len:
-    result = newCallExpression("and", result, parseFilter(filters[i]))
+    result = newCallExpression("and", [result, parseFilter(filters[i])])
 
 proc extractGuaranteeBounds*(
     guarantee: Expression, fieldName: string
@@ -1252,6 +1304,21 @@ proc isSatisfiable*(expr: Expression): bool =
   ## This is the final check that determines whether a row group is read.
   not isLiteralFalse(expr)
 
+proc areScalarsComparable(a, b: Scalar): bool =
+  ## Check if two scalars can be compared with ordering operators.
+  ## Returns true if both are numeric or both are strings.
+  template isNumeric(k: ScalarKind): bool =
+    k in {
+      skInt8, skInt16, skInt32, skInt64, skUInt8, skUInt16, skUInt32, skUInt64,
+      skFloat32, skFloat64,
+    }
+
+  if isNumeric(a.kind) and isNumeric(b.kind):
+    return true
+  if a.kind == skString and b.kind == skString:
+    return true
+  return false
+
 proc evaluateComparisonAgainstBounds*(
     op: string,
     bounds: tuple[minExpr: Expression, maxExpr: Expression],
@@ -1270,10 +1337,6 @@ proc evaluateComparisonAgainstBounds*(
   ## | field <= lit       | max <= lit            | min > lit              |
   ## | field > lit        | min > lit             | max <= lit             |
   ## | field >= lit       | min >= lit            | max < lit              |
-  ##
-  ## We compare using the string representations of the literal expressions
-  ## as a proxy. For a production implementation, you would compare the
-  ## underlying scalar values directly.
 
   let minDatum = bounds.minExpr.datum
   let maxDatum = bounds.maxExpr.datum
@@ -1287,91 +1350,52 @@ proc evaluateComparisonAgainstBounds*(
   let maxSc = maxDatum.toScalar()
   let litSc = litDatum.toScalar()
 
-  # Helper to compare a scalar with a literal value based on scalar type
-  template compareScalar(sc: Scalar, litVal: typed): bool =
-    case sc.kind
-    of skInt8: sc.getInt8() < litVal
-    of skInt16: sc.getInt16() < litVal
-    of skInt32: sc.getInt32() < litVal
-    of skInt64: sc.getInt64() < litVal
-    of skUInt8: sc.getUInt8() < litVal
-    of skUInt16: sc.getUInt16() < litVal
-    of skUInt32: sc.getUInt32() < litVal
-    of skUInt64: sc.getUInt64() < litVal
-    of skFloat32: sc.getFloat32() < litVal
-    of skFloat64: sc.getFloat64() < litVal
-    else: false
-
-  template compareScalars(a, b: Scalar): int =
-    # Returns -1 if a < b, 0 if a == b, 1 if a > b
-    # For simplicity, compare as float64
-    let aVal = case a.kind
-      of skInt8: a.getInt8().float64
-      of skInt16: a.getInt16().float64
-      of skInt32: a.getInt32().float64
-      of skInt64: a.getInt64().float64
-      of skUInt8: a.getUInt8().float64
-      of skUInt16: a.getUInt16().float64
-      of skUInt32: a.getUInt32().float64
-      of skUInt64: a.getUInt64().float64
-      of skFloat32: a.getFloat32().float64
-      of skFloat64: a.getFloat64()
-      else: return brIndeterminate
-    let bVal = case b.kind
-      of skInt8: b.getInt8().float64
-      of skInt16: b.getInt16().float64
-      of skInt32: b.getInt32().float64
-      of skInt64: b.getInt64().float64
-      of skUInt8: b.getUInt8().float64
-      of skUInt16: b.getUInt16().float64
-      of skUInt32: b.getUInt32().float64
-      of skUInt64: b.getUInt64().float64
-      of skFloat32: b.getFloat32().float64
-      of skFloat64: b.getFloat64()
-      else: return brIndeterminate
-    if aVal < bVal: -1
-    elif aVal > bVal: 1
-    else: 0
+  # Check if all scalars are comparable (all numeric or all string)
+  if not (
+    areScalarsComparable(minSc, maxSc) and areScalarsComparable(minSc, litSc) and
+    areScalarsComparable(maxSc, litSc)
+  ):
+    return brIndeterminate
 
   case op
   of "equal":
     # Always false if lit < min or lit > max
-    if compareScalars(litSc, minSc) < 0 or compareScalars(litSc, maxSc) > 0:
+    if litSc < minSc or litSc > maxSc:
       return brAlwaysFalse
     # Always true if min == max == lit
-    if compareScalars(minSc, maxSc) == 0 and compareScalars(minSc, litSc) == 0:
+    if minSc == maxSc and minSc == litSc:
       return brAlwaysTrue
     return brIndeterminate
   of "not_equal":
-    if compareScalars(litSc, minSc) < 0 or compareScalars(litSc, maxSc) > 0:
+    if litSc < minSc or litSc > maxSc:
       return brAlwaysTrue
-    if compareScalars(minSc, maxSc) == 0 and compareScalars(minSc, litSc) == 0:
+    if minSc == maxSc and minSc == litSc:
       return brAlwaysFalse
     return brIndeterminate
   of "less":
     # field < lit → always true if max < lit
-    if compareScalars(maxSc, litSc) < 0:
+    if maxSc < litSc:
       return brAlwaysTrue
     # always false if min >= lit
-    if compareScalars(minSc, litSc) >= 0:
+    if minSc >= litSc:
       return brAlwaysFalse
     return brIndeterminate
   of "less_equal":
-    if compareScalars(maxSc, litSc) <= 0:
+    if maxSc <= litSc:
       return brAlwaysTrue
-    if compareScalars(minSc, litSc) > 0:
+    if minSc > litSc:
       return brAlwaysFalse
     return brIndeterminate
   of "greater":
-    if compareScalars(minSc, litSc) > 0:
+    if minSc > litSc:
       return brAlwaysTrue
-    if compareScalars(maxSc, litSc) <= 0:
+    if maxSc <= litSc:
       return brAlwaysFalse
     return brIndeterminate
   of "greater_equal":
-    if compareScalars(minSc, litSc) >= 0:
+    if minSc >= litSc:
       return brAlwaysTrue
-    if compareScalars(maxSc, litSc) < 0:
+    if maxSc < litSc:
       return brAlwaysFalse
     return brIndeterminate
   else:
@@ -1459,8 +1483,8 @@ proc simplifyWithGuarantee*(predicate: Expression, guarantee: Expression): Expre
       if bounds.isNone:
         return predicate # No statistics for this field
 
-      let result = evaluateComparisonAgainstBounds(op, bounds.get, litExpr)
-      case result
+      let res = evaluateComparisonAgainstBounds(op, bounds.get, litExpr)
+      case res
       of brAlwaysTrue:
         return newLiteralExpression(true)
       of brAlwaysFalse:
@@ -1491,6 +1515,7 @@ proc statisticsAsExpression*(fieldName: string, stats: Statistics): Option[Expre
   ##   min ≤ field ≤ max
   ##
   ## Returns none if statistics are not available or have no min/max.
+
 
   if not stats.hasMinMax:
     return none(Expression)
