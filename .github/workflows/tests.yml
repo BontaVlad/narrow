@@ -11,19 +11,35 @@ jobs:
   tests:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         version:
           - binary:stable
         os:
           - ubuntu-24.04
+          - macos-latest
+        include:
+          - os: ubuntu-24.04
+            glib_prefix: /opt/glib
+            pkg_config_path: /opt/glib/lib/x86_64-linux-gnu/pkgconfig:/opt/glib/lib/pkgconfig
+            ld_library_path: /opt/glib/lib/x86_64-linux-gnu:/opt/glib/lib
+          - os: macos-latest
+            glib_prefix: /usr/local
+            pkg_config_path: /usr/local/lib/pkgconfig:/opt/homebrew/lib/pkgconfig:/usr/local/opt/libffi/lib/pkgconfig
     env:
-      GLIB_PREFIX: /opt/glib
-      PKG_CONFIG_PATH: /opt/glib/lib/x86_64-linux-gnu/pkgconfig:/opt/glib/lib/pkgconfig
-      LD_LIBRARY_PATH: /opt/glib/lib/x86_64-linux-gnu:/opt/glib/lib
+      GLIB_PREFIX: ${{ matrix.glib_prefix }}
+      PKG_CONFIG_PATH: ${{ matrix.pkg_config_path }}
+      LD_LIBRARY_PATH: ${{ matrix.ld_library_path || '' }}
     steps:
     - uses: actions/checkout@v4
 
     - uses: extractions/setup-just@v2
+
+    - name: Install dependencies (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew update
+        brew install apache-arrow-glib pkg-config ninja
 
     - name: Cache Nim
       uses: actions/cache@v3
@@ -43,12 +59,14 @@ jobs:
     - uses: extractions/setup-just@v2
 
     - name: Add LLVM repository
+      if: runner.os == 'Linux'
       run: |
         wget https://apt.llvm.org/llvm.sh
         chmod +x llvm.sh
         sudo ./llvm.sh 22
 
     - name: Install Clang 22
+      if: runner.os == 'Linux'
       run: |
         sudo apt-get install -y clang-22 libclang-22-dev
         sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-22 100
@@ -56,6 +74,7 @@ jobs:
         sudo update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-22 100
 
     - name: Cache GLib 2.86
+      if: runner.os == 'Linux'
       id: cache-glib
       uses: actions/cache@v3
       with:
@@ -63,7 +82,7 @@ jobs:
         key: ${{ runner.os }}-glib-2.86.4
 
     - name: Build GLib 2.86.4
-      if: steps.cache-glib.outputs.cache-hit != 'true'
+      if: runner.os == 'Linux' && steps.cache-glib.outputs.cache-hit != 'true'
       env:
         GLIB_VERSION: "2.86.4"
         PCRE2_VERSION: "10.44"
@@ -104,12 +123,14 @@ jobs:
         sudo ninja -C build install
 
     - name: Install Apache Arrow repository
+      if: runner.os == 'Linux'
       run: |
         wget https://apache.jfrog.io/artifactory/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
         sudo apt-get install -y ./apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
         sudo apt-get update
 
     - name: Cache apt packages
+      if: runner.os == 'Linux'
       uses: awalsh128/cache-apt-pkgs-action@latest
       with:
         packages: libclang-dev libarrow-dev libarrow-glib-dev libarrow-dataset-glib-dev libparquet-glib-dev libgirepository1.0-dev pkg-config
@@ -137,6 +158,10 @@ jobs:
     - name: Install Nim dependencies
       run: nimble install -y
 
-    - name: Test
+    - name: Test (Linux with sanitizers)
+      if: runner.os == 'Linux'
       run: LSAN_OPTIONS="suppressions=lsan.supp:print_suppressions=0" nimble test -d:useSanitizers
-      # run: LSAN_OPTIONS=suppressions=lsan.supp just test-debug-par
+
+    - name: Test (macOS)
+      if: runner.os == 'macOS'
+      run: nimble test

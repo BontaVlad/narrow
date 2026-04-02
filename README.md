@@ -41,9 +41,14 @@ sudo apt install libarrow-glib-dev libparquet-glib-dev libarrow-dataset-glib-dev
 
 **macOS:**
 ```bash
-#brew install apache-arrow-glib
-TODO
+brew install apache-arrow-glib
 ```
+
+The `apache-arrow-glib` Homebrew formula includes all required components:
+- `arrow-glib` (Apache Arrow GLib)
+- `parquet-glib` (Apache Parquet GLib)
+- `arrow-dataset-glib` (Apache Arrow Dataset GLib)
+- GLib and GObject (dependencies of apache-arrow-glib)
 
 ## Installation
 
