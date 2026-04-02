@@ -200,6 +200,11 @@ jobs:
       if: runner.os != 'Windows'
       run: nimble install -y
 
+    - name: Add Nim to MSYS2 PATH (Windows)
+      if: runner.os == 'Windows'
+      shell: msys2 {0}
+      run: echo "export PATH=\"$(cygpath -u "$GITHUB_WORKSPACE/nimdir/bin"):$HOME/.nimble/bin:$PATH\"" >> ~/.bash_profile
+
     - name: Install Nim dependencies (Windows)
       if: runner.os == 'Windows'
       shell: msys2 {0}
