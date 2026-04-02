@@ -1304,7 +1304,7 @@ type
 
   GFormatSizeFlags* = enum_GFormatSizeFlags
     ## Generated based on /usr/include/glib-2.0/glib/gutils.h:302:3
-  guint64* = culong ## Generated based on /usr/lib/glib-2.0/include/glibconfig.h:67:23
+  guint64* = culonglong ## Generated based on /usr/lib/glib-2.0/include/glibconfig.h:67:23
   goffset* = gint64 ## Generated based on /usr/lib/glib-2.0/include/glibconfig.h:93:16
   GVoidFunc* = proc(): void {.cdecl.}
     ## Generated based on /usr/include/glib-2.0/glib/gutils.h:324:16
@@ -1357,7 +1357,7 @@ type
 
   GOnceStatus* = enum_GOnceStatus
     ## Generated based on /usr/include/glib-2.0/glib/gthread.h:102:3
-  gint64* = clong ## Generated based on /usr/lib/glib-2.0/include/glibconfig.h:66:21
+  gint64* = clonglong ## Generated based on /usr/lib/glib-2.0/include/glibconfig.h:66:21
   GAsyncQueue* = struct_GAsyncQueue
     ## Generated based on /usr/include/glib-2.0/glib/gasyncqueue.h:38:29
   GTimeZone* = struct_GTimeZone
