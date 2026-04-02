@@ -10,6 +10,7 @@ env:
 jobs:
   tests:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -41,9 +42,7 @@ jobs:
 
     - name: Install dependencies (macOS)
       if: runner.os == 'macOS'
-      run: |
-        brew update
-        brew install apache-arrow-glib pkg-config ninja
+      run: brew install apache-arrow-glib pkg-config ninja
 
     - name: Install dependencies (Windows)
       if: runner.os == 'Windows'
@@ -58,6 +57,7 @@ jobs:
           mingw-w64-x86_64-glib2
           mingw-w64-x86_64-arrow
           mingw-w64-x86_64-git
+          mingw-w64-x86_64-nim
 
     - name: Add LLVM repository
       if: runner.os == 'Linux'
@@ -132,7 +132,7 @@ jobs:
 
     - name: Cache apt packages
       if: runner.os == 'Linux'
-      uses: awalsh128/cache-apt-pkgs-action@latest
+      uses: awalsh128/cache-apt-pkgs-action@v1
       with:
         packages: libclang-dev libarrow-dev libarrow-glib-dev libarrow-dataset-glib-dev libparquet-glib-dev libgirepository1.0-dev pkg-config
         version: 1.0
@@ -151,6 +151,7 @@ jobs:
           ${{ runner.os }}-nim-
 
     - uses: iffy/install-nim@v5
+      if: runner.os != 'Windows'
       with:
         version: ${{ matrix.version }}
       env:
@@ -192,6 +193,8 @@ jobs:
         pkg-config --modversion glib-2.0
         echo "=== GCC ==="
         gcc --version
+        echo "=== Nim ==="
+        nim --version
         echo "=== Include paths ==="
         pkg-config --cflags-only-I arrow-glib parquet-glib gobject-2.0 glib-2.0
         echo "=== Library paths ==="
@@ -204,9 +207,7 @@ jobs:
     - name: Install Nim dependencies (Windows)
       if: runner.os == 'Windows'
       shell: msys2 {0}
-      run: |
-        export PATH="$(cygpath -u "$GITHUB_WORKSPACE/nimdir/bin"):$HOME/.nimble/bin:$PATH"
-        nimble install -y
+      run: nimble install -y
 
     - name: Test (Linux with sanitizers)
       if: runner.os == 'Linux'
@@ -219,6 +220,4 @@ jobs:
     - name: Test (Windows)
       if: runner.os == 'Windows'
       shell: msys2 {0}
-      run: |
-        export PATH="$(cygpath -u "$GITHUB_WORKSPACE/nimdir/bin"):$HOME/.nimble/bin:$PATH"
-        nimble test
+      run: nimble test
