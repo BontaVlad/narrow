@@ -18,6 +18,7 @@ jobs:
         os:
           - ubuntu-24.04
           - macos-latest
+          - windows-latest
         include:
           - os: ubuntu-24.04
             glib_prefix: /opt/glib
@@ -26,6 +27,9 @@ jobs:
           - os: macos-latest
             glib_prefix: /usr/local
             pkg_config_path: /usr/local/lib/pkgconfig:/opt/homebrew/lib/pkgconfig:/usr/local/opt/libffi/lib/pkgconfig
+          - os: windows-latest
+            glib_prefix: C:/vcpkg/installed/x64-windows
+            pkg_config_path: C:/vcpkg/installed/x64-windows/lib/pkgconfig
     env:
       GLIB_PREFIX: ${{ matrix.glib_prefix }}
       PKG_CONFIG_PATH: ${{ matrix.pkg_config_path }}
@@ -41,6 +45,11 @@ jobs:
         brew update
         brew install apache-arrow-glib pkg-config ninja
 
+    - name: Install dependencies (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        vcpkg install arrow:x64-windows parquet:x64-windows glib:x64-windows pkgconf:x64-windows
+
     - name: Cache Nim
       uses: actions/cache@v3
       with:
@@ -55,6 +64,8 @@ jobs:
     - uses: iffy/install-nim@v5
       with:
         version: ${{ matrix.version }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - uses: extractions/setup-just@v2
 
@@ -137,6 +148,7 @@ jobs:
         version: 1.0
 
     - name: Verify installations
+      shell: bash
       run: |
         echo "=== Arrow Libraries ==="
         pkg-config --modversion arrow || echo "arrow not found"
@@ -149,7 +161,7 @@ jobs:
         echo "=== GLib ==="
         pkg-config --modversion glib-2.0
         echo "=== Clang ==="
-        clang --version
+        clang --version || echo "clang not found"
         echo "=== Include paths ==="
         pkg-config --cflags-only-I arrow-glib arrow-dataset-glib parquet-glib gobject-2.0 glib-2.0
         echo "=== Library paths ==="
@@ -164,4 +176,8 @@ jobs:
 
     - name: Test (macOS)
       if: runner.os == 'macOS'
+      run: nimble test
+
+    - name: Test (Windows)
+      if: runner.os == 'Windows'
       run: nimble test

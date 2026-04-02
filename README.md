@@ -50,6 +50,17 @@ The `apache-arrow-glib` Homebrew formula includes all required components:
 - `arrow-dataset-glib` (Apache Arrow Dataset GLib)
 - GLib and GObject (dependencies of apache-arrow-glib)
 
+**Windows:**
+```powershell
+# Using vcpkg
+vcpkg install arrow parquet glib
+```
+
+Make sure vcpkg's pkgconfig is available in your environment:
+```powershell
+$env:PKG_CONFIG_PATH = "C:\vcpkg\installed\x64-windows\lib\pkgconfig"
+```
+
 ## Installation
 
 Add to your `nimble` file:
