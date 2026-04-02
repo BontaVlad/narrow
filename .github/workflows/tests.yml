@@ -28,8 +28,8 @@ jobs:
             glib_prefix: /usr/local
             pkg_config_path: /usr/local/lib/pkgconfig:/opt/homebrew/lib/pkgconfig:/usr/local/opt/libffi/lib/pkgconfig
           - os: windows-latest
-            glib_prefix: C:/vcpkg/installed/x64-windows
-            pkg_config_path: C:/vcpkg/installed/x64-windows/lib/pkgconfig
+            glib_prefix: C:/msys64/mingw64
+            pkg_config_path: C:/msys64/mingw64/lib/pkgconfig
     env:
       GLIB_PREFIX: ${{ matrix.glib_prefix }}
       PKG_CONFIG_PATH: ${{ matrix.pkg_config_path }}
@@ -47,8 +47,16 @@ jobs:
 
     - name: Install dependencies (Windows)
       if: runner.os == 'Windows'
-      run: |
-        vcpkg install arrow[core,parquet,glib]:x64-windows glib:x64-windows pkgconf:x64-windows
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-pkg-config
+          mingw-w64-x86_64-glib2
+          mingw-w64-x86_64-arrow
+          mingw-w64-x86_64-parquet
 
     - name: Cache Nim
       uses: actions/cache@v3
@@ -147,7 +155,8 @@ jobs:
         packages: libclang-dev libarrow-dev libarrow-glib-dev libarrow-dataset-glib-dev libparquet-glib-dev libgirepository1.0-dev pkg-config
         version: 1.0
 
-    - name: Verify installations
+    - name: Verify installations (Unix)
+      if: runner.os != 'Windows'
       shell: bash
       run: |
         echo "=== Arrow Libraries ==="
@@ -167,6 +176,26 @@ jobs:
         echo "=== Library paths ==="
         pkg-config --libs arrow-glib arrow-dataset-glib parquet-glib
 
+    - name: Verify installations (Windows)
+      if: runner.os == 'Windows'
+      shell: msys2 {0}
+      run: |
+        echo "=== Arrow Libraries ==="
+        pkg-config --modversion arrow || echo "arrow not found"
+        pkg-config --modversion arrow-glib || echo "arrow-glib not found"
+        echo "=== Parquet ==="
+        pkg-config --modversion parquet-glib || echo "parquet-glib not found"
+        echo "=== GObject ==="
+        pkg-config --modversion gobject-2.0
+        echo "=== GLib ==="
+        pkg-config --modversion glib-2.0
+        echo "=== GCC ==="
+        gcc --version
+        echo "=== Include paths ==="
+        pkg-config --cflags-only-I arrow-glib parquet-glib gobject-2.0 glib-2.0
+        echo "=== Library paths ==="
+        pkg-config --libs arrow-glib parquet-glib
+
     - name: Install Nim dependencies
       run: nimble install -y
 
@@ -180,4 +209,5 @@ jobs:
 
     - name: Test (Windows)
       if: runner.os == 'Windows'
+      shell: msys2 {0}
       run: nimble test

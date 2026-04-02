@@ -50,15 +50,17 @@ The `apache-arrow-glib` Homebrew formula includes all required components:
 - `arrow-dataset-glib` (Apache Arrow Dataset GLib)
 - GLib and GObject (dependencies of apache-arrow-glib)
 
-**Windows:**
-```powershell
-# Using vcpkg
-vcpkg install arrow parquet glib
+**Windows (MSYS2):**
+```bash
+# Install MSYS2 from https://www.msys2.org/
+# Then in the MSYS2 MINGW64 terminal:
+pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-pkg-config mingw-w64-x86_64-glib2 mingw-w64-x86_64-arrow mingw-w64-x86_64-parquet
 ```
 
-Make sure vcpkg's pkgconfig is available in your environment:
+Make sure the MinGW64 bin directory is in your PATH:
 ```powershell
-$env:PKG_CONFIG_PATH = "C:\vcpkg\installed\x64-windows\lib\pkgconfig"
+$env:PATH = "C:\msys64\mingw64\bin;$env:PATH"
+$env:PKG_CONFIG_PATH = "C:\msys64\mingw64\lib\pkgconfig"
 ```
 
 ## Installation
