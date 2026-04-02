@@ -210,7 +210,7 @@ LSAN_OPTIONS="suppressions=lsan.supp:print_suppressions=0" nimble test -d:useSan
 
 ### Generating Bindings
 
-The Arrow C API bindings are auto-generated using Futhark:
+The Arrow C API bindings are auto-generated using Futhark. This is only needed for development (updating bindings when Arrow C API changes), not for using the library:
 
 ```bash
 nimble generate

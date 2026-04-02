@@ -9,7 +9,6 @@ installExt    = @["nim"]
 bin           = @["narrow"]
 
 requires "nim >= 2.2.6"
-requires "futhark"
 requires "unittest2 >= 0.2.3"
 
 # task test, "Run testament":
@@ -107,6 +106,8 @@ requires "unittest2 >= 0.2.3"
 #       runTest(file)
 
 task generate, "Generate bindings":
+  # Futhark is required only for binding generation, not for normal use
+  exec "nimble install -y futhark"
   exec "nim c --maxLoopIterationsVM=10000000000 -d:useFuthark -d:nodeclguards:true -d:exportall:true -r src/narrow.nim"
 
 task format, "Recursively format all Nim files in a specific directory":

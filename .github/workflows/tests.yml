@@ -48,7 +48,7 @@ jobs:
     - name: Install dependencies (Windows)
       if: runner.os == 'Windows'
       run: |
-        vcpkg install arrow:x64-windows parquet:x64-windows glib:x64-windows pkgconf:x64-windows
+        vcpkg install arrow[core,parquet,glib]:x64-windows glib:x64-windows pkgconf:x64-windows
 
     - name: Cache Nim
       uses: actions/cache@v3
