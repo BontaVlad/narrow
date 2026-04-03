@@ -209,7 +209,7 @@ jobs:
     - name: Install Nim dependencies (Windows)
       if: runner.os == 'Windows'
       shell: msys2 {0}
-      run: nimble install -y --verbose
+      run: nimble install -y --nim:system --verbose
 
     - name: Test (Linux with sanitizers)
       if: runner.os == 'Linux'
