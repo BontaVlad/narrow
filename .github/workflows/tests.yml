@@ -57,6 +57,7 @@ jobs:
           mingw-w64-x86_64-glib2
           mingw-w64-x86_64-arrow
           mingw-w64-x86_64-git
+          mingw-w64-x86_64-nim
           mingw-w64-x86_64-nimble
 
     - name: Add LLVM repository
