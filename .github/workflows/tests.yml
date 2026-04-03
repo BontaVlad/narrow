@@ -35,6 +35,7 @@ jobs:
       GLIB_PREFIX: ${{ matrix.glib_prefix }}
       PKG_CONFIG_PATH: ${{ matrix.pkg_config_path }}
       LD_LIBRARY_PATH: ${{ matrix.ld_library_path || '' }}
+      NIMBLE_USE_SYSTEM_NIM: "1"  # prevents nimble from downloading nim
     steps:
     - uses: actions/checkout@v4
 
@@ -203,12 +204,12 @@ jobs:
 
     - name: Install Nim dependencies (Unix)
       if: runner.os != 'Windows'
-      run: nimble install -y
+      run: nimble install -y 
 
     - name: Install Nim dependencies (Windows)
       if: runner.os == 'Windows'
       shell: msys2 {0}
-      run: nimble install -y
+      run: nimble install -y --nim:nim
 
     - name: Test (Linux with sanitizers)
       if: runner.os == 'Linux'
@@ -221,4 +222,4 @@ jobs:
     - name: Test (Windows)
       if: runner.os == 'Windows'
       shell: msys2 {0}
-      run: nimble test
+      run: nimble test --nim:nim
