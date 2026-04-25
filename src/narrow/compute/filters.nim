@@ -1,38 +1,22 @@
 import std/[options, strformat]
-import ../core/[ffi, error]
+import ../core/[ffi, error, utils]
 import ../types/gtypes
 import ../column/primitive
 import ../compute/expressions
 import ../tabular/table
 
-type
-  FilterOptions* = object
-    handle*: ptr GArrowFilterOptions
+arcGObject:
+  type
+    FilterOptions* = object
+      handle*: ptr GArrowFilterOptions
 
-  BooleanArray* = object
-    handle: ptr GArrowBooleanArray
+    BooleanArray* = object
+      handle*: ptr GArrowBooleanArray
 
-  FilterNullSelectionBehavior* = enum
-    Drop = GARROW_FILTER_NULL_SELECTION_DROP.int
-    EmitNull = GARROW_FILTER_NULL_SELECTION_EMIT_NULL.int
-
-# FilterOptions ARC hooks
-proc `=destroy`*(options: FilterOptions) =
-  if options.handle != nil:
-    g_object_unref(options.handle)
-
-proc `=sink`*(dest: var FilterOptions, src: FilterOptions) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-
-proc `=copy`*(dest: var FilterOptions, src: FilterOptions) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
+  type
+    FilterNullSelectionBehavior* = enum
+      Drop = GARROW_FILTER_NULL_SELECTION_DROP.int
+      EmitNull = GARROW_FILTER_NULL_SELECTION_EMIT_NULL.int
 
 proc newFilterOptions*(): FilterOptions =
   result.handle = garrow_filter_options_new()
@@ -48,27 +32,6 @@ proc `nullSelectionBehavior=`*(
     options: FilterOptions, behavior: FilterNullSelectionBehavior
 ) {.inline.} =
   g_object_set(options.handle, "null-selection-behavior", behavior.cint, nil)
-
-# BooleanArray ARC hooks
-proc `=destroy`*(arr: BooleanArray) =
-  if not isNil(arr.handle):
-    g_object_unref(arr.handle)
-
-proc `=sink`*(dest: var BooleanArray, src: BooleanArray) =
-  if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-
-proc `=copy`*(dest: var BooleanArray, src: BooleanArray) =
-  if dest.handle != src.handle:
-    if not isNil(dest.handle):
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if not isNil(src.handle):
-      discard g_object_ref(dest.handle)
-
-proc toPtr*(arr: BooleanArray): ptr GArrowBooleanArray {.inline.} =
-  arr.handle
 
 # Constructor for BooleanArray from Array[bool]
 proc newBooleanArray*(arr: Array[bool]): BooleanArray =
@@ -104,24 +67,24 @@ proc newBooleanArray*(values: sink seq[Option[bool]]): BooleanArray =
   let arr = builder.finish()
   result.handle = cast[ptr GArrowBooleanArray](g_object_ref(arr.toPtr))
 
-proc len*(arr: BooleanArray): int {.inline.} =
+func len*(arr: BooleanArray): int {.inline.} =
   if not isNil(arr.handle):
     result = garrow_array_get_length(cast[ptr GArrowArray](arr.handle))
   else:
     result = 0
 
-proc `[]`*(arr: BooleanArray, i: int): bool =
+func `[]`*(arr: BooleanArray, i: int): bool {.inline.} =
   if i < 0 or i >= arr.len:
     raise newException(IndexDefect, fmt"index {i} not in 0 .. {arr.len}")
   let val = garrow_boolean_array_get_value(arr.handle, i)
   return val != 0
 
-proc isNull*(arr: BooleanArray, i: int): bool =
+func isNull*(arr: BooleanArray, i: int): bool {.inline.} =
   if i < 0 or i >= arr.len:
     raise newException(IndexDefect, fmt"index {i} not in 0 .. {arr.len}")
   return garrow_array_is_null(cast[ptr GArrowArray](arr.handle), i) != 0
 
-proc isValid*(arr: BooleanArray, i: int): bool =
+func isValid*(arr: BooleanArray, i: int): bool {.inline.} =
   if i < 0 or i >= arr.len:
     raise newException(IndexDefect, fmt"index {i} not in 0 .. {arr.len}")
   return garrow_array_is_valid(cast[ptr GArrowArray](arr.handle), i) != 0
@@ -130,12 +93,12 @@ iterator items*(arr: BooleanArray): bool =
   for i in 0 ..< arr.len:
     yield arr[i]
 
-proc toSeq*(arr: BooleanArray): seq[bool] =
+func toSeq*(arr: BooleanArray): seq[bool] {.inline.} =
   result = newSeq[bool](arr.len)
   for i in 0 ..< arr.len:
     result[i] = arr[i]
 
-proc `@`*(arr: BooleanArray): seq[bool] =
+func `@`*(arr: BooleanArray): seq[bool] {.inline.} =
   arr.toSeq
 
 proc `$`*(arr: BooleanArray): string =

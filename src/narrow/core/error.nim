@@ -21,7 +21,7 @@ converter toBool*(wrapper: GErrorWrapper): bool =
   ## Check if an error occurred
   not isNil(wrapper.error)
 
-proc `$`*(wrapper: GErrorWrapper): string =
+func `$`*(wrapper: GErrorWrapper): string =
   if wrapper:
     $wrapper.error[].message
   else:

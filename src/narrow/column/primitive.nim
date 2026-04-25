@@ -13,10 +13,10 @@ type
   Array*[T: ArrowValue] = object
     handle: ptr GArrowArray
 
-proc toPtr*[T](b: ArrayBuilder[T]): ptr GArrowArrayBuilder {.inline.} =
+func toPtr*[T](b: ArrayBuilder[T]): ptr GArrowArrayBuilder {.inline.} =
   b.handle
 
-proc toPtr*[T](a: Array[T]): ptr GArrowArray {.inline.} =
+func toPtr*[T](a: Array[T]): ptr GArrowArray {.inline.} =
   a.handle
 
 proc `=destroy`*[T](builder: ArrayBuilder[T]) =

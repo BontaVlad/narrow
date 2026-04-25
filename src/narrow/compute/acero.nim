@@ -1,5 +1,5 @@
 import std/cpuinfo
-import ../core/[ffi, error]
+import ../core/[ffi, error, utils]
 import ../column/metadata
 import ../tabular/[table, batch]
 import ../compute/expressions
@@ -8,195 +8,30 @@ import ../compute/expressions
 # Type Definitions
 # ============================================================================
 
-type
-  ExecuteContext* = object
-    handle: ptr GArrowExecuteContext
+arcGObject:
+  type
+    ExecuteContext* = object
+      handle*: ptr GArrowExecuteContext
 
-  ExecutePlan* = object
-    handle: ptr GArrowExecutePlan
+    ExecutePlan* = object
+      handle*: ptr GArrowExecutePlan
 
-  ExecuteNode* = object
-    handle: ptr GArrowExecuteNode
+    ExecuteNode* = object
+      handle*: ptr GArrowExecuteNode
 
-  SourceNodeOptions* = object
-    handle: ptr GArrowSourceNodeOptions
+    SourceNodeOptions* = object
+      handle*: ptr GArrowSourceNodeOptions
 
-  FilterNodeOptions* = object
-    handle: ptr GArrowFilterNodeOptions
+    FilterNodeOptions* = object
+      handle*: ptr GArrowFilterNodeOptions
 
-  SinkNodeOptions* = object
-    handle: ptr GArrowSinkNodeOptions
+    SinkNodeOptions* = object
+      handle*: ptr GArrowSinkNodeOptions
 
-  ThreadPool* = object
-    handle: ptr GArrowThreadPool
+    ThreadPool* = object
+      handle*: ptr GArrowThreadPool
 
-# ============================================================================
-# ARC Hooks — ExecuteContext
-# ============================================================================
-
-proc `=destroy`*(ctx: ExecuteContext) =
-  if ctx.handle != nil:
-    g_object_unref(ctx.handle)
-
-proc `=sink`*(dest: var ExecuteContext, src: ExecuteContext) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-
-proc `=copy`*(dest: var ExecuteContext, src: ExecuteContext) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
-
-# ============================================================================
-# ARC Hooks — ExecutePlan
-# ============================================================================
-
-proc `=destroy`*(plan: ExecutePlan) =
-  if plan.handle != nil:
-    g_object_unref(plan.handle)
-
-proc `=sink`*(dest: var ExecutePlan, src: ExecutePlan) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-
-proc `=copy`*(dest: var ExecutePlan, src: ExecutePlan) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
-
-# ============================================================================
-# ARC Hooks — ExecuteNode
-# ExecuteNodes are GObjects returned by garrow_execute_plan_build_*_node
-# and must be unreferenced when no longer needed.
-# ============================================================================
-
-proc `=destroy`*(node: ExecuteNode) =
-  if node.handle != nil:
-    g_object_unref(node.handle)
-
-proc `=sink`*(dest: var ExecuteNode, src: ExecuteNode) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-
-proc `=copy`*(dest: var ExecuteNode, src: ExecuteNode) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
-
-# ============================================================================
-# ARC Hooks — ThreadPool
-# ============================================================================
-
-proc `=destroy`*(pool: ThreadPool) =
-  if pool.handle != nil:
-    g_object_unref(pool.handle)
-
-proc `=sink`*(dest: var ThreadPool, src: ThreadPool) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-
-proc `=copy`*(dest: var ThreadPool, src: ThreadPool) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
-
-# ============================================================================
-# ARC Hooks — Node Options
-# ============================================================================
-
-proc `=destroy`*(opts: SourceNodeOptions) =
-  if opts.handle != nil:
-    g_object_unref(opts.handle)
-
-proc `=sink`*(dest: var SourceNodeOptions, src: SourceNodeOptions) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-
-proc `=copy`*(dest: var SourceNodeOptions, src: SourceNodeOptions) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
-
-proc `=destroy`*(opts: FilterNodeOptions) =
-  if opts.handle != nil:
-    g_object_unref(opts.handle)
-
-proc `=sink`*(dest: var FilterNodeOptions, src: FilterNodeOptions) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-
-proc `=copy`*(dest: var FilterNodeOptions, src: FilterNodeOptions) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
-
-proc `=destroy`*(opts: SinkNodeOptions) =
-  if opts.handle != nil:
-    g_object_unref(opts.handle)
-
-proc `=sink`*(dest: var SinkNodeOptions, src: SinkNodeOptions) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-
-proc `=copy`*(dest: var SinkNodeOptions, src: SinkNodeOptions) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
-
-# ============================================================================
-# Pointer Converters
-# ============================================================================
-
-proc toPtr*(ctx: ExecuteContext): ptr GArrowExecuteContext {.inline.} =
-  ctx.handle
-
-proc toPtr*(plan: ExecutePlan): ptr GArrowExecutePlan {.inline.} =
-  plan.handle
-
-proc toPtr*(node: ExecuteNode): ptr GArrowExecuteNode {.inline.} =
-  node.handle
-
-proc toPtr*(opts: SourceNodeOptions): ptr GArrowSourceNodeOptions {.inline.} =
-  opts.handle
-
-proc toPtr*(opts: FilterNodeOptions): ptr GArrowFilterNodeOptions {.inline.} =
-  opts.handle
-
-proc toPtr*(opts: SinkNodeOptions): ptr GArrowSinkNodeOptions {.inline.} =
-  opts.handle
-
-proc toPtr*(pool: ThreadPool): ptr GArrowThreadPool {.inline.} =
-  pool.handle
-
-proc toExecutor*(pool: ThreadPool): ptr GArrowExecutor {.inline.} =
+func toExecutor*(pool: ThreadPool): ptr GArrowExecutor {.inline.} =
   cast[ptr GArrowExecutor](pool.handle)
 
 # ============================================================================
@@ -228,11 +63,7 @@ proc newSinkNodeOptions*(): SinkNodeOptions =
   result.handle = garrow_sink_node_options_new()
 
 proc newThreadPool*(n_threads: int = countProcessors()): ThreadPool =
-  var err = newError()
-  let handle = garrow_thread_pool_new(n_threads = n_threads.guint, err.toPtr)
-  if err:
-    raise newException(OperationError, "Failed to create a threadPool: " & $err)
-  result.handle = handle
+  result.handle = check garrow_thread_pool_new(n_threads = n_threads.guint)
 
 # ============================================================================
 # Plan Building

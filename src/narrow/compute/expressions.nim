@@ -105,6 +105,10 @@ proc `=destroy`*(sc: ScalarObj) =
   if not isNil(sc.handle):
     g_object_unref(sc.handle)
 
+proc `=destroy`*(expr: ExpressionObj) =
+  if not isNil(expr.handle):
+    g_object_unref(expr.handle)
+
 proc newScalar*(handle: ptr GArrowScalar, kind: ScalarKind): Scalar =
   result = Scalar(handle: handle, kind: kind)
 
@@ -112,13 +116,13 @@ proc newScalar*(handle: ptr GArrowScalar, kind: ScalarKind): Scalar =
 # Pointer Converters
 # ============================================================================
 
-proc toPtr*(dt: Datum): ptr GArrowDatum {.inline.} =
+func toPtr*(dt: Datum): ptr GArrowDatum {.inline.} =
   dt.handle
 
-proc toPtr*(sc: Scalar): ptr GArrowScalar {.inline.} =
+func toPtr*(sc: Scalar): ptr GArrowScalar {.inline.} =
   if sc.isNil: nil else: sc.handle
 
-proc toPtr*(expr: Expression): ptr GArrowExpression {.inline.} =
+func toPtr*(expr: Expression): ptr GArrowExpression {.inline.} =
   if expr.isNil: nil else: expr.handle
 
 # ============================================================================
@@ -130,7 +134,7 @@ proc `$`*(expr: Expression): string =
     return "Expression(nil)"
   result = $newGString(garrow_expression_to_string(expr.handle))
 
-proc `==`*(a, b: Expression): bool =
+func `==`*(a, b: Expression): bool {.inline.} =
   if a.isNil and b.isNil:
     return true
   if a.isNil or b.isNil:
@@ -141,31 +145,31 @@ proc `==`*(a, b: Expression): bool =
 # Expression — Tree Queries
 # ============================================================================
 
-proc isLiteral*(expr: Expression): bool {.inline.} =
+func isLiteral*(expr: Expression): bool {.inline.} =
   not expr.isNil and expr.kind == ekLiteral
 
-proc isField*(expr: Expression): bool {.inline.} =
+func isField*(expr: Expression): bool {.inline.} =
   not expr.isNil and expr.kind == ekField
 
-proc isCall*(expr: Expression): bool {.inline.} =
+func isCall*(expr: Expression): bool {.inline.} =
   not expr.isNil and expr.kind == ekCall
 
-proc isComparison*(expr: Expression): bool {.inline.} =
+func isComparison*(expr: Expression): bool {.inline.} =
   expr.isCall and
     expr.functionName in
     ["equal", "not_equal", "less", "less_equal", "greater", "greater_equal"]
 
-proc isLogical*(expr: Expression): bool {.inline.} =
+func isLogical*(expr: Expression): bool {.inline.} =
   expr.isCall and expr.functionName in ["and", "or", "invert"]
 
-proc isArithmetic*(expr: Expression): bool {.inline.} =
+func isArithmetic*(expr: Expression): bool {.inline.} =
   expr.isCall and expr.functionName in ["add", "subtract", "multiply", "divide"]
 
-proc arity*(expr: Expression): int {.inline.} =
+func arity*(expr: Expression): int {.inline.} =
   ## Number of child arguments (0 for literals/fields)
   if expr.isCall: expr.args.len else: 0
 
-proc children*(expr: Expression): seq[Expression] {.inline.} =
+func children*(expr: Expression): seq[Expression] {.inline.} =
   ## Returns child expressions. Empty for leaf nodes.
   if expr.isCall:
     expr.args
@@ -188,12 +192,12 @@ proc collectFieldsImpl(expr: Expression, acc: var HashSet[string]) =
     for child in expr.args:
       collectFieldsImpl(child, acc)
 
-proc referencedFields*(expr: Expression): HashSet[string] =
+func referencedFields*(expr: Expression): HashSet[string] =
   ## Recursively collects all field names referenced in the expression tree.
   result = initHashSet[string]()
   collectFieldsImpl(expr, result)
 
-proc referencedFieldSeq*(expr: Expression): seq[string] =
+func referencedFieldSeq*(expr: Expression): seq[string] =
   ## Returns referenced fields as an ordered seq (insertion order).
   var seen = initHashSet[string]()
   var res: seq[string] = @[]
@@ -215,7 +219,7 @@ proc referencedFieldSeq*(expr: Expression): seq[string] =
   walk(expr)
   result = res
 
-proc fieldName*(expr: Expression): string =
+func fieldName*(expr: Expression): string =
   ## Returns the field name for a field expression, or the single field
   ## referenced in a comparison expression. Raises ValueError if there
   ## isn't exactly one field.
@@ -234,7 +238,7 @@ proc fieldName*(expr: Expression): string =
 # Expression — Tree Depth & Size
 # ============================================================================
 
-proc depth*(expr: Expression): int =
+func depth*(expr: Expression): int =
   ## Returns the maximum depth of the expression tree.
   if expr.isNil:
     return 0
@@ -247,7 +251,7 @@ proc depth*(expr: Expression): int =
       maxChild = max(maxChild, depth(child))
     return 1 + maxChild
 
-proc nodeCount*(expr: Expression): int =
+func nodeCount*(expr: Expression): int =
   ## Returns total number of nodes in the expression tree.
   if expr.isNil:
     return 0
@@ -406,19 +410,19 @@ proc newDatum*(handle: ptr GArrowDatum): Datum =
 # Datum Runtime Type Checks
 # ============================================================================
 
-proc isArray*(dt: Datum): bool {.inline.} =
+func isArray*(dt: Datum): bool {.inline.} =
   garrow_datum_is_array(dt.handle) != 0
 
-proc isArrayLike*(dt: Datum): bool {.inline.} =
+func isArrayLike*(dt: Datum): bool {.inline.} =
   garrow_datum_is_array_like(dt.handle) != 0
 
-proc isScalar*(dt: Datum): bool {.inline.} =
+func isScalar*(dt: Datum): bool {.inline.} =
   garrow_datum_is_scalar(dt.handle) != 0
 
-proc isValue*(dt: Datum): bool {.inline.} =
+func isValue*(dt: Datum): bool {.inline.} =
   garrow_datum_is_value(dt.handle) != 0
 
-proc `==`*(a, b: Datum): bool {.inline.} =
+func `==`*(a, b: Datum): bool {.inline.} =
   garrow_datum_equal(a.toPtr, b.toPtr) != 0
 
 proc `$`*(dt: Datum): string =
@@ -428,7 +432,7 @@ proc `$`*(dt: Datum): string =
 # GObject Type Detection
 # ============================================================================
 
-proc detectScalarKind*(handle: ptr GArrowScalar): ScalarKind =
+func detectScalarKind*(handle: ptr GArrowScalar): ScalarKind =
   ## Detects the ScalarKind from a GArrowScalar handle using GObject type.
   if handle.isNil:
     return skNull
@@ -473,7 +477,7 @@ proc detectScalarKind*(handle: ptr GArrowScalar): ScalarKind =
     return skMonthInterval
   return skNull
 
-proc kind*(sc: Scalar): ScalarKind {.inline.} =
+func kind*(sc: Scalar): ScalarKind {.inline.} =
   if sc.isNil:
     return skNull
   detectScalarKind(sc.handle)
@@ -495,7 +499,7 @@ proc toScalar*(dt: Datum): Scalar =
 # Datum Kind (runtime)
 # ============================================================================
 
-proc kind*(dt: Datum): DatumKind {.inline.} =
+func kind*(dt: Datum): DatumKind {.inline.} =
   if dt.handle.isNil:
     return dkNone
   let inst = cast[ptr GTypeInstance](dt.handle)
@@ -515,12 +519,12 @@ proc kind*(dt: Datum): DatumKind {.inline.} =
 # Scalar Methods
 # ============================================================================
 
-proc isValid*(sc: Scalar): bool {.inline.} =
+func isValid*(sc: Scalar): bool {.inline.} =
   if sc.isNil or sc.handle.isNil:
     return false
   garrow_scalar_is_valid(sc.handle) != 0
 
-proc `==`*(a, b: Scalar): bool {.inline.} =
+func `==`*(a, b: Scalar): bool {.inline.} =
   if a.isNil and b.isNil:
     return true
   if a.isNil or b.isNil:
@@ -540,57 +544,57 @@ proc `$`*(sc: Scalar): string =
 # Scalar Value Extractors
 # ============================================================================
 
-proc getBool*(sc: Scalar): bool =
+func getBool*(sc: Scalar): bool {.inline.} =
   if sc.isNil or sc.handle.isNil:
     return false
   garrow_boolean_scalar_get_value(cast[ptr GArrowBooleanScalar](sc.handle)) != 0
 
-proc getInt8*(sc: Scalar): int8 =
+func getInt8*(sc: Scalar): int8 {.inline.} =
   if sc.isNil or sc.handle.isNil:
     return 0
   garrow_int8_scalar_get_value(cast[ptr GArrowInt8Scalar](sc.handle))
 
-proc getInt16*(sc: Scalar): int16 =
+func getInt16*(sc: Scalar): int16 {.inline.} =
   if sc.isNil or sc.handle.isNil:
     return 0
   garrow_int16_scalar_get_value(cast[ptr GArrowInt16Scalar](sc.handle))
 
-proc getInt32*(sc: Scalar): int32 =
+func getInt32*(sc: Scalar): int32 {.inline.} =
   if sc.isNil or sc.handle.isNil:
     return 0
   garrow_int32_scalar_get_value(cast[ptr GArrowInt32Scalar](sc.handle))
 
-proc getInt64*(sc: Scalar): int64 =
+func getInt64*(sc: Scalar): int64 {.inline.} =
   if sc.isNil or sc.handle.isNil:
     return 0
   garrow_int64_scalar_get_value(cast[ptr GArrowInt64Scalar](sc.handle))
 
-proc getUInt8*(sc: Scalar): uint8 =
+func getUInt8*(sc: Scalar): uint8 {.inline.} =
   if sc.isNil or sc.handle.isNil:
     return 0
   garrow_uint8_scalar_get_value(cast[ptr GArrowUInt8Scalar](sc.handle))
 
-proc getUInt16*(sc: Scalar): uint16 =
+func getUInt16*(sc: Scalar): uint16 {.inline.} =
   if sc.isNil or sc.handle.isNil:
     return 0
   garrow_uint16_scalar_get_value(cast[ptr GArrowUInt16Scalar](sc.handle))
 
-proc getUInt32*(sc: Scalar): uint32 =
+func getUInt32*(sc: Scalar): uint32 {.inline.} =
   if sc.isNil or sc.handle.isNil:
     return 0
   garrow_uint32_scalar_get_value(cast[ptr GArrowUInt32Scalar](sc.handle))
 
-proc getUInt64*(sc: Scalar): uint64 =
+func getUInt64*(sc: Scalar): uint64 {.inline.} =
   if sc.isNil or sc.handle.isNil:
     return 0
   garrow_uint64_scalar_get_value(cast[ptr GArrowUInt64Scalar](sc.handle))
 
-proc getFloat32*(sc: Scalar): float32 =
+func getFloat32*(sc: Scalar): float32 {.inline.} =
   if sc.isNil or sc.handle.isNil:
     return 0.0
   garrow_float_scalar_get_value(cast[ptr GArrowFloatScalar](sc.handle))
 
-proc getFloat64*(sc: Scalar): float64 =
+func getFloat64*(sc: Scalar): float64 {.inline.} =
   if sc.isNil or sc.handle.isNil:
     return 0.0
   garrow_double_scalar_get_value(cast[ptr GArrowDoubleScalar](sc.handle))
@@ -618,28 +622,28 @@ proc getFloat64*(sc: Scalar): float64 =
 # Runtime Value Extraction
 # ============================================================================
 
-proc value*(sc: Scalar, _: typedesc[bool]): bool =
+func value*(sc: Scalar, _: typedesc[bool]): bool {.inline.} =
   if sc.isNil:
     raise newException(ValueError, "Scalar is nil")
   if sc.kind != skBool:
     raise newException(ValueError, "Scalar is not a bool, got: " & $sc.kind)
   sc.getBool()
 
-proc value*(sc: Scalar, _: typedesc[int8]): int8 =
+func value*(sc: Scalar, _: typedesc[int8]): int8 {.inline.} =
   if sc.isNil:
     raise newException(ValueError, "Scalar is nil")
   if sc.kind != skInt8:
     raise newException(ValueError, "Scalar is not an int8, got: " & $sc.kind)
   sc.getInt8()
 
-proc value*(sc: Scalar, _: typedesc[int16]): int16 =
+func value*(sc: Scalar, _: typedesc[int16]): int16 {.inline.} =
   if sc.isNil:
     raise newException(ValueError, "Scalar is nil")
   if sc.kind != skInt16:
     raise newException(ValueError, "Scalar is not an int16, got: " & $sc.kind)
   sc.getInt16()
 
-proc value*(sc: Scalar, _: typedesc[int32]): int32 =
+func value*(sc: Scalar, _: typedesc[int32]): int32 {.inline.} =
   if sc.isNil:
     raise newException(ValueError, "Scalar is nil")
   case sc.kind
@@ -652,7 +656,7 @@ proc value*(sc: Scalar, _: typedesc[int32]): int32 =
       ValueError, "Scalar is not an int32/date32/month_interval, got: " & $sc.kind
     )
 
-proc value*(sc: Scalar, _: typedesc[int64]): int64 =
+func value*(sc: Scalar, _: typedesc[int64]): int64 {.inline.} =
   if sc.isNil:
     raise newException(ValueError, "Scalar is nil")
   case sc.kind
@@ -663,35 +667,35 @@ proc value*(sc: Scalar, _: typedesc[int64]): int64 =
   else:
     raise newException(ValueError, "Scalar is not an int64/date64, got: " & $sc.kind)
 
-proc value*(sc: Scalar, _: typedesc[uint8]): uint8 =
+func value*(sc: Scalar, _: typedesc[uint8]): uint8 {.inline.} =
   if sc.isNil:
     raise newException(ValueError, "Scalar is nil")
   if sc.kind != skUInt8:
     raise newException(ValueError, "Scalar is not a uint8, got: " & $sc.kind)
   sc.getUInt8()
 
-proc value*(sc: Scalar, _: typedesc[uint16]): uint16 =
+func value*(sc: Scalar, _: typedesc[uint16]): uint16 {.inline.} =
   if sc.isNil:
     raise newException(ValueError, "Scalar is nil")
   if sc.kind != skUInt16:
     raise newException(ValueError, "Scalar is not a uint16, got: " & $sc.kind)
   sc.getUInt16()
 
-proc value*(sc: Scalar, _: typedesc[uint32]): uint32 =
+func value*(sc: Scalar, _: typedesc[uint32]): uint32 {.inline.} =
   if sc.isNil:
     raise newException(ValueError, "Scalar is nil")
   if sc.kind != skUInt32:
     raise newException(ValueError, "Scalar is not a uint32, got: " & $sc.kind)
   sc.getUInt32()
 
-proc value*(sc: Scalar, _: typedesc[uint64]): uint64 =
+func value*(sc: Scalar, _: typedesc[uint64]): uint64 {.inline.} =
   if sc.isNil:
     raise newException(ValueError, "Scalar is nil")
   if sc.kind != skUInt64:
     raise newException(ValueError, "Scalar is not a uint64, got: " & $sc.kind)
   sc.getUInt64()
 
-proc value*(sc: Scalar, _: typedesc[float32]): float32 =
+func value*(sc: Scalar, _: typedesc[float32]): float32 {.inline.} =
   if sc.isNil:
     raise newException(ValueError, "Scalar is nil")
   if sc.kind != skFloat32:

@@ -44,19 +44,19 @@ import ../core/ffi
 
 # ─── Core inspection helpers (your draft, hardened) ───────────────────────────
 
-proc getGType*(obj: pointer): GType {.inline.} =
+func getGType*(obj: pointer): GType {.inline.} =
   ## Reads the GType from a GObject instance.
   ## Layout: GObject → GTypeInstance → g_class (ptr GTypeClass) → g_type
   doAssert obj != nil, "getGType: null pointer"
   let classPtr = cast[ptr pointer](obj)[]       # GTypeInstance.g_class
   result = cast[ptr GType](classPtr)[]           # GTypeClass.g_type
 
-proc typeName*(obj: pointer): string {.inline.} =
+func typeName*(obj: pointer): string {.inline.} =
   if obj == nil: return "<nil>"
   let n = g_type_name(getGType(obj))
   if n == nil: "<unknown>" else: $n
 
-proc getRefCount*(obj: pointer): uint32 {.inline.} =
+func getRefCount*(obj: pointer): uint32 {.inline.} =
   if obj == nil: return 0
   cast[ptr GObject](obj).ref_count
 
@@ -95,15 +95,12 @@ var
 
 initLock(gTrackerLock)
 
-proc captureStack(): string =
+func captureStack(): string =
   ## Lightweight stack capture – lists Nim source locations.
-  var frames: seq[StackTraceEntry]
-  for i in 0 ..< getStackTraceEntries().len:
-    frames.add getStackTraceEntries()[i]
   result = ""
-  for f in frames:
-    if f.filename != "":
-      result.add &"  {f.filename}:{f.line} {f.procname}\n"
+  for entry in getStackTraceEntries():
+    if entry.filename != "":
+      result.add &"  {entry.filename}:{entry.line} {entry.procname}\n"
 
 proc trackerRecord*(obj: pointer, ev: LifecycleEvent) =
   if not gTrackerEnabled or obj == nil: return

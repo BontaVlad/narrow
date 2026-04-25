@@ -69,28 +69,28 @@ type
   Date32ArrayBuilder* = object
     handle: ptr GArrowDate32ArrayBuilder
 
-proc toPtr*(ta: TimestampArray): ptr GArrowTimestampArray {.inline.} =
+func toPtr*(ta: TimestampArray): ptr GArrowTimestampArray {.inline.} =
   ta.handle
 
-proc toPtr*(tab: TimestampArrayBuilder): ptr GArrowTimestampArrayBuilder {.inline.} =
+func toPtr*(tab: TimestampArrayBuilder): ptr GArrowTimestampArrayBuilder {.inline.} =
   tab.handle
 
-proc toPtr*(d32a: Date32Array): ptr GArrowDate32Array {.inline.} =
+func toPtr*(d32a: Date32Array): ptr GArrowDate32Array {.inline.} =
   d32a.handle
 
-proc toPtr*(d32ab: Date32ArrayBuilder): ptr GArrowDate32ArrayBuilder {.inline.} =
+func toPtr*(d32ab: Date32ArrayBuilder): ptr GArrowDate32ArrayBuilder {.inline.} =
   d32ab.handle
 
-proc toPtr*(t32a: Time32Array): ptr GArrowTime32Array {.inline.} =
+func toPtr*(t32a: Time32Array): ptr GArrowTime32Array {.inline.} =
   t32a.handle
 
-proc toPtr*(t32ab: Time32ArrayBuilder): ptr GArrowTime32ArrayBuilder {.inline.} =
+func toPtr*(t32ab: Time32ArrayBuilder): ptr GArrowTime32ArrayBuilder {.inline.} =
   t32ab.handle
 
-proc toPtr*(t64a: Time64Array): ptr GArrowTime64Array {.inline.} =
+func toPtr*(t64a: Time64Array): ptr GArrowTime64Array {.inline.} =
   t64a.handle
 
-proc toPtr*(t64ab: Time64ArrayBuilder): ptr GArrowTime64ArrayBuilder {.inline.} =
+func toPtr*(t64ab: Time64ArrayBuilder): ptr GArrowTime64ArrayBuilder {.inline.} =
   t64ab.handle
 
 # Helper to convert Time to DateTime
@@ -122,7 +122,7 @@ proc toDateTime*(ts: Timestamp): DateTime {.inline.} =
   baseTime + initDuration(milliseconds = durMillis)
 
 # Date32 constructors
-proc newDate32*(days: int32): Date32 =
+func newDate32*(days: int32): Date32 {.inline.} =
   Date32(value: days)
 
 proc newDate32*(dt: DateTime): Date32 =
@@ -130,23 +130,23 @@ proc newDate32*(dt: DateTime): Date32 =
   let seconds = dt.toTime.toUnixFloat.int64
   Date32(value: int32(seconds div 86400))
 
-proc toDays*(d: Date32): int32 =
+func toDays*(d: Date32): int32 {.inline.} =
   d.value
 
-proc `$`*(d: Date32): string =
+proc `$`*(d: Date32): string {.inline.} =
   $d.toDateTime()
 
 # Date64 constructors
-proc newDate64*(ms: int64): Date64 =
+func newDate64*(ms: int64): Date64 {.inline.} =
   Date64(value: ms)
 
 proc newDate64*(dt: DateTime): Date64 =
   Date64(value: dt.toTime.toUnixFloat.int64 * 1000)
 
-proc toMs*(d: Date64): int64 =
+func toMs*(d: Date64): int64 {.inline.} =
   d.value
 
-proc `$`*(d: Date64): string =
+proc `$`*(d: Date64): string {.inline.} =
   $d.toDateTime()
 
 # Timestamp constructors
@@ -198,11 +198,11 @@ proc `$`*(d: Duration): string =
 # TimestampArray memory management
 proc `=destroy`*(ta: TimestampArray) =
   if not isNil(ta.handle):
-    g_object_unref(cast[ptr GObject](ta.handle))
+    g_object_unref(ta.handle)
 
 proc `=sink`*(dest: var TimestampArray, src: TimestampArray) =
   if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(cast[ptr GObject](dest.handle))
+    g_object_unref(dest.handle)
   dest.handle = src.handle
   dest.unit = src.unit
   dest.tz = src.tz
@@ -210,21 +210,21 @@ proc `=sink`*(dest: var TimestampArray, src: TimestampArray) =
 proc `=copy`*(dest: var TimestampArray, src: TimestampArray) =
   if dest.handle != src.handle:
     if not isNil(dest.handle):
-      g_object_unref(cast[ptr GObject](dest.handle))
+      g_object_unref(dest.handle)
     dest.handle = src.handle
     dest.unit = src.unit
     dest.tz = src.tz
     if not isNil(dest.handle):
-      discard g_object_ref(cast[ptr GObject](dest.handle))
+      discard g_object_ref(dest.handle)
 
 # TimestampArrayBuilder memory management
 proc `=destroy`*(tab: TimestampArrayBuilder) =
   if not isNil(tab.handle):
-    g_object_unref(cast[ptr GObject](tab.handle))
+    g_object_unref(tab.handle)
 
 proc `=sink`*(dest: var TimestampArrayBuilder, src: TimestampArrayBuilder) =
   if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(cast[ptr GObject](dest.handle))
+    g_object_unref(dest.handle)
   dest.handle = src.handle
   dest.unit = src.unit
   dest.tz = src.tz
@@ -232,128 +232,128 @@ proc `=sink`*(dest: var TimestampArrayBuilder, src: TimestampArrayBuilder) =
 proc `=copy`*(dest: var TimestampArrayBuilder, src: TimestampArrayBuilder) =
   if dest.handle != src.handle:
     if not isNil(dest.handle):
-      g_object_unref(cast[ptr GObject](dest.handle))
+      g_object_unref(dest.handle)
     dest.handle = src.handle
     dest.unit = src.unit
     dest.tz = src.tz
     if not isNil(dest.handle):
-      discard g_object_ref(cast[ptr GObject](dest.handle))
+      discard g_object_ref(dest.handle)
 
 # Date32Array memory management
 proc `=destroy`*(d32a: Date32Array) =
   if not isNil(d32a.handle):
-    g_object_unref(cast[ptr GObject](d32a.handle))
+    g_object_unref(d32a.handle)
 
 proc `=sink`*(dest: var Date32Array, src: Date32Array) =
   if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(cast[ptr GObject](dest.handle))
+    g_object_unref(dest.handle)
   dest.handle = src.handle
 
 proc `=copy`*(dest: var Date32Array, src: Date32Array) =
   if dest.handle != src.handle:
     if not isNil(dest.handle):
-      g_object_unref(cast[ptr GObject](dest.handle))
+      g_object_unref(dest.handle)
     dest.handle = src.handle
     if not isNil(dest.handle):
-      discard g_object_ref(cast[ptr GObject](dest.handle))
+      discard g_object_ref(dest.handle)
 
 # Date32ArrayBuilder memory management
 proc `=destroy`*(d32ab: Date32ArrayBuilder) =
   if not isNil(d32ab.handle):
-    g_object_unref(cast[ptr GObject](d32ab.handle))
+    g_object_unref(d32ab.handle)
 
 proc `=sink`*(dest: var Date32ArrayBuilder, src: Date32ArrayBuilder) =
   if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(cast[ptr GObject](dest.handle))
+    g_object_unref(dest.handle)
   dest.handle = src.handle
 
 proc `=copy`*(dest: var Date32ArrayBuilder, src: Date32ArrayBuilder) =
   if dest.handle != src.handle:
     if not isNil(dest.handle):
-      g_object_unref(cast[ptr GObject](dest.handle))
+      g_object_unref(dest.handle)
     dest.handle = src.handle
     if not isNil(dest.handle):
-      discard g_object_ref(cast[ptr GObject](dest.handle))
+      discard g_object_ref(dest.handle)
 
 # Time32Array memory management
 proc `=destroy`*(t32a: Time32Array) =
   if not isNil(t32a.handle):
-    g_object_unref(cast[ptr GObject](t32a.handle))
+    g_object_unref(t32a.handle)
 
 proc `=sink`*(dest: var Time32Array, src: Time32Array) =
   if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(cast[ptr GObject](dest.handle))
+    g_object_unref(dest.handle)
   dest.handle = src.handle
   dest.unit = src.unit
 
 proc `=copy`*(dest: var Time32Array, src: Time32Array) =
   if dest.handle != src.handle:
     if not isNil(dest.handle):
-      g_object_unref(cast[ptr GObject](dest.handle))
+      g_object_unref(dest.handle)
     dest.handle = src.handle
     dest.unit = src.unit
     if not isNil(dest.handle):
-      discard g_object_ref(cast[ptr GObject](dest.handle))
+      discard g_object_ref(dest.handle)
 
 # Time32ArrayBuilder memory management
 proc `=destroy`*(t32ab: Time32ArrayBuilder) =
   if not isNil(t32ab.handle):
-    g_object_unref(cast[ptr GObject](t32ab.handle))
+    g_object_unref(t32ab.handle)
 
 proc `=sink`*(dest: var Time32ArrayBuilder, src: Time32ArrayBuilder) =
   if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(cast[ptr GObject](dest.handle))
+    g_object_unref(dest.handle)
   dest.handle = src.handle
   dest.unit = src.unit
 
 proc `=copy`*(dest: var Time32ArrayBuilder, src: Time32ArrayBuilder) =
   if dest.handle != src.handle:
     if not isNil(dest.handle):
-      g_object_unref(cast[ptr GObject](dest.handle))
+      g_object_unref(dest.handle)
     dest.handle = src.handle
     dest.unit = src.unit
     if not isNil(dest.handle):
-      discard g_object_ref(cast[ptr GObject](dest.handle))
+      discard g_object_ref(dest.handle)
 
 # Time64Array memory management
 proc `=destroy`*(t64a: Time64Array) =
   if not isNil(t64a.handle):
-    g_object_unref(cast[ptr GObject](t64a.handle))
+    g_object_unref(t64a.handle)
 
 proc `=sink`*(dest: var Time64Array, src: Time64Array) =
   if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(cast[ptr GObject](dest.handle))
+    g_object_unref(dest.handle)
   dest.handle = src.handle
   dest.unit = src.unit
 
 proc `=copy`*(dest: var Time64Array, src: Time64Array) =
   if dest.handle != src.handle:
     if not isNil(dest.handle):
-      g_object_unref(cast[ptr GObject](dest.handle))
+      g_object_unref(dest.handle)
     dest.handle = src.handle
     dest.unit = src.unit
     if not isNil(dest.handle):
-      discard g_object_ref(cast[ptr GObject](dest.handle))
+      discard g_object_ref(dest.handle)
 
 # Time64ArrayBuilder memory management
 proc `=destroy`*(t64ab: Time64ArrayBuilder) =
   if not isNil(t64ab.handle):
-    g_object_unref(cast[ptr GObject](t64ab.handle))
+    g_object_unref(t64ab.handle)
 
 proc `=sink`*(dest: var Time64ArrayBuilder, src: Time64ArrayBuilder) =
   if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(cast[ptr GObject](dest.handle))
+    g_object_unref(dest.handle)
   dest.handle = src.handle
   dest.unit = src.unit
 
 proc `=copy`*(dest: var Time64ArrayBuilder, src: Time64ArrayBuilder) =
   if dest.handle != src.handle:
     if not isNil(dest.handle):
-      g_object_unref(cast[ptr GObject](dest.handle))
+      g_object_unref(dest.handle)
     dest.handle = src.handle
     dest.unit = src.unit
     if not isNil(dest.handle):
-      discard g_object_ref(cast[ptr GObject](dest.handle))
+      discard g_object_ref(dest.handle)
 
 # TimestampArray creators
 proc newTimestampArray*(

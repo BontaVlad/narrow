@@ -86,90 +86,53 @@ const
     } + UnionTypes
 
 # Type checking procs for runtime type categories
-proc isSignedInteger*(arrowType: GArrowType): bool {.inline.} =
+func isSignedInteger*(arrowType: GArrowType): bool {.inline.} =
   arrowType in SignedIntegerTypes
 
-proc isUnsignedInteger*(arrowType: GArrowType): bool {.inline.} =
+func isUnsignedInteger*(arrowType: GArrowType): bool {.inline.} =
   arrowType in UnsignedIntegerTypes
 
-proc isInteger*(arrowType: GArrowType): bool {.inline.} =
+func isInteger*(arrowType: GArrowType): bool {.inline.} =
   arrowType in IntegerTypes
 
-proc isFloating*(arrowType: GArrowType): bool {.inline.} =
+func isFloating*(arrowType: GArrowType): bool {.inline.} =
   arrowType in FloatingTypes
 
-proc isDecimal*(arrowType: GArrowType): bool {.inline.} =
+func isDecimal*(arrowType: GArrowType): bool {.inline.} =
   arrowType in DecimalTypes
 
-proc isNumeric*(arrowType: GArrowType): bool {.inline.} =
+func isNumeric*(arrowType: GArrowType): bool {.inline.} =
   arrowType in IntegerTypes + FloatingTypes + DecimalTypes
 
-proc isDate*(arrowType: GArrowType): bool {.inline.} =
+func isDate*(arrowType: GArrowType): bool {.inline.} =
   arrowType in DateTypes
 
-proc isTime*(arrowType: GArrowType): bool {.inline.} =
+func isTime*(arrowType: GArrowType): bool {.inline.} =
   arrowType in TimeTypes
 
-proc isInterval*(arrowType: GArrowType): bool {.inline.} =
+func isInterval*(arrowType: GArrowType): bool {.inline.} =
   arrowType in IntervalTypes
 
-proc isTemporal*(arrowType: GArrowType): bool {.inline.} =
+func isTemporal*(arrowType: GArrowType): bool {.inline.} =
   arrowType in TemporalTypes
 
-proc isUnion*(arrowType: GArrowType): bool {.inline.} =
+func isUnion*(arrowType: GArrowType): bool {.inline.} =
   arrowType in UnionTypes
 
-proc isNested*(arrowType: GArrowType): bool {.inline.} =
+func isNested*(arrowType: GArrowType): bool {.inline.} =
   arrowType in NestedTypes
 
-proc isPrimitive*(arrowType: GArrowType): bool {.inline.} =
+func isPrimitive*(arrowType: GArrowType): bool {.inline.} =
   not arrowType.isNested
 
-proc toPtr*(g: GADType): ptr GArrowDataType {.inline.} =
+func toPtr*(g: GADType): ptr GArrowDataType {.inline.} =
   g.handle
 
-proc `=destroy`*(tp: GADType) =
-  if not isNil(tp.toPtr):
-    g_object_unref(tp.toPtr)
-
-proc `=destroy`*(s: GString) =
-  if not isNil(s.handle):
-    gFree(s.handle)
-
-proc `=sink`*(dest: var GADType, src: GADType) =
-  if not isNil(dest.toPtr) and dest.toPtr != src.toPtr:
-    g_object_unref(dest.toPtr)
-  # Transfer ownership (move semantics)
-  dest.handle = src.handle
-
-proc `=copy`*(dest: var GADType, src: GADType) =
-  if dest.toPtr != src.toPtr:
-    if not isNil(dest.toPtr):
-      g_object_unref(dest.toPtr)
-    dest.handle = src.handle
-    if not isNil(dest.toPtr):
-      discard g_object_ref(dest.toPtr) # bump ref count
-
-proc `=sink`*(dest: var GString, src: GString) =
-  if not isNil(dest.handle) and dest.handle != src.handle:
-    gFree(dest.handle)
-  dest.handle = src.handle
-
-proc `=copy`*(dest: var GString, src: GString) =
-  if dest.handle != src.handle:
-    if not isNil(dest.handle):
-      gFree(dest.handle)
-    dest.handle =
-      if not isNil(src.handle):
-        g_strdup(src.handle)
-      else:
-        nil
-
-proc newGString*(str: cstring): GString =
-  result.handle = str
-
-proc `$`*(str: GString): string =
+func `$`*(str: GString): string {.inline.} =
   $str.handle
+
+func newGString*(str: cstring): GString {.inline.} =
+  result.handle = str
 
 proc `$`*(tp: GADType): string =
   let namePtr = garrow_data_type_get_name(tp.toPtr)
@@ -177,47 +140,47 @@ proc `$`*(tp: GADType): string =
     return "unknown"
   result = $newGString(namePtr)
 
-proc `id`*(tp: GADType): GArrowType =
+func `id`*(tp: GADType): GArrowType {.inline.} =
   garrow_data_type_get_id(tp.toPtr)
 
 # Convenience type checking procs on GADType
-proc isSignedInteger*(tp: GADType): bool {.inline.} =
+func isSignedInteger*(tp: GADType): bool {.inline.} =
   tp.id.isSignedInteger
 
-proc isUnsignedInteger*(tp: GADType): bool {.inline.} =
+func isUnsignedInteger*(tp: GADType): bool {.inline.} =
   tp.id.isUnsignedInteger
 
-proc isInteger*(tp: GADType): bool {.inline.} =
+func isInteger*(tp: GADType): bool {.inline.} =
   tp.id.isInteger
 
-proc isFloating*(tp: GADType): bool {.inline.} =
+func isFloating*(tp: GADType): bool {.inline.} =
   tp.id.isFloating
 
-proc isDecimal*(tp: GADType): bool {.inline.} =
+func isDecimal*(tp: GADType): bool {.inline.} =
   tp.id.isDecimal
 
-proc isNumeric*(tp: GADType): bool {.inline.} =
+func isNumeric*(tp: GADType): bool {.inline.} =
   tp.id.isNumeric
 
-proc isDate*(tp: GADType): bool {.inline.} =
+func isDate*(tp: GADType): bool {.inline.} =
   tp.id.isDate
 
-proc isTime*(tp: GADType): bool {.inline.} =
+func isTime*(tp: GADType): bool {.inline.} =
   tp.id.isTime
 
-proc isInterval*(tp: GADType): bool {.inline.} =
+func isInterval*(tp: GADType): bool {.inline.} =
   tp.id.isInterval
 
-proc isTemporal*(tp: GADType): bool {.inline.} =
+func isTemporal*(tp: GADType): bool {.inline.} =
   tp.id.isTemporal
 
-proc isUnion*(tp: GADType): bool {.inline.} =
+func isUnion*(tp: GADType): bool {.inline.} =
   tp.id.isUnion
 
-proc isNested*(tp: GADType): bool {.inline.} =
+func isNested*(tp: GADType): bool {.inline.} =
   tp.id.isNested
 
-proc isPrimitive*(tp: GADType): bool {.inline.} =
+func isPrimitive*(tp: GADType): bool {.inline.} =
   tp.id.isPrimitive
 
 proc nimTypeName*(tp: GADType): string =

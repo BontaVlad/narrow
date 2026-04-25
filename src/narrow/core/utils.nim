@@ -1,6 +1,6 @@
 import std/macros
 
-proc findHandleType(recList: NimNode): NimNode =
+func findHandleType(recList: NimNode): NimNode =
   if recList.kind != nnkRecList:
     return nil
   for field in recList:
@@ -13,10 +13,10 @@ proc findHandleType(recList: NimNode): NimNode =
       if name.strVal == "handle":
         return field[1]
 
-proc dot(a: NimNode, b: string): NimNode =
+func dot(a: NimNode, b: string): NimNode =
   newDotExpr(a, ident(b))
 
-proc hookProc(
+func hookProc(
     name: string,
     params: openArray[NimNode],
     body: NimNode,
@@ -30,7 +30,7 @@ proc hookProc(
     pragmas = pragmas,
   )
 
-proc genHooks(
+func genHooks(
     typeName: NimNode, recList: NimNode, unrefProc, refProc: NimNode
 ): NimNode =
   result = newStmtList()
@@ -122,24 +122,18 @@ macro arcGObject*(body: untyped): untyped =
   result.add(body)
 
   for node in body:
-    if node.kind != nnkTypeSection:
-      continue
-    for typeDef in node:
-      if typeDef.kind != nnkTypeDef:
-        continue
-      let impl = typeDef[2]
-      if impl.kind != nnkObjectTy:
-        continue
-      if impl[1].kind != nnkEmpty:
-        continue # skip `of` inheritance
-
-      let nameNode = typeDef[0]
-      let typeName =
-        if nameNode.kind == nnkPostfix:
-          nameNode[1]
-        else:
-          nameNode
-      result.add genHooks(typeName, impl[2], ident"g_object_unref", ident"g_object_ref")
+    if node.kind == nnkTypeSection:
+      for typeDef in node:
+        if typeDef.kind == nnkTypeDef:
+          let impl = typeDef[2]
+          if impl.kind == nnkObjectTy and impl[1].kind == nnkEmpty:
+            let nameNode = typeDef[0]
+            let typeName =
+              if nameNode.kind == nnkPostfix:
+                nameNode[1]
+              else:
+                nameNode
+            result.add genHooks(typeName, impl[2], ident"g_object_unref", ident"g_object_ref")
 
 macro arcRef*(unrefName, refName: static[string], body: untyped): untyped =
   ## Statement macro with custom ref/unref functions.
@@ -154,21 +148,15 @@ macro arcRef*(unrefName, refName: static[string], body: untyped): untyped =
   result.add(body)
 
   for node in body:
-    if node.kind != nnkTypeSection:
-      continue
-    for typeDef in node:
-      if typeDef.kind != nnkTypeDef:
-        continue
-      let impl = typeDef[2]
-      if impl.kind != nnkObjectTy:
-        continue
-      if impl[1].kind != nnkEmpty:
-        continue
-
-      let nameNode = typeDef[0]
-      let typeName =
-        if nameNode.kind == nnkPostfix:
-          nameNode[1]
-        else:
-          nameNode
-      result.add genHooks(typeName, impl[2], ident(unrefName), ident(refName))
+    if node.kind == nnkTypeSection:
+      for typeDef in node:
+        if typeDef.kind == nnkTypeDef:
+          let impl = typeDef[2]
+          if impl.kind == nnkObjectTy and impl[1].kind == nnkEmpty:
+            let nameNode = typeDef[0]
+            let typeName =
+              if nameNode.kind == nnkPostfix:
+                nameNode[1]
+              else:
+                nameNode
+            result.add genHooks(typeName, impl[2], ident(unrefName), ident(refName))

@@ -42,10 +42,10 @@ proc schema*(pfr: FileReader): Schema =
   let handle = check gparquet_arrow_file_reader_get_schema(pfr.toPtr)
   result = newSchema(handle)
 
-proc nRowGroups*(pfr: FileReader): int =
+func nRowGroups*(pfr: FileReader): int {.inline.} =
   gparquet_arrow_file_reader_get_n_row_groups(pfr.toPtr)
 
-proc nRows*(pfr: FileReader): int64 =
+func nRows*(pfr: FileReader): int64 {.inline.} =
   gparquet_arrow_file_reader_get_n_rows(pfr.toPtr)
 
 proc close*(pfr: FileReader) =
@@ -113,25 +113,25 @@ proc schema*(fw: FileWriter): Schema =
 proc newWriterProperties*(): WriterProperties =
   result.handle = gparquet_writer_properties_new()
 
-proc dictionaryPageSizeLimit*(wp: WriterProperties): int64 =
+func dictionaryPageSizeLimit*(wp: WriterProperties): int64 {.inline.} =
   gparquet_writer_properties_get_dictionary_page_size_limit(wp.handle)
 
 proc `dictionaryPageSizeLimit=`*(wp: var WriterProperties, limit: int64) =
   gparquet_writer_properties_set_dictionary_page_size_limit(wp.handle, limit)
 
-proc batchSize*(wp: WriterProperties): int64 =
+func batchSize*(wp: WriterProperties): int64 {.inline.} =
   gparquet_writer_properties_get_batch_size(wp.handle)
 
 proc `batchSize=`*(wp: var WriterProperties, size: int64) =
   gparquet_writer_properties_set_batch_size(wp.handle, size)
 
-proc maxRowGroupLength*(wp: WriterProperties): int64 =
+func maxRowGroupLength*(wp: WriterProperties): int64 {.inline.} =
   gparquet_writer_properties_get_max_row_group_length(wp.handle)
 
 proc `maxRowGroupLength=`*(wp: var WriterProperties, length: int64) =
   gparquet_writer_properties_set_max_row_group_length(wp.handle, length)
 
-proc dataPageSize*(wp: WriterProperties): int64 =
+func dataPageSize*(wp: WriterProperties): int64 {.inline.} =
   gparquet_writer_properties_get_data_page_size(wp.handle)
 
 proc `dataPageSize=`*(wp: var WriterProperties, size: int64) =
@@ -142,7 +142,7 @@ proc setCompression*(
 ) =
   gparquet_writer_properties_set_compression(wp.handle, compression, path.cstring)
 
-proc compression*(
+func compression*(
     wp: WriterProperties, path: string
 ): GArrowCompressionType {.inline.} =
   gparquet_writer_properties_get_compression_path(wp.handle, path.cstring)
@@ -153,7 +153,7 @@ proc enableDictionary*(wp: WriterProperties, path: string) =
 proc disableDictionary*(wp: WriterProperties, path: string) =
   gparquet_writer_properties_disable_dictionary(wp.handle, path.cstring)
 
-proc isDictionaryEnabled*(wp: WriterProperties, path: string): bool =
+func isDictionaryEnabled*(wp: WriterProperties, path: string): bool {.inline.} =
   gparquet_writer_properties_is_dictionary_enabled(wp.handle, path.cstring) == 1
 
 proc newColumnChunkMetadata*(
@@ -167,75 +167,75 @@ proc newRowGroupMetadata*(handle: ptr GParquetRowGroupMetadata): RowGroupMetadat
 proc newFileMetadata*(handle: ptr GParquetFileMetadata): FileMetadata =
   result.handle = handle
 
-proc `==`*(a, b: ColumnChunkMetadata): bool =
+func `==`*(a, b: ColumnChunkMetadata): bool {.inline.} =
   gparquet_column_chunk_metadata_equal(a.toPtr, b.toPtr) == 1
 
-proc totalSize*(m: ColumnChunkMetadata): int64 =
+func totalSize*(m: ColumnChunkMetadata): int64 {.inline.} =
   gparquet_column_chunk_metadata_get_total_size(m.toPtr)
 
-proc totalCompressedSize*(m: ColumnChunkMetadata): int64 =
+func totalCompressedSize*(m: ColumnChunkMetadata): int64 {.inline.} =
   gparquet_column_chunk_metadata_get_total_compressed_size(m.toPtr)
 
-proc fileOffset*(m: ColumnChunkMetadata): int64 =
+func fileOffset*(m: ColumnChunkMetadata): int64 {.inline.} =
   gparquet_column_chunk_metadata_get_file_offset(m.toPtr)
 
-proc canDecompress*(m: ColumnChunkMetadata): bool =
+func canDecompress*(m: ColumnChunkMetadata): bool {.inline.} =
   gparquet_column_chunk_metadata_can_decompress(m.toPtr) == 1
 
 proc statistics*(m: ColumnChunkMetadata): Statistics =
   let handle = gparquet_column_chunk_metadata_get_statistics(m.toPtr)
   result.handle = handle
 
-proc `==`*(a, b: RowGroupMetadata): bool =
+func `==`*(a, b: RowGroupMetadata): bool {.inline.} =
   gparquet_row_group_metadata_equal(a.toPtr, b.toPtr) == 1
 
-proc nColumns*(m: RowGroupMetadata): int =
+func nColumns*(m: RowGroupMetadata): int {.inline.} =
   gparquet_row_group_metadata_get_n_columns(m.toPtr)
 
 proc columnChunk*(m: RowGroupMetadata, index: int): ColumnChunkMetadata =
   result.handle =
     check gparquet_row_group_metadata_get_column_chunk(m.toPtr, index.gint)
 
-proc nRows*(m: RowGroupMetadata): int64 =
+func nRows*(m: RowGroupMetadata): int64 {.inline.} =
   gparquet_row_group_metadata_get_n_rows(m.toPtr)
 
-proc totalSize*(m: RowGroupMetadata): int64 =
+func totalSize*(m: RowGroupMetadata): int64 {.inline.} =
   gparquet_row_group_metadata_get_total_size(m.toPtr)
 
-proc totalCompressedSize*(m: RowGroupMetadata): int64 =
+func totalCompressedSize*(m: RowGroupMetadata): int64 {.inline.} =
   gparquet_row_group_metadata_get_total_compressed_size(m.toPtr)
 
-proc fileOffset*(m: RowGroupMetadata): int64 =
+func fileOffset*(m: RowGroupMetadata): int64 {.inline.} =
   gparquet_row_group_metadata_get_file_offset(m.toPtr)
 
-proc canDecompress*(m: RowGroupMetadata): bool =
+func canDecompress*(m: RowGroupMetadata): bool {.inline.} =
   gparquet_row_group_metadata_can_decompress(m.toPtr) == 1
 
-proc `==`*(a, b: FileMetadata): bool =
+func `==`*(a, b: FileMetadata): bool {.inline.} =
   gparquet_file_metadata_equal(a.toPtr, b.toPtr) == 1
 
-proc nColumns*(m: FileMetadata): int =
+func nColumns*(m: FileMetadata): int {.inline.} =
   gparquet_file_metadata_get_n_columns(m.toPtr)
 
-proc nSchemaElements*(m: FileMetadata): int =
+func nSchemaElements*(m: FileMetadata): int {.inline.} =
   gparquet_file_metadata_get_n_schema_elements(m.toPtr)
 
-proc nRows*(m: FileMetadata): int64 =
+func nRows*(m: FileMetadata): int64 {.inline.} =
   gparquet_file_metadata_get_n_rows(m.toPtr)
 
-proc nRowGroups*(m: FileMetadata): int =
+func nRowGroups*(m: FileMetadata): int {.inline.} =
   gparquet_file_metadata_get_n_row_groups(m.toPtr)
 
 proc rowGroup*(m: FileMetadata, index: int): RowGroupMetadata =
   newRowGroupMetadata(check gparquet_file_metadata_get_row_group(m.toPtr, index.gint))
 
-proc createdBy*(m: FileMetadata): string {.inline.} =
+func createdBy*(m: FileMetadata): string {.inline.} =
   $gparquet_file_metadata_get_created_by(m.toPtr)
 
-proc size*(m: FileMetadata): uint32 {.inline.} =
+func size*(m: FileMetadata): uint32 {.inline.} =
   gparquet_file_metadata_get_size(m.toPtr)
 
-proc canDecompress*(m: FileMetadata): bool {.inline.} =
+func canDecompress*(m: FileMetadata): bool {.inline.} =
   gparquet_file_metadata_can_decompress(m.toPtr) == 1
 
 proc rowGroupGuarantee*(
