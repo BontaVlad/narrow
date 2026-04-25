@@ -10,6 +10,7 @@ bin           = @["narrow"]
 
 # requires "nim >= 2.2.6"
 requires "unittest2 >= 0.2.3"
+requires "criterion >= 0.3.1"
 
 task generate, "Generate bindings":
   # Futhark is required only for binding generation, not for normal use

@@ -411,8 +411,45 @@ Restore full traces: `--lineTrace:on` (implies `--stackTrace:on`).
 4. Export a `handle` or `toPtr` for low-level access
 5. Add `unittest2` test case in `tests/`
 
+## Benchmarking & Profiling
+
+Benchmarks live in `benchmarks/` and use `criterion`.
+
+| Command | Description |
+|---------|-------------|
+| `just benchmark` | Compile and run all benchmarks in release mode |
+| `just benchmark-heaptrack <name>` | Record a heap profile for one benchmark (e.g. `just benchmark-heaptrack bench_primitive`) |
+| `just benchmark-heaptrack-all` | Profile all benchmarks under heaptrack |
+
+**Heaptrack workflow (non-GUI, agent-friendly):**
+
+1. Record a heap profile:
+   ```bash
+   just benchmark-heaptrack bench_primitive
+   ```
+   Produces `profiles/bench_primitive.heaptrack.zst`.
+
+2. Print a machine-readable report:
+   ```bash
+   heaptrack_print --shorten-templates --print-peaks --print-allocators \
+     --peak-limit 10 -f profiles/bench_primitive.heaptrack.zst
+   ```
+
+3. Generate a flamegraph:
+   ```bash
+   heaptrack_print -f profiles/bench_primitive.heaptrack.zst \
+     -F stacks.txt
+   flamegraph.pl --title "heaptrack: allocations" --colors mem \
+     --countname allocations < stacks.txt > heaptrack.svg
+   ```
+
+**Notes:**
+- Heaptrack adds ~2–5× overhead; budget/sampling in criterion is unchanged.
+- Benchmark binaries are compiled with `-g -fno-omit-frame-pointer` for accurate stack traces.
+- Profile traces are written to `profiles/` and are **not** committed.
+
 ## Dependencies
 - Apache Arrow C++ GLib (arrow-glib 22.0.0+), Parquet GLib (parquet-glib), Arrow Dataset GLib (arrow-dataset-glib)
 - GObject/GLib 2.0
-- `futhark` (binding generation), `unittest2 >= 0.2.3` (testing)
+- `futhark` (binding generation), `unittest2 >= 0.2.3` (testing), `criterion >= 0.3.1` (benchmarking)
 - Nim 2.2.6+, ORC memory management, C++ backend, clang+gcc on Linux

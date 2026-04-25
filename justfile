@@ -256,5 +256,107 @@ dbg file:
           "{{file}}" && \
     lldb "./$$out"
 
+benchmark:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    BENCH_ROOT="benchmarks"
+    OUT_ROOT="nimcache/benchmarks"
+
+    rm -rf "$OUT_ROOT"
+    mkdir -p "$OUT_ROOT"
+
+    mapfile -t BENCH_FILES < <(find "$BENCH_ROOT" -name 'bench_*.nim' | sort)
+
+    for file in "${BENCH_FILES[@]}"; do
+        name="$(basename "$file" .nim)"
+        outdir="$OUT_ROOT/$name"
+        mkdir -p "$outdir"
+
+        echo "==> Benchmark: $file"
+        nim c \
+            --cc:clang \
+            --verbosity:0 \
+            --hints:off \
+            --mm:orc \
+            --opt:speed \
+            -d:release \
+            --passC:-O3 \
+            -o:"$outdir/$name" \
+            "$file"
+
+        "$outdir/$name"
+        echo ""
+    done
+
+# Profile a single benchmark under heaptrack (e.g. just benchmark-heaptrack bench_primitive)
+benchmark-heaptrack BENCH:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    BENCH_FILE="benchmarks/{{BENCH}}.nim"
+    OUT_ROOT="nimcache/benchmarks"
+    PROFILE_DIR="profiles"
+    mkdir -p "$PROFILE_DIR"
+
+    if [ ! -f "$BENCH_FILE" ]; then
+        echo "Benchmark file not found: $BENCH_FILE"
+        exit 1
+    fi
+
+    name="{{BENCH}}"
+    outdir="$OUT_ROOT/$name"
+    mkdir -p "$outdir"
+
+    echo "==> Compiling (with debug info for heaptrack): $BENCH_FILE"
+    nim c \
+        --cc:clang \
+        --verbosity:0 \
+        --hints:off \
+        --mm:orc \
+        --opt:speed \
+        -d:release \
+        --passC:-O3 \
+        --passC:-fno-omit-frame-pointer \
+        -g --debuginfo --linedir:on --stacktrace:on --linetrace:on \
+        -o:"$outdir/$name" \
+        "$BENCH_FILE"
+
+    echo "==> Recording heap profile: $name"
+    rm -f "$PROFILE_DIR/${name}.heaptrack"*.zst
+    heaptrack -o "$PROFILE_DIR/${name}.heaptrack" "$outdir/$name"
+
+    # Find the generated trace file
+    trace_file=$(ls -t "$PROFILE_DIR/${name}.heaptrack"*.zst 2>/dev/null | head -1)
+
+    if [ -n "$trace_file" ]; then
+        echo ""
+        echo "==> Analyzing heap profile: $trace_file"
+        heaptrack_print \
+            --shorten-templates \
+            --print-peaks \
+            --print-allocators \
+            --print-leaks \
+            --peak-limit 10 \
+            -f "$trace_file"
+    fi
+
+    echo ""
+    echo "Profile trace: $trace_file"
+    echo "Full analysis: heaptrack_print -f $trace_file"
+
+# Profile all benchmarks under heaptrack
+benchmark-heaptrack-all:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    BENCH_ROOT="benchmarks"
+    mapfile -t BENCH_FILES < <(find "$BENCH_ROOT" -name 'bench_*.nim' | sort)
+
+    for file in "${BENCH_FILES[@]}"; do
+        name="$(basename "$file" .nim)"
+        just benchmark-heaptrack "$name"
+    done
+
 clean:
     rm -rf nimcache
