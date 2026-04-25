@@ -106,16 +106,24 @@ proc `=destroy`*(o: CsvReadOptions) =
       g_object_unref(o.schema.get().toPtr)
     g_object_unref(o.handle)
 
-proc `=sink`*(dest: var CsvReadOptions, src: CsvReadOptions) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
+proc `=wasMoved`*(o: var CsvReadOptions) =
+  o.handle = nil
+  o.schema = none(Schema)
+
+proc `=dup`*(o: CsvReadOptions): CsvReadOptions =
+  result.handle = o.handle
+  result.schema = o.schema
+  if o.handle != nil:
+    discard g_object_ref(o.handle)
 
 proc `=copy`*(dest: var CsvReadOptions, src: CsvReadOptions) =
   if dest.handle != src.handle:
     if dest.handle != nil:
+      if dest.schema.isSome:
+        g_object_unref(dest.schema.get().toPtr)
       g_object_unref(dest.handle)
     dest.handle = src.handle
+    dest.schema = src.schema
     if src.handle != nil:
       discard g_object_ref(dest.handle)
 
@@ -249,14 +257,15 @@ proc getColumnNames*(options: CsvReadOptions): seq[string] =
   let cnames = cast[ptr UncheckedArray[cstring]](garrow_csv_read_options_get_column_names(
     options.handle
   ))
-  result = newSeq[string]()
   if cnames.isNil:
-    return result
+    return @[]
 
   var i = 0
   while not cnames[i].isNil:
-    result.add($cnames[i])
     inc i
+  result = newSeq[string](i)
+  for j in 0 ..< i:
+    result[j] = $cnames[j]
 
 # Column types methods (requires DataType)
 proc addColumnType*(options: CsvReadOptions, name: string, dataType: GADType) =
@@ -302,7 +311,7 @@ proc readCSV*(uri: string, options: CsvReadOptions): ArrowTable =
   if $scheme == "":
     fullUri = fmt"file://{uri}"
 
-  let guri = check g_uri_parse(fullUri.cstring, G_URI_FLAGS_NONE)
+  let guri = verify g_uri_parse(fullUri.cstring, G_URI_FLAGS_NONE)
   defer:
     g_uri_unref(guri)
   let path = $g_uri_get_path(guri)
@@ -313,7 +322,7 @@ proc readCSV*(uri: string, options: CsvReadOptions): ArrowTable =
     let reader = garrow_csv_reader_new(stream.handle, options.handle, err.addr)
     defer:
       g_object_unref(reader)
-    let tablePtr = check garrow_csv_reader_read(reader)
+    let tablePtr = verify garrow_csv_reader_read(reader)
     result = newArrowTable(tablePtr)
 
   if options.schema.isSome:
@@ -368,9 +377,9 @@ template formatCell[T](tbl: typed, colIdx, rowIdx: int): string =
 proc writeCsv*[T: Writable](writable: T, options: WriteOptions, output: OutputStream) =
   let columns = writable.columns.toSeq
   if options.includeHeader:
-    var columnNames = newSeq[string]()
-    for c in columns:
-      columnNames.add(c.name)
+    var columnNames = newSeq[string](columns.len)
+    for i, c in columns:
+      columnNames[i] = c.name
     output.write(columnNames.formatRow(options))
 
   let nRows = writable.nRows
@@ -423,7 +432,7 @@ proc writeCsv*[T: Writable](
   if $scheme == "":
     fullUri = fmt"file://{uri}"
 
-  let guri = check g_uri_parse(fullUri.cstring, G_URI_FLAGS_NONE)
+  let guri = verify g_uri_parse(fullUri.cstring, G_URI_FLAGS_NONE)
   defer:
     g_uri_unref(guri)
   let path = $g_uri_get_path(guri)

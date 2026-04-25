@@ -37,10 +37,13 @@ proc `=destroy`*(o: JsonReadOptions) =
   if o.handle != nil:
     g_object_unref(o.handle)
 
-proc `=sink`*(dest: var JsonReadOptions, src: JsonReadOptions) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
+proc `=wasMoved`*(o: var JsonReadOptions) =
+  o.handle = nil
+
+proc `=dup`*(o: JsonReadOptions): JsonReadOptions =
+  result.handle = o.handle
+  if o.handle != nil:
+    discard g_object_ref(o.handle)
 
 proc `=copy`*(dest: var JsonReadOptions, src: JsonReadOptions) =
   if dest.handle != src.handle:
@@ -64,10 +67,13 @@ proc `=destroy`*(r: JsonReader) =
   if r.handle != nil:
     g_object_unref(r.handle)
 
-proc `=sink`*(dest: var JsonReader, src: JsonReader) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
+proc `=wasMoved`*(r: var JsonReader) =
+  r.handle = nil
+
+proc `=dup`*(r: JsonReader): JsonReader =
+  result.handle = r.handle
+  if r.handle != nil:
+    discard g_object_ref(r.handle)
 
 proc `=copy`*(dest: var JsonReader, src: JsonReader) =
   if dest.handle != src.handle:
@@ -81,11 +87,11 @@ proc toPtr*(r: JsonReader): ptr GArrowJSONReader {.inline.} =
   r.handle
 
 proc newJsonReader*(stream: InputStream, options: JsonReadOptions): JsonReader =
-  let handle = check garrow_json_reader_new(stream.handle, options.handle)
+  let handle = verify garrow_json_reader_new(stream.handle, options.handle)
   result.handle = handle
 
 proc read*(reader: JsonReader): ArrowTable =
-  let tablePtr = check garrow_json_reader_read(reader.handle)
+  let tablePtr = verify garrow_json_reader_read(reader.handle)
   result = newArrowTable(tablePtr)
 
 proc readJSON*(uri: string, options: JsonReadOptions): ArrowTable =

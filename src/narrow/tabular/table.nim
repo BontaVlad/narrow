@@ -13,45 +13,44 @@ arcGObject:
     handle*: ptr GArrowTable
 
 proc newArrowTableFromRecordBatches*(
-    schema: Schema, recordBatches: seq[ptr GArrowRecordBatch]
+    schema: Schema, recordBatches: openArray[ptr GArrowRecordBatch]
 ): ArrowTable =
   if recordBatches.len == 0:
-    result.handle = check garrow_table_new_record_batches(schema.toPtr, nil, 0.gsize)
+    result.handle = verify garrow_table_new_record_batches(schema.toPtr, nil, 0.gsize)
   else:
-    result.handle = check garrow_table_new_record_batches(
+    result.handle = verify garrow_table_new_record_batches(
       schema.toPtr, addr recordBatches[0], recordBatches.len.gsize
     )
 
 proc newArrowTableFromArrays*(
-    schema: Schema, arrays: seq[ptr GArrowArray]
+    schema: Schema, arrays: openArray[ptr GArrowArray]
 ): ArrowTable =
   if arrays.len == 0:
-    # raise newException(ValueError, "Cannot create table from empty arrays")
-    result.handle = check garrow_table_new_arrays(schema.toPtr, nil, 0.gsize)
+    result.handle = verify garrow_table_new_arrays(schema.toPtr, nil, 0.gsize)
   else:
     result.handle =
-      check garrow_table_new_arrays(schema.toPtr, addr arrays[0], arrays.len.gsize)
+      verify garrow_table_new_arrays(schema.toPtr, addr arrays[0], arrays.len.gsize)
 
 proc newArrowTableFromChunkedArrays*(
-    schema: Schema, chunkedArrays: seq[ptr GArrowChunkedArray]
+    schema: Schema, chunkedArrays: openArray[ptr GArrowChunkedArray]
 ): ArrowTable =
   if chunkedArrays.len == 0:
-    result.handle = check garrow_table_new_chunked_arrays(schema.toPtr, nil, 0.gsize)
+    result.handle = verify garrow_table_new_chunked_arrays(schema.toPtr, nil, 0.gsize)
   else:
-    result.handle = check garrow_table_new_chunked_arrays(
+    result.handle = verify garrow_table_new_chunked_arrays(
       schema.toPtr, addr chunkedArrays[0], chunkedArrays.len.gsize
     )
 
 template dispatchNewTable(
-    schema: Schema, ptrs: seq[ptr GArrowRecordBatch]
+    schema: Schema, ptrs: openArray[ptr GArrowRecordBatch]
 ): ArrowTable =
   newArrowTableFromRecordBatches(schema, ptrs)
 
-template dispatchNewTable(schema: Schema, ptrs: seq[ptr GArrowArray]): ArrowTable =
+template dispatchNewTable(schema: Schema, ptrs: openArray[ptr GArrowArray]): ArrowTable =
   newArrowTableFromArrays(schema, ptrs)
 
 template dispatchNewTable(
-    schema: Schema, ptrs: seq[ptr GArrowChunkedArray]
+    schema: Schema, ptrs: openArray[ptr GArrowChunkedArray]
 ): ArrowTable =
   newArrowTableFromChunkedArrays(schema, ptrs)
 
@@ -209,7 +208,7 @@ proc newArrowTable*(handle: ptr GArrowTable): ArrowTable =
   result.handle = handle
 
 proc `$`*(tbl: ArrowTable): string =
-  let cstr = check garrow_table_to_string(tbl.handle)
+  let cstr = verify garrow_table_to_string(tbl.handle)
   result = $newGString(cstr)
 
 proc isValid*(tbl: ArrowTable): bool {.inline.} =
@@ -266,7 +265,7 @@ proc replaceColumn*(
     tbl: ArrowTable, idx: int, field: Field, column: ChunkedArray
 ): ArrowTable =
   let handle =
-    check garrow_table_replace_column(tbl.handle, idx.guint, field.toPtr, column.toPtr)
+    verify garrow_table_replace_column(tbl.handle, idx.guint, field.toPtr, column.toPtr)
   result = newArrowTable(handle)
 
 proc equal*(a, b: ArrowTable): bool {.inline.} =
@@ -318,17 +317,17 @@ proc concatenate*(tbl: ArrowTable, others: openArray[ArrowTable]): ArrowTable =
   defer:
     g_object_unref(options)
 
-  let handle = check garrow_table_concatenate(tbl.handle, tableList.toPtr, options)
+  let handle = verify garrow_table_concatenate(tbl.handle, tableList.toPtr, options)
   result = newArrowTable(handle)
 
 proc readAll*(reader: RecordBatchReader): ArrowTable =
   ## Reads all record batches from a reader and returns them as a table.
-  let handle = check garrow_record_batch_reader_read_all(reader.toPtr)
+  let handle = verify garrow_record_batch_reader_read_all(reader.toPtr)
   result = newArrowTable(handle)
 
 iterator batches*(reader: RecordBatchReader): RecordBatch =
   while true:
-    let handle = check garrow_record_batch_reader_read_next_record_batch(reader.toPtr)
+    let handle = verify garrow_record_batch_reader_read_next_record_batch(reader.toPtr)
     if isNil(handle):
       break
     yield newRecordBatch(handle)

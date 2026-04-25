@@ -85,14 +85,17 @@ proc dimNames*(t: FixedShapeTensorType): seq[string] =
   let namesPtr = garrow_fixed_shape_tensor_data_type_get_dim_names(t.handle)
   if namesPtr.isNil:
     return @[]
-  # This returns a null-terminated array of strings
-  var i = 0
+  # Count first, then allocate (avoids reallocations during growth)
+  var n = 0
   while true:
-    let strPtr = cast[ptr cstring](cast[int](namesPtr) + i * sizeof(cstring))
+    let strPtr = cast[ptr cstring](cast[int](namesPtr) + n * sizeof(cstring))
     if strPtr.isNil or strPtr[] == nil:
       break
-    result.add($strPtr[])
-    i += 1
+    inc n
+  result = newSeq[string](n)
+  for i in 0 ..< n:
+    let strPtr = cast[ptr cstring](cast[int](namesPtr) + i * sizeof(cstring))
+    result[i] = $strPtr[]
 
 proc strides*(t: FixedShapeTensorType): seq[int64] =
   var len: gsize

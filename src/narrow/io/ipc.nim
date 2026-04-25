@@ -39,11 +39,15 @@ proc `=destroy`*(reader: IpcFileReader) =
     g_object_unref(reader.handle)
   `=destroy`(reader.stream)
 
-proc `=sink`*(dest: var IpcFileReader, src: IpcFileReader) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-  `=sink`(dest.stream, src.stream)
+proc `=wasMoved`*(reader: var IpcFileReader) =
+  reader.handle = nil
+  `=wasMoved`(reader.stream)
+
+proc `=dup`*(reader: IpcFileReader): IpcFileReader =
+  result.handle = reader.handle
+  result.stream = reader.stream
+  if reader.handle != nil:
+    discard g_object_ref(reader.handle)
 
 proc `=copy`*(dest: var IpcFileReader, src: IpcFileReader) =
   if dest.handle != src.handle:
@@ -71,10 +75,13 @@ proc `=destroy`*(writer: IpcStreamWriter) =
   if writer.handle != nil:
     g_object_unref(writer.handle)
 
-proc `=sink`*(dest: var IpcStreamWriter, src: IpcStreamWriter) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
+proc `=wasMoved`*(writer: var IpcStreamWriter) =
+  writer.handle = nil
+
+proc `=dup`*(writer: IpcStreamWriter): IpcStreamWriter =
+  result.handle = writer.handle
+  if writer.handle != nil:
+    discard g_object_ref(writer.handle)
 
 proc `=copy`*(dest: var IpcStreamWriter, src: IpcStreamWriter) =
   if dest.handle != src.handle:
@@ -95,10 +102,13 @@ proc `=destroy`*(writer: IpcFileWriter) =
   if writer.handle != nil:
     g_object_unref(writer.handle)
 
-proc `=sink`*(dest: var IpcFileWriter, src: IpcFileWriter) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
+proc `=wasMoved`*(writer: var IpcFileWriter) =
+  writer.handle = nil
+
+proc `=dup`*(writer: IpcFileWriter): IpcFileWriter =
+  result.handle = writer.handle
+  if writer.handle != nil:
+    discard g_object_ref(writer.handle)
 
 proc `=copy`*(dest: var IpcFileWriter, src: IpcFileWriter) =
   if dest.handle != src.handle:
@@ -119,10 +129,13 @@ proc `=destroy`*(options: IpcWriteOptions) =
   if options.handle != nil:
     g_object_unref(options.handle)
 
-proc `=sink`*(dest: var IpcWriteOptions, src: IpcWriteOptions) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
+proc `=wasMoved`*(options: var IpcWriteOptions) =
+  options.handle = nil
+
+proc `=dup`*(options: IpcWriteOptions): IpcWriteOptions =
+  result.handle = options.handle
+  if options.handle != nil:
+    discard g_object_ref(options.handle)
 
 proc `=copy`*(dest: var IpcWriteOptions, src: IpcWriteOptions) =
   if dest.handle != src.handle:
@@ -136,10 +149,13 @@ proc `=destroy`*(options: IpcReadOptions) =
   if options.handle != nil:
     g_object_unref(options.handle)
 
-proc `=sink`*(dest: var IpcReadOptions, src: IpcReadOptions) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
+proc `=wasMoved`*(options: var IpcReadOptions) =
+  options.handle = nil
+
+proc `=dup`*(options: IpcReadOptions): IpcReadOptions =
+  result.handle = options.handle
+  if options.handle != nil:
+    discard g_object_ref(options.handle)
 
 proc `=copy`*(dest: var IpcReadOptions, src: IpcReadOptions) =
   if dest.handle != src.handle:
@@ -168,12 +184,12 @@ proc newIpcReadOptions*(): IpcReadOptions =
 proc newMemoryMappedInputStream*(path: string): SeekableInputStream =
   ## Create a memory-mapped input stream for reading files.
   ## Returns a SeekableInputStream since GArrowMemoryMappedInputStream inherits from it.
-  let mmapHandle = check garrow_memory_mapped_input_stream_new(path.cstring)
+  let mmapHandle = verify garrow_memory_mapped_input_stream_new(path.cstring)
   result.handle = cast[ptr GArrowSeekableInputStream](mmapHandle)
 
 proc newIpcStreamReader*(stream: InputStream): RecordBatchReader =
   ## Create a streaming IPC reader from an input stream
-  let handle = check garrow_record_batch_stream_reader_new(stream.handle)
+  let handle = verify garrow_record_batch_stream_reader_new(stream.handle)
   result.handle = cast[ptr GArrowRecordBatchReader](handle)
   result.streamHandle = stream.handle # Store stream to keep it alive
   discard g_object_ref(result.streamHandle) # Increment ref count
@@ -189,7 +205,7 @@ proc newIpcStreamReader*(fs: FileSystem, path: string): RecordBatchReader =
 
 proc newIpcFileReader*(stream: SeekableInputStream): IpcFileReader =
   ## Create a file IPC reader from a seekable input stream
-  let handle = check garrow_record_batch_file_reader_new(stream.handle)
+  let handle = verify garrow_record_batch_file_reader_new(stream.handle)
   result.handle = handle
   result.stream = stream # Store stream to keep it alive
 
@@ -214,7 +230,7 @@ proc version*(reader: IpcFileReader): GArrowMetadataVersion =
 proc readRecordBatch*(reader: IpcFileReader, index: int): RecordBatch =
   ## Read a specific record batch by index (random access)
   let handle =
-    check garrow_record_batch_file_reader_read_record_batch(reader.handle, guint(index))
+    verify garrow_record_batch_file_reader_read_record_batch(reader.handle, guint(index))
   result = newRecordBatch(handle)
 
 # ============================================================================
@@ -223,7 +239,7 @@ proc readRecordBatch*(reader: IpcFileReader, index: int): RecordBatch =
 
 proc newIpcStreamWriter*(stream: OutputStream, schema: Schema): IpcStreamWriter =
   ## Create a streaming IPC writer
-  let handle = check garrow_record_batch_stream_writer_new(stream.handle, schema.handle)
+  let handle = verify garrow_record_batch_stream_writer_new(stream.handle, schema.handle)
   result.handle = handle
 
 proc newIpcStreamWriter*(
@@ -235,27 +251,27 @@ proc newIpcStreamWriter*(
 
 proc readAll*(reader: IpcFileReader): ArrowTable =
   ## Read all record batches as a table
-  var batches: seq[RecordBatch] = @[]
+  var batches = newSeq[RecordBatch](reader.nRecordBatches)
   for i in 0 ..< reader.nRecordBatches:
-    batches.add(reader.readRecordBatch(i))
+    batches[i] = reader.readRecordBatch(i)
 
   result = newArrowTable(reader.schema, batches)
 
 proc writeTable*(writer: IpcFileWriter | IpcStreamWriter, table: ArrowTable) =
   ## Write a table to the stream
-  check garrow_record_batch_writer_write_table(
+  verify garrow_record_batch_writer_write_table(
     cast[ptr GArrowRecordBatchWriter](writer.handle), table.toPtr
   )
 
 proc writeRecordBatch*(writer: IpcFileWriter, batch: RecordBatch) =
   ## Write a record batch to the file
-  check garrow_record_batch_writer_write_record_batch(
+  verify garrow_record_batch_writer_write_record_batch(
     cast[ptr GArrowRecordBatchWriter](writer.handle), batch.handle
   )
 
 proc close*(writer: IpcFileWriter | IpcStreamWriter) =
   ## Close the writer
-  check garrow_record_batch_writer_close(
+  verify garrow_record_batch_writer_close(
     cast[ptr GArrowRecordBatchWriter](writer.handle)
   )
 
@@ -273,7 +289,7 @@ proc isClosed*(writer: IpcFileWriter | IpcStreamWriter): bool =
 
 proc newIpcFileWriter*(stream: OutputStream, schema: Schema): IpcFileWriter =
   ## Create a file IPC writer
-  let handle = check garrow_record_batch_file_writer_new(stream.handle, schema.handle)
+  let handle = verify garrow_record_batch_file_writer_new(stream.handle, schema.handle)
   result.handle = handle
 
 proc newIpcFileWriter*(fs: FileSystem, path: string, schema: Schema): IpcFileWriter =

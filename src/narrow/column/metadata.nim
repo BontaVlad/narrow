@@ -62,7 +62,7 @@ proc newSchema*(fields: openArray[Field]): Schema =
   result.handle = garrow_schema_new(fieldList.list)
 
 proc newSchema*(gptr: pointer): Schema =
-  let handle = check garrow_schema_import(gptr)
+  let handle = verify garrow_schema_import(gptr)
   result.handle = handle
 
 proc newSchema*(handle: ptr GArrowSchema): Schema =
@@ -116,6 +116,7 @@ proc ffields*(schema: Schema): seq[Field] =
   if gFields.len == 0:
     return result
 
+  result = newSeqOfCap[Field](gFields.len)
   for gField in gFields:
     result.add(newField(gField))
 

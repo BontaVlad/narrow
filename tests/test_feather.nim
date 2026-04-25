@@ -1,7 +1,7 @@
 import std/options
 import unittest2
 import testfixture
-import ../src/narrow except check
+import ../src/narrow
 
 suite "Feather File Format":
   var fixture: TestFixture

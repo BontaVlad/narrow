@@ -27,11 +27,15 @@ proc `=destroy`*(reader: FeatherReader) =
     g_object_unref(reader.handle)
   `=destroy`(reader.stream)
 
-proc `=sink`*(dest: var FeatherReader, src: FeatherReader) =
-  if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-  `=sink`(dest.stream, src.stream)
+proc `=wasMoved`*(reader: var FeatherReader) =
+  reader.handle = nil
+  `=wasMoved`(reader.stream)
+
+proc `=dup`*(reader: FeatherReader): FeatherReader =
+  result.handle = reader.handle
+  result.stream = reader.stream
+  if not isNil(reader.handle):
+    discard g_object_ref(reader.handle)
 
 proc `=copy`*(dest: var FeatherReader, src: FeatherReader) =
   if dest.handle != src.handle:
@@ -53,10 +57,13 @@ proc `=destroy`*(props: FeatherWriteProperties) =
   if not isNil(props.handle):
     g_object_unref(props.handle)
 
-proc `=sink`*(dest: var FeatherWriteProperties, src: FeatherWriteProperties) =
-  if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
+proc `=wasMoved`*(props: var FeatherWriteProperties) =
+  props.handle = nil
+
+proc `=dup`*(props: FeatherWriteProperties): FeatherWriteProperties =
+  result.handle = props.handle
+  if not isNil(props.handle):
+    discard g_object_ref(props.handle)
 
 proc `=copy`*(dest: var FeatherWriteProperties, src: FeatherWriteProperties) =
   if dest.handle != src.handle:
@@ -77,7 +84,7 @@ proc toPtr*(
 
 proc newFeatherReader*(stream: SeekableInputStream): FeatherReader =
   ## Create a Feather file reader from a seekable input stream
-  let handle = check garrow_feather_file_reader_new(stream.handle)
+  let handle = verify garrow_feather_file_reader_new(stream.handle)
   result.handle = handle
   result.stream = stream
 
@@ -96,7 +103,7 @@ proc version*(reader: FeatherReader): int =
 
 proc read*(reader: FeatherReader): ArrowTable =
   ## Read the entire table from the Feather file
-  let handle = check garrow_feather_file_reader_read(reader.handle)
+  let handle = verify garrow_feather_file_reader_read(reader.handle)
   result = newArrowTable(handle)
 
 proc readIndices*(reader: FeatherReader, indices: openArray[int]): ArrowTable =
@@ -109,7 +116,7 @@ proc readIndices*(reader: FeatherReader, indices: openArray[int]): ArrowTable =
   for i, idx in indices:
     cIndices[i] = idx.gint
 
-  let handle = check garrow_feather_file_reader_read_indices(
+  let handle = verify garrow_feather_file_reader_read_indices(
     reader.handle, addr cIndices[0], indices.len.guint
   )
   result = newArrowTable(handle)
@@ -124,7 +131,7 @@ proc readNames*(reader: FeatherReader, names: openArray[string]): ArrowTable =
   for i, name in names:
     cNames[i] = name.cstring
 
-  let handle = check garrow_feather_file_reader_read_names(
+  let handle = verify garrow_feather_file_reader_read_names(
     reader.handle, addr cNames[0], names.len.guint
   )
   result = newArrowTable(handle)
@@ -187,10 +194,10 @@ proc writeFeatherFile*(uri: string, table: ArrowTable) =
   let fs = newFileSystem(uri)
   let stream = fs.openOutputStream(uri)
   let props = newFeatherWriteProperties()
-  check garrow_table_write_as_feather(table.toPtr, stream.handle, props.handle)
+  verify garrow_table_write_as_feather(table.toPtr, stream.handle, props.handle)
 
 proc writeFeatherFile*(uri: string, table: ArrowTable, props: FeatherWriteProperties) =
   ## Write a table to a Feather file with custom write properties
   let fs = newFileSystem(uri)
   let stream = fs.openOutputStream(uri)
-  check garrow_table_write_as_feather(table.toPtr, stream.handle, props.handle)
+  verify garrow_table_write_as_feather(table.toPtr, stream.handle, props.handle)

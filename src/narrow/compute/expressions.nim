@@ -84,10 +84,13 @@ proc `=destroy`*(dt: Datum) =
   if not isNil(dt.handle):
     g_object_unref(dt.handle)
 
-proc `=sink`*(dest: var Datum, src: Datum) =
-  if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
+proc `=wasMoved`*(dt: var Datum) =
+  dt.handle = nil
+
+proc `=dup`*(dt: Datum): Datum =
+  result.handle = dt.handle
+  if not isNil(dt.handle):
+    discard g_object_ref(dt.handle)
 
 proc `=copy`*(dest: var Datum, src: Datum) =
   if dest.handle != src.handle:
@@ -169,12 +172,14 @@ func arity*(expr: Expression): int {.inline.} =
   ## Number of child arguments (0 for literals/fields)
   if expr.isCall: expr.args.len else: 0
 
-func children*(expr: Expression): seq[Expression] {.inline.} =
+let emptyExprSeq: seq[Expression] = @[]
+
+proc children*(expr: Expression): seq[Expression] {.inline.} =
   ## Returns child expressions. Empty for leaf nodes.
   if expr.isCall:
     expr.args
   else:
-    @[]
+    emptyExprSeq
 
 # ============================================================================
 # Expression — Recursive Field Collection
@@ -197,27 +202,26 @@ func referencedFields*(expr: Expression): HashSet[string] =
   result = initHashSet[string]()
   collectFieldsImpl(expr, result)
 
+proc referencedFieldSeqWalk(e: Expression, seen: var HashSet[string], res: var seq[string]) =
+  ## Helper for `referencedFieldSeq` — recursively walks expression tree.
+  if e.isNil:
+    return
+  case e.kind
+  of ekLiteral:
+    discard
+  of ekField:
+    if e.fieldName notin seen:
+      seen.incl(e.fieldName)
+      res.add(e.fieldName)
+  of ekCall:
+    for child in e.args:
+      referencedFieldSeqWalk(child, seen, res)
+
 func referencedFieldSeq*(expr: Expression): seq[string] =
   ## Returns referenced fields as an ordered seq (insertion order).
   var seen = initHashSet[string]()
-  var res: seq[string] = @[]
-
-  proc walk(e: Expression) =
-    if e.isNil:
-      return
-    case e.kind
-    of ekLiteral:
-      discard
-    of ekField:
-      if e.fieldName notin seen:
-        seen.incl(e.fieldName)
-        res.add(e.fieldName)
-    of ekCall:
-      for child in e.args:
-        walk(child)
-
-  walk(expr)
-  result = res
+  result = @[]
+  referencedFieldSeqWalk(expr, seen, result)
 
 func fieldName*(expr: Expression): string =
   ## Returns the field name for a field expression, or the single field
@@ -788,25 +792,26 @@ proc newLiteralExpression*[T: DatumCompatible](value: T): Expression =
   let datum = newDatum(value)
   result = newLiteralExpression(datum)
 
-proc newFieldExpression*(name: string): Expression =
+proc newFieldExpression*(name: sink string): Expression =
   ## Creates a field reference expression.
   ##
   ## Example:
   ##   ```nim
   ##   let ageField = newFieldExpression("age")
   ##   ```
+  let cname = name.cstring
   new(result)
   result[] = ExpressionObj(
     kind: ekField,
-    handle: cast[ptr GArrowExpression](check garrow_field_expression_new(name.cstring)),
-    fieldName: name,
+    handle: cast[ptr GArrowExpression](verify garrow_field_expression_new(cname)),
+    fieldName: move(name),
   )
 
 # ============================================================================
 # Expression Constructors — Call Nodes
 # ============================================================================
 
-proc newCallExpression*(function: string, args: openArray[Expression]): Expression =
+proc newCallExpression*(function: sink string, args: openArray[Expression]): Expression =
   ## Creates a call expression node.
   ##
   ## Common functions: "equal", "not_equal", "less", "less_equal",
@@ -819,8 +824,9 @@ proc newCallExpression*(function: string, args: openArray[Expression]): Expressi
   ##   let threshold = newLiteralExpression(21'i32)
   ##   let isAdult = newCallExpression("greater_equal", [age, threshold])
   ##   ```
+  let cfunc = function.cstring
   var argList = newGList[ptr GArrowExpression]()
-  var childExprs: seq[Expression] = @[]
+  var childExprs = newSeqOfCap[Expression](args.len)
   for arg in args:
     argList.append(arg.toPtr)
     childExprs.add(arg)
@@ -829,18 +835,19 @@ proc newCallExpression*(function: string, args: openArray[Expression]): Expressi
   result[] = ExpressionObj(
     kind: ekCall,
     handle: cast[ptr GArrowExpression](garrow_call_expression_new(
-      function.cstring, argList.toPtr, nil
+      cfunc, argList.toPtr, nil
     )),
-    functionName: function,
-    args: childExprs,
+    functionName: move(function),
+    args: move(childExprs),
   )
 
 proc newCallExpressionWithOptions*(
-    function: string, options: MatchSubstringOptions, args: openArray[Expression]
+    function: sink string, options: MatchSubstringOptions, args: openArray[Expression]
 ): Expression =
   ## Creates a call expression with MatchSubstringOptions.
+  let cfunc = function.cstring
   var argList = newGList[ptr GArrowExpression]()
-  var childExprs: seq[Expression] = @[]
+  var childExprs = newSeqOfCap[Expression](args.len)
   for arg in args:
     argList.append(arg.toPtr)
     childExprs.add(arg)
@@ -849,10 +856,10 @@ proc newCallExpressionWithOptions*(
   result[] = ExpressionObj(
     kind: ekCall,
     handle: cast[ptr GArrowExpression](garrow_call_expression_new(
-      function.cstring, argList.toPtr, cast[ptr GArrowFunctionOptions](options.toPtr)
+      cfunc, argList.toPtr, cast[ptr GArrowFunctionOptions](options.toPtr)
     )),
-    functionName: function,
-    args: childExprs,
+    functionName: move(function),
+    args: move(childExprs),
   )
 
 # ============================================================================
@@ -973,7 +980,7 @@ proc matchSubstringRegex*(
 # DSL Entry Point
 # ============================================================================
 
-proc col*(name: string): Expression =
+proc col*(name: sink string): Expression =
   newFieldExpression(name)
 
 # ============================================================================
@@ -1116,7 +1123,8 @@ proc treeRepr*(expr: Expression, indent: int = 0): string =
   of ekCall:
     result = pad & "Call(" & expr.functionName & ")"
     for child in expr.args:
-      result &= "\n" & treeRepr(child, indent + 1)
+      result.add("\n")
+      result.add(treeRepr(child, indent + 1))
 
 # ============================================================================
 # Expression Visitor (generic tree walker)
@@ -1162,7 +1170,7 @@ proc mapTree*(expr: Expression, fn: proc(e: Expression): Expression): Expression
   of ekLiteral, ekField:
     return fn(expr)
   of ekCall:
-    var newArgs: seq[Expression] = @[]
+    var newArgs = newSeqOfCap[Expression](expr.args.len)
     for child in expr.args:
       newArgs.add(mapTree(child, fn))
     # Build a new call node with transformed children
@@ -1187,12 +1195,16 @@ proc extractFieldReferences*(expr: Expression): HashSet[string] =
 
 proc parseValue*(value: string): Expression =
   ## Parses a string value into the appropriate typed literal expression.
-  if value.toLowerAscii == "true":
+  ## Case-insensitive comparison without allocating a copy.
+  template eqIgnoreCase(s: string, target: static string): bool =
+    s.len == target.len and cmpIgnoreCase(s, target) == 0
+
+  if eqIgnoreCase(value, "true"):
     return newLiteralExpression(true)
-  elif value.toLowerAscii == "false":
+  elif eqIgnoreCase(value, "false"):
     return newLiteralExpression(false)
 
-  if value.contains('.') or value.toLowerAscii.contains('e'):
+  if value.contains('.') or value.contains('e') or value.contains('E'):
     try:
       let f = parseFloat(value)
       return newLiteralExpression(f.float64)
@@ -1238,6 +1250,36 @@ proc parse*(filters: seq[FilterClause]): Expression =
   for i in 1 ..< filters.len:
     result = newCallExpression("and", [result, parseFilter(filters[i])])
 
+proc extractGuaranteeBoundsExtract(
+    expr: Expression, fieldName: string,
+    minExpr: var Expression, maxExpr: var Expression) =
+  ## Helper for `extractGuaranteeBounds` — recursively extracts bound expressions.
+  if expr.isNil:
+    return
+  if expr.isCall:
+    case expr.functionName
+    of "and", "and_kleene":
+      for child in expr.args:
+        extractGuaranteeBoundsExtract(child, fieldName, minExpr, maxExpr)
+    of "greater_equal":
+      # greater_equal(field, min) → field >= min
+      if expr.args.len == 2 and expr.args[0].isField and
+          expr.args[0].fieldName == fieldName and expr.args[1].isLiteral:
+        minExpr = expr.args[1]
+    of "less_equal":
+      # less_equal(field, max) → field <= max
+      if expr.args.len == 2 and expr.args[0].isField and
+          expr.args[0].fieldName == fieldName and expr.args[1].isLiteral:
+        maxExpr = expr.args[1]
+    of "equal":
+      # equal(field, val) → min = max = val
+      if expr.args.len == 2 and expr.args[0].isField and
+          expr.args[0].fieldName == fieldName and expr.args[1].isLiteral:
+        minExpr = expr.args[1]
+        maxExpr = expr.args[1]
+    else:
+      discard
+
 proc extractGuaranteeBounds*(
     guarantee: Expression, fieldName: string
 ): Option[tuple[minExpr: Expression, maxExpr: Expression]] =
@@ -1247,35 +1289,7 @@ proc extractGuaranteeBounds*(
   ## possibly nested with other field constraints via AND.
 
   var minExpr, maxExpr: Expression
-
-  proc extract(expr: Expression) =
-    if expr.isNil:
-      return
-    if expr.isCall:
-      case expr.functionName
-      of "and", "and_kleene":
-        for child in expr.args:
-          extract(child)
-      of "greater_equal":
-        # greater_equal(field, min) → field >= min
-        if expr.args.len == 2 and expr.args[0].isField and
-            expr.args[0].fieldName == fieldName and expr.args[1].isLiteral:
-          minExpr = expr.args[1]
-      of "less_equal":
-        # less_equal(field, max) → field <= max
-        if expr.args.len == 2 and expr.args[0].isField and
-            expr.args[0].fieldName == fieldName and expr.args[1].isLiteral:
-          maxExpr = expr.args[1]
-      of "equal":
-        # equal(field, val) → min = max = val
-        if expr.args.len == 2 and expr.args[0].isField and
-            expr.args[0].fieldName == fieldName and expr.args[1].isLiteral:
-          minExpr = expr.args[1]
-          maxExpr = expr.args[1]
-      else:
-        discard
-
-  extract(guarantee)
+  extractGuaranteeBoundsExtract(guarantee, fieldName, minExpr, maxExpr)
 
   if not minExpr.isNil and not maxExpr.isNil:
     return some((minExpr: minExpr, maxExpr: maxExpr))

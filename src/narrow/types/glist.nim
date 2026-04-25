@@ -11,13 +11,17 @@ proc `=destroy`*[T](wrapper: GAList[T]) =
   if wrapper.owned and wrapper.list != nil:
     g_list_free(wrapper.list)
 
+proc `=wasMoved`*[T](wrapper: var GAList[T]) =
+  wrapper.list = nil
+  wrapper.owned = false
+
+proc `=dup`*[T](wrapper: GAList[T]): GAList[T] =
+  result.list = wrapper.list
+  result.owned = false
+
 proc `=copy`*[T](dest: var GAList[T], source: GAList[T]) =
   dest.list = source.list
   dest.owned = false # Copies are never owning to avoid double-free
-
-proc `=sink`*[T](dest: var GAList[T], source: GAList[T]) =
-  dest.list = source.list
-  dest.owned = source.owned
 
 proc newGList*[T](list: ptr GList, owned: bool = true): GAList[T] =
   GAList[T](list: list, owned: owned)
@@ -56,6 +60,8 @@ proc newGList*[T](items: openArray[T]): GAList[T] =
   result = lst
 
 proc toSeq*[T](wrapper: GAList[T]): seq[T] =
-  result = @[]
+  result = newSeq[T](wrapper.len)
+  var i = 0
   for item in wrapper.items:
-    result.add(item)
+    result[i] = item
+    inc i

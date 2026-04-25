@@ -44,7 +44,7 @@ proc newExecuteContext*(executor: ptr GArrowExecutor): ExecuteContext =
 
 proc newExecutePlan*(ctx: ExecuteContext): ExecutePlan =
   ## Creates a new execution plan.
-  result.handle = check garrow_execute_plan_new(ctx.toPtr)
+  result.handle = verify garrow_execute_plan_new(ctx.toPtr)
 
 proc newSourceNodeOptions*(table: ArrowTable): SourceNodeOptions =
   ## Creates source node options from a table.
@@ -63,7 +63,7 @@ proc newSinkNodeOptions*(): SinkNodeOptions =
   result.handle = garrow_sink_node_options_new()
 
 proc newThreadPool*(n_threads: int = countProcessors()): ThreadPool =
-  result.handle = check garrow_thread_pool_new(n_threads = n_threads.guint)
+  result.handle = verify garrow_thread_pool_new(n_threads = n_threads.guint)
 
 # ============================================================================
 # Plan Building
@@ -71,7 +71,7 @@ proc newThreadPool*(n_threads: int = countProcessors()): ThreadPool =
 
 proc buildSourceNode*(plan: ExecutePlan, options: SourceNodeOptions): ExecuteNode =
   ## Adds a source node to the plan.
-  let handle = check garrow_execute_plan_build_source_node(plan.toPtr, options.toPtr)
+  let handle = verify garrow_execute_plan_build_source_node(plan.toPtr, options.toPtr)
   result = ExecuteNode(handle: handle)
 
 proc buildFilterNode*(
@@ -79,7 +79,7 @@ proc buildFilterNode*(
 ): ExecuteNode =
   ## Adds a filter node after `input`.
   let handle =
-    check garrow_execute_plan_build_filter_node(plan.toPtr, input.toPtr, options.toPtr)
+    verify garrow_execute_plan_build_filter_node(plan.toPtr, input.toPtr, options.toPtr)
   result = ExecuteNode(handle: handle)
 
 proc buildSinkNode*(
@@ -87,7 +87,7 @@ proc buildSinkNode*(
 ): ExecuteNode =
   ## Adds a sink node after `input`. Results are read from SinkNodeOptions.
   let handle =
-    check garrow_execute_plan_build_sink_node(plan.toPtr, input.toPtr, options.toPtr)
+    verify garrow_execute_plan_build_sink_node(plan.toPtr, input.toPtr, options.toPtr)
   result = ExecuteNode(handle: handle)
 
 # ============================================================================
@@ -105,7 +105,7 @@ proc outputSchema*(node: ExecuteNode): Schema =
 
 proc validate*(plan: ExecutePlan) =
   ## Validates the plan. Raises OperationError if invalid.
-  check garrow_execute_plan_validate(plan.toPtr)
+  verify garrow_execute_plan_validate(plan.toPtr)
 
 proc start*(plan: ExecutePlan) =
   ## Starts the plan execution.
@@ -113,7 +113,7 @@ proc start*(plan: ExecutePlan) =
 
 proc wait*(plan: ExecutePlan) =
   ## Blocks until the plan finishes. Raises OperationError on failure.
-  check garrow_execute_plan_wait(plan.toPtr)
+  verify garrow_execute_plan_wait(plan.toPtr)
 
 proc stop*(plan: ExecutePlan) =
   ## Stops the plan execution.
@@ -132,17 +132,6 @@ proc getReader*(options: SinkNodeOptions, schema: Schema): RecordBatchReader =
 # ============================================================================
 # High-level Convenience
 # ============================================================================
-
-var computeInitialized {.global.} = false
-
-proc ensureComputeInitialized() =
-  ## Ensures compute functions are registered. Thread-safe one-time initialization.
-  once:
-    var err = newError()
-    if not garrow_compute_initialize(err.toPtr).bool or err:
-      raise newException(OperationError, "Failed to initialize compute: " & $err)
-
-    computeInitialized = true
 
 proc filterTable*(table: ArrowTable, filter: Expression): ArrowTable =
   ## Applies a filter expression to a table using the Acero engine.

@@ -27,7 +27,7 @@ func `$`*(wrapper: GErrorWrapper): string =
   else:
     ""
 
-macro check*(callable: untyped, message: static string = ""): untyped =
+macro verify*(callable: untyped, message: static string = ""): untyped =
   expectKind(callable, nnkCall)
   expectMinLen(callable, 1)
 

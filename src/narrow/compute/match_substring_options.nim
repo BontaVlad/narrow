@@ -8,10 +8,13 @@ proc `=destroy`*(options: MatchSubstringOptions) =
   if options.handle != nil:
     g_object_unref(options.handle)
 
-proc `=sink`*(dest: var MatchSubstringOptions, src: MatchSubstringOptions) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
+proc `=wasMoved`*(options: var MatchSubstringOptions) =
+  options.handle = nil
+
+proc `=dup`*(options: MatchSubstringOptions): MatchSubstringOptions =
+  result.handle = options.handle
+  if options.handle != nil:
+    discard g_object_ref(options.handle)
 
 proc `=copy`*(dest: var MatchSubstringOptions, src: MatchSubstringOptions) =
   if dest.handle != src.handle:

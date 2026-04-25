@@ -394,7 +394,7 @@ proc read*(stream: InputStream, nBytes: int64): seq[byte] =
   if stream.handle == nil:
     raise newException(StreamError, "Cannot read from closed stream")
 
-  let gbytes = check garrow_readable_read_bytes(stream.asReadable, nBytes.gint64)
+  let gbytes = verify garrow_readable_read_bytes(stream.asReadable, nBytes.gint64)
   result = toBytesSeq(gbytes)
 
 proc readBuffer*(stream: InputStream, nBytes: int64): seq[byte] =
@@ -402,7 +402,7 @@ proc readBuffer*(stream: InputStream, nBytes: int64): seq[byte] =
   if stream.handle == nil:
     raise newException(StreamError, "Cannot read from closed stream")
 
-  let buffer = check garrow_readable_read(stream.asReadable, nBytes.gint64)
+  let buffer = verify garrow_readable_read(stream.asReadable, nBytes.gint64)
   result = toBytesSeq(buffer)
 
 proc readAll*(stream: InputStream, chunkSize: int64 = 65536): seq[byte] =
@@ -415,14 +415,27 @@ proc readAll*(stream: InputStream, chunkSize: int64 = 65536): seq[byte] =
     result.add(chunk)
 
 proc readString*(stream: InputStream, nBytes: int64): string =
-  ## Read nBytes as a string
-  let data = stream.read(nBytes)
-  result = newString(data.len)
-  if data.len > 0:
-    copyMem(addr result[0], unsafeAddr data[0], data.len)
+  ## Read nBytes as a string (avoids intermediate seq[byte] allocation).
+  let gbytes = verify garrow_readable_read_bytes(stream.asReadable, nBytes.gint64)
+  if gbytes == nil:
+    return ""
+
+  let size = g_bytes_get_size(gbytes)
+  if size == 0:
+    g_bytes_unref(gbytes)
+    return ""
+
+  var sizeOut: gsize
+  let data = g_bytes_get_data(gbytes, addr sizeOut)
+
+  result = newString(sizeOut.int)
+  if sizeOut > 0:
+    copyMem(addr result[0], data, sizeOut)
+
+  g_bytes_unref(gbytes)
 
 proc readAllString*(stream: InputStream): string =
-  ## Read all remaining data as a string
+  ## Read all remaining data as a string.
   let data = stream.readAll()
   result = newString(data.len)
   if data.len > 0:
@@ -445,14 +458,14 @@ proc size*(stream: SeekableInputStream): uint64 =
   ## Get the total size of the stream in bytes
   if stream.handle == nil:
     raise newException(StreamError, "Cannot get size of closed stream")
-  check garrow_seekable_input_stream_get_size(stream.handle)
+  verify garrow_seekable_input_stream_get_size(stream.handle)
 
 proc read*(stream: SeekableInputStream, nBytes: int64): seq[byte] =
   ## Read up to nBytes from current position
   if stream.handle == nil:
     raise newException(StreamError, "Cannot read from closed stream")
 
-  let gbytes = check garrow_readable_read_bytes(stream.asReadable, nBytes.gint64)
+  let gbytes = verify garrow_readable_read_bytes(stream.asReadable, nBytes.gint64)
   result = toBytesSeq(gbytes)
 
 proc readAt*(stream: SeekableInputStream, position: int64, nBytes: int64): seq[byte] =
@@ -462,7 +475,7 @@ proc readAt*(stream: SeekableInputStream, position: int64, nBytes: int64): seq[b
   if stream.handle == nil:
     raise newException(StreamError, "Cannot read from closed stream")
 
-  let gbytes = check garrow_seekable_input_stream_read_at_bytes(
+  let gbytes = verify garrow_seekable_input_stream_read_at_bytes(
     stream.handle, position.gint64, nBytes.gint64
   )
   result = toBytesSeq(gbytes)
@@ -474,7 +487,7 @@ proc readAtBuffer*(
   if stream.handle == nil:
     raise newException(StreamError, "Cannot read from closed stream")
 
-  let buffer = check garrow_seekable_input_stream_read_at(
+  let buffer = verify garrow_seekable_input_stream_read_at(
     stream.handle, position.gint64, nBytes.gint64
   )
   result = toBytesSeq(buffer)
@@ -553,7 +566,7 @@ proc flush*(stream: OutputStream) =
   ## Flush any buffered data to the underlying storage
   if stream.handle == nil:
     raise newException(StreamError, "Cannot flush closed stream")
-  check garrow_writable_flush(stream.asWritable)
+  verify garrow_writable_flush(stream.asWritable)
 
 proc close*(stream: OutputStream) =
   ## Flush and close the output stream
@@ -581,7 +594,7 @@ proc write*(stream: OutputStream, data: openArray[byte]) =
   if data.len == 0:
     return
 
-  check garrow_writable_write(
+  verify garrow_writable_write(
     stream.asWritable, cast[ptr guint8](unsafeAddr data[0]), data.len.gint64
   )
 
@@ -593,7 +606,7 @@ proc write*(stream: OutputStream, data: string) =
   if data.len == 0:
     return
 
-  check garrow_writable_write(
+  verify garrow_writable_write(
     stream.asWritable, cast[ptr guint8](unsafeAddr data[0]), data.len.gint64
   )
 
@@ -606,7 +619,7 @@ proc tell*(stream: OutputStream): int64 =
   ## Get the current stream position (bytes written so far)
   if stream.handle == nil:
     raise newException(StreamError, "Cannot tell position of closed stream")
-  result = check garrow_file_tell(cast[ptr GArrowFile](stream.handle))
+  result = verify garrow_file_tell(cast[ptr GArrowFile](stream.handle))
 
 # =============================================================================
 # FileSystem Implementation
@@ -646,7 +659,7 @@ proc newFileSystem*(uri: string): FileSystem =
       uri
     else:
       "file://" & uri
-  let handle = check garrow_file_system_create(uriString.cstring)
+  let handle = verify garrow_file_system_create(uriString.cstring)
 
   # Sink floating reference if present
   if g_object_is_floating(handle) != 0:
@@ -664,7 +677,7 @@ proc newFileSystem*(uri: Uri): FileSystem =
   ## ```
   let uriString = $uri
   new(result)
-  let handle = check garrow_file_system_create(uriString.cstring)
+  let handle = verify garrow_file_system_create(uriString.cstring)
 
   # Sink floating reference if present
   if g_object_is_floating(handle) != 0:
@@ -682,7 +695,7 @@ proc getFileInfo*(fs: FileSystem, path: string): FileInfo =
   ## Get information about a single path
   ##
   ## Returns FileInfo even if the path doesn't exist (with type = ftNotFound)
-  result.handle = check garrow_file_system_get_file_info(fs.handle, path.cstring)
+  result.handle = verify garrow_file_system_get_file_info(fs.handle, path.cstring)
 
 proc getFileInfos*(fs: FileSystem, paths: openArray[string]): seq[FileInfo] =
   ## Get information about multiple paths
@@ -696,12 +709,12 @@ proc getFileInfos*(fs: FileSystem, paths: openArray[string]): seq[FileInfo] =
   for i, p in paths:
     cPaths[i] = p.cstring
 
-  let glistPtr = check garrow_file_system_get_file_infos_paths(
+  let glistPtr = verify garrow_file_system_get_file_infos_paths(
     fs.handle, addr cPaths[0], paths.len.gsize
   )
 
   let gList = newGlist[ptr GArrowFileInfo](glistPtr)
-  result = newSeq[FileInfo]()
+  result = newSeqOfCap[FileInfo](gList.len)
   for p in gList:
     result.add(FileInfo(handle: cast[ptr GArrowFileInfo](p)))
 
@@ -715,9 +728,9 @@ proc getFileInfos*(fs: FileSystem, selector: FileSelector): seq[FileInfo] =
   ##   echo info.path
   ## ```
   let glistPtr =
-    check garrow_file_system_get_file_infos_selector(fs.handle, selector.handle)
+    verify garrow_file_system_get_file_infos_selector(fs.handle, selector.handle)
   let gList = newGlist[ptr GArrowFileInfo](glistPtr)
-  result = newSeq[FileInfo]()
+  result = newSeqOfCap[FileInfo](gList.len)
   for p in gList:
     result.add(FileInfo(handle: cast[ptr GArrowFileInfo](p)))
 
@@ -727,23 +740,23 @@ proc createDir*(fs: FileSystem, path: string, recursive = true) =
   ## Parameters:
   ## - `path`: Path to the directory to create
   ## - `recursive`: If true, create parent directories as needed
-  check garrow_file_system_create_dir(fs.handle, path.cstring, recursive.gboolean)
+  verify garrow_file_system_create_dir(fs.handle, path.cstring, recursive.gboolean)
 
 proc deleteDir*(fs: FileSystem, path: string) =
   ## Delete a directory and all its contents
   ##
   ## Fails if the path is not a directory.
-  check garrow_file_system_delete_dir(fs.handle, path.cstring)
+  verify garrow_file_system_delete_dir(fs.handle, path.cstring)
 
 proc deleteDirContents*(fs: FileSystem, path: string) =
   ## Delete the contents of a directory, but not the directory itself
-  check garrow_file_system_delete_dir_contents(fs.handle, path.cstring)
+  verify garrow_file_system_delete_dir_contents(fs.handle, path.cstring)
 
 proc deleteFile*(fs: FileSystem, path: string) =
   ## Delete a file
   ##
   ## Fails if the path is not a regular file.
-  check garrow_file_system_delete_file(fs.handle, path.cstring)
+  verify garrow_file_system_delete_file(fs.handle, path.cstring)
 
 proc deleteFiles*(fs: FileSystem, paths: openArray[string]) =
   ## Delete multiple files
@@ -757,14 +770,14 @@ proc deleteFiles*(fs: FileSystem, paths: openArray[string]) =
   for i, p in paths:
     cPaths[i] = p.cstring
 
-  check garrow_file_system_delete_files(fs.handle, addr cPaths[0], paths.len.gsize)
+  verify garrow_file_system_delete_files(fs.handle, addr cPaths[0], paths.len.gsize)
 
 proc move*(fs: FileSystem, src, dest: string) =
   ## Move/rename a file or directory
   ##
   ## If `dest` already exists and is a directory, and `src` is also a directory,
   ## `src` is moved into `dest`.
-  check garrow_file_system_move(fs.handle, src.cstring, dest.cstring)
+  verify garrow_file_system_move(fs.handle, src.cstring, dest.cstring)
 
 proc rename*(fs: FileSystem, src, dest: string) {.inline.} =
   ## Alias for move
@@ -774,23 +787,23 @@ proc copyFile*(fs: FileSystem, src, dest: string) =
   ## Copy a file
   ##
   ## If `dest` already exists, it is overwritten.
-  check garrow_file_system_copy_file(fs.handle, src.cstring, dest.cstring)
+  verify garrow_file_system_copy_file(fs.handle, src.cstring, dest.cstring)
 
 proc openInputStream*(fs: FileSystem, path: string): InputStream =
   ## Open a file for reading (sequential access)
-  result.handle = check garrow_file_system_open_input_stream(fs.handle, path.cstring)
+  result.handle = verify garrow_file_system_open_input_stream(fs.handle, path.cstring)
 
 proc openInputFile*(fs: FileSystem, path: string): SeekableInputStream =
   ## Open a file for reading with random access (seeking)
-  result.handle = check garrow_file_system_open_input_file(fs.handle, path.cstring)
+  result.handle = verify garrow_file_system_open_input_file(fs.handle, path.cstring)
 
 proc openOutputStream*(fs: FileSystem, path: string): OutputStream =
   ## Open a file for writing (creates or truncates)
-  result.handle = check garrow_file_system_open_output_stream(fs.handle, path.cstring)
+  result.handle = verify garrow_file_system_open_output_stream(fs.handle, path.cstring)
 
 proc openAppendStream*(fs: FileSystem, path: string): OutputStream =
   ## Open a file for appending
-  result.handle = check garrow_file_system_open_append_stream(fs.handle, path.cstring)
+  result.handle = verify garrow_file_system_open_append_stream(fs.handle, path.cstring)
 
 # FIXME: not sure about these
 proc readFile*(fs: FileSystem, path: string): seq[byte] =

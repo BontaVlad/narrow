@@ -17,10 +17,13 @@ proc `=destroy`*[T](arr: ListArray[T]) =
   if not isNil(arr.handle):
     g_object_unref(arr.handle)
 
-proc `=sink`*[T](dest: var ListArray[T], src: ListArray[T]) =
-  if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
+proc `=wasMoved`*[T](arr: var ListArray[T]) =
+  arr.handle = nil
+
+proc `=dup`*[T](arr: ListArray[T]): ListArray[T] =
+  result.handle = arr.handle
+  if not isNil(arr.handle):
+    discard g_object_ref(arr.handle)
 
 proc `=copy`*[T](dest: var ListArray[T], src: ListArray[T]) =
   if dest.handle != src.handle:
@@ -72,7 +75,7 @@ proc nNulls*[T](arr: ListArray[T]): int64 =
   result = garrow_array_get_n_nulls(cast[ptr GArrowArray](arr.handle)).int64
 
 proc `$`*[T](arr: ListArray[T]): string =
-  let cStr = check garrow_array_to_string(cast[ptr GArrowArray](arr.handle))
+  let cStr = verify garrow_array_to_string(cast[ptr GArrowArray](arr.handle))
   result = $newGString(cStr)
 
 # ListValue helper type
@@ -139,10 +142,13 @@ proc `=destroy`*(dt: MapDataType) =
   if not isNil(dt.handle):
     g_object_unref(dt.handle)
 
-proc `=sink`*(dest: var MapDataType, src: MapDataType) =
-  if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
+proc `=wasMoved`*(dt: var MapDataType) =
+  dt.handle = nil
+
+proc `=dup`*(dt: MapDataType): MapDataType =
+  result.handle = dt.handle
+  if not isNil(dt.handle):
+    discard g_object_ref(dt.handle)
 
 proc `=copy`*(dest: var MapDataType, src: MapDataType) =
   if dest.handle != src.handle:
@@ -167,7 +173,11 @@ proc itemType*(dt: MapDataType): GADType =
   newGType(handle)
 
 proc `$`*(dt: MapDataType): string =
-  "map<" & $dt.keyType & ", " & $dt.itemType & ">"
+  result = "map<"
+  result.add($dt.keyType)
+  result.add(", ")
+  result.add($dt.itemType)
+  result.add(">")
 
 proc toPtr*[K, V](a: MapArray[K, V]): ptr GArrowMapArray {.inline.} =
   a.handle
@@ -176,10 +186,13 @@ proc `=destroy`*[K, V](arr: MapArray[K, V]) =
   if not isNil(arr.handle):
     g_object_unref(arr.handle)
 
-proc `=sink`*[K, V](dest: var MapArray[K, V], src: MapArray[K, V]) =
-  if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
+proc `=wasMoved`*[K, V](arr: var MapArray[K, V]) =
+  arr.handle = nil
+
+proc `=dup`*[K, V](arr: MapArray[K, V]): MapArray[K, V] =
+  result.handle = arr.handle
+  if not isNil(arr.handle):
+    discard g_object_ref(arr.handle)
 
 proc `=copy`*[K, V](dest: var MapArray[K, V], src: MapArray[K, V]) =
   if dest.handle != src.handle:
@@ -193,7 +206,7 @@ proc newMapArray*[K, V](
     offsets: Array[int32], keys: Array[K], items: Array[V]
 ): MapArray[K, V] =
   var err: ptr GError
-  let handle = check garrow_map_array_new(
+  let handle = verify garrow_map_array_new(
     cast[ptr GArrowArray](offsets.toPtr), keys.toPtr, items.toPtr
   )
   result = MapArray[K, V](handle: handle)
@@ -273,7 +286,7 @@ proc `@`*[K, V](arr: MapArray[K, V]): seq[MapEntry[K, V]] {.inline.} =
   arr.toSeq
 
 proc `$`*[K, V](arr: MapArray[K, V]): string =
-  let cStr = check garrow_array_to_string(cast[ptr GArrowArray](arr.handle))
+  let cStr = verify garrow_array_to_string(cast[ptr GArrowArray](arr.handle))
   result = $newGString(cStr)
 
 # ============================================================================
@@ -306,10 +319,13 @@ proc `=destroy`*(s: Struct) =
   if not isNil(s.toPtr):
     g_object_unref(s.toPtr)
 
-proc `=sink`*(dest: var Struct, src: Struct) =
-  if not isNil(dest.toPtr) and dest.toPtr != src.toPtr:
-    g_object_unref(dest.toPtr)
-  dest.handle = src.handle
+proc `=wasMoved`*(s: var Struct) =
+  s.handle = nil
+
+proc `=dup`*(s: Struct): Struct =
+  result.handle = s.handle
+  if not isNil(s.toPtr):
+    discard g_object_ref(s.handle)
 
 proc `=copy`*(dest: var Struct, src: Struct) =
   if dest.toPtr != src.toPtr:
@@ -324,10 +340,13 @@ proc `=destroy`*(sa: StructArray) =
   if not isNil(sa.toPtr):
     g_object_unref(sa.toPtr)
 
-proc `=sink`*(dest: var StructArray, src: StructArray) =
-  if not isNil(dest.toPtr) and dest.toPtr != src.toPtr:
-    g_object_unref(dest.toPtr)
-  dest.handle = src.handle
+proc `=wasMoved`*(sa: var StructArray) =
+  sa.handle = nil
+
+proc `=dup`*(sa: StructArray): StructArray =
+  result.handle = sa.handle
+  if not isNil(sa.toPtr):
+    discard g_object_ref(sa.handle)
 
 proc `=copy`*(dest: var StructArray, src: StructArray) =
   if dest.toPtr != src.toPtr:
@@ -342,10 +361,13 @@ proc `=destroy`*(sb: StructBuilder) =
   if not isNil(sb.toPtr):
     g_object_unref(sb.toPtr)
 
-proc `=sink`*(dest: var StructBuilder, src: StructBuilder) =
-  if not isNil(dest.toPtr) and dest.toPtr != src.toPtr:
-    g_object_unref(dest.toPtr)
-  dest.handle = src.handle
+proc `=wasMoved`*(sb: var StructBuilder) =
+  sb.handle = nil
+
+proc `=dup`*(sb: StructBuilder): StructBuilder =
+  result.handle = sb.handle
+  if not isNil(sb.toPtr):
+    discard g_object_ref(sb.handle)
 
 proc `=copy`*(dest: var StructBuilder, src: StructBuilder) =
   if dest.toPtr != src.toPtr:
@@ -383,13 +405,15 @@ proc newStructArray*(
 
 # StructBuilder creators
 proc newStructBuilder*(structType: Struct): StructBuilder =
-  let handle = check garrow_struct_array_builder_new(structType.toPtr)
+  let handle = verify garrow_struct_array_builder_new(structType.toPtr)
   if handle.isNil:
     raise newException(OperationError, "Failed to create StructArrayBuilder")
   result.handle = handle
 
 # Struct field access
 proc fields*(s: Struct): seq[Field] =
+  let n = garrow_struct_data_type_get_n_fields(s.toPtr).int
+  result = newSeqOfCap[Field](n)
   let gfields = newGList[ptr GArrowField](garrow_struct_data_type_get_fields(s.toPtr))
   for f in gfields:
     result.add(newField(f))
@@ -521,27 +545,32 @@ proc getField*[T](row: StructRow, name: string): T =
   result = row.getField[T](idx)
 
 proc `$`*(row: StructRow): string =
-  result = "StructRow(" & $row.index & "): {"
+  result = "StructRow("
+  result.add($row.index)
+  result.add("): {")
   let nFields = row.array.fieldCount
   let structFields = row.array.fields
   for i in 0 ..< nFields:
     if i > 0:
-      result &= ", "
+      result.add(", ")
     if i < structFields.len:
-      result &= structFields[i].name & ": ?"
+      result.add(structFields[i].name)
+      result.add(": ?")
     else:
-      result &= "field" & $i & ": ?"
-  result &= "}"
+      result.add("field")
+      result.add($i)
+      result.add(": ?")
+  result.add("}")
 
 # StructBuilder operations
 proc append*(sb: StructBuilder) =
-  check garrow_struct_array_builder_append(sb.toPtr)
+  verify garrow_struct_array_builder_append(sb.toPtr)
 
 proc appendNull*(sb: StructBuilder) =
-  check garrow_struct_array_builder_append_null(sb.toPtr)
+  verify garrow_struct_array_builder_append_null(sb.toPtr)
 
 proc finish*(sb: StructBuilder): StructArray =
-  let handle = check garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](sb.toPtr))
+  let handle = verify garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](sb.toPtr))
   result.handle = cast[ptr GArrowStructArray](handle)
 
 # String representation
@@ -553,5 +582,5 @@ proc `$`*(s: Struct): string =
     "{\n" & flds.mapIt("  " & $it).join(",\n") & "\n}"
 
 proc `$`*(sa: StructArray): string =
-  let cStr = check garrow_array_to_string(cast[ptr GArrowArray](sa.toPtr))
+  let cStr = verify garrow_array_to_string(cast[ptr GArrowArray](sa.toPtr))
   result = $newGString(cStr)

@@ -27,6 +27,46 @@ type
   GBuffer* = object
     handle: ptr GArrowBuffer
 
+proc `=destroy`*(opt: WriteOptions) =
+  if opt.handle != nil:
+    g_object_unref(opt.handle)
+
+proc `=wasMoved`*(opt: var WriteOptions) =
+  opt.handle = nil
+
+proc `=dup`*(opt: WriteOptions): WriteOptions =
+  result.handle = opt.handle
+  if opt.handle != nil:
+    discard g_object_ref(opt.handle)
+
+proc `=copy`*(dest: var WriteOptions, src: WriteOptions) =
+  if dest.handle != src.handle:
+    if dest.handle != nil:
+      g_object_unref(dest.handle)
+    dest.handle = src.handle
+    if src.handle != nil:
+      discard g_object_ref(dest.handle)
+
+proc `=destroy`*(buf: GBuffer) =
+  if buf.handle != nil:
+    g_object_unref(buf.handle)
+
+proc `=wasMoved`*(buf: var GBuffer) =
+  buf.handle = nil
+
+proc `=dup`*(buf: GBuffer): GBuffer =
+  result.handle = buf.handle
+  if buf.handle != nil:
+    discard g_object_ref(buf.handle)
+
+proc `=copy`*(dest: var GBuffer, src: GBuffer) =
+  if dest.handle != src.handle:
+    if dest.handle != nil:
+      g_object_unref(dest.handle)
+    dest.handle = src.handle
+    if src.handle != nil:
+      discard g_object_ref(dest.handle)
+
 proc newBuffer*(data: pointer, size: int64): GBuffer =
   return GBuffer(handle: garrow_buffer_new(cast[ptr uint8](data), size.gint64))
 
@@ -37,10 +77,13 @@ proc `=destroy`*(rb: RecordBatch) =
   if rb.handle != nil:
     g_object_unref(rb.handle)
 
-proc `=sink`*(dest: var RecordBatch, src: RecordBatch) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
+proc `=wasMoved`*(rb: var RecordBatch) =
+  rb.handle = nil
+
+proc `=dup`*(rb: RecordBatch): RecordBatch =
+  result.handle = rb.handle
+  if rb.handle != nil:
+    discard g_object_ref(rb.handle)
 
 proc `=copy`*(dest: var RecordBatch, src: RecordBatch) =
   if dest.handle != src.handle:
@@ -56,13 +99,17 @@ proc `=destroy`*(reader: RecordBatchReader) =
   if reader.streamHandle != nil:
     g_object_unref(reader.streamHandle)
 
-proc `=sink`*(dest: var RecordBatchReader, src: RecordBatchReader) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  if dest.streamHandle != nil and dest.streamHandle != src.streamHandle:
-    g_object_unref(dest.streamHandle)
-  dest.handle = src.handle
-  dest.streamHandle = src.streamHandle
+proc `=wasMoved`*(reader: var RecordBatchReader) =
+  reader.handle = nil
+  reader.streamHandle = nil
+
+proc `=dup`*(reader: RecordBatchReader): RecordBatchReader =
+  result.handle = reader.handle
+  result.streamHandle = reader.streamHandle
+  if reader.handle != nil:
+    discard g_object_ref(result.handle)
+  if reader.streamHandle != nil:
+    discard g_object_ref(result.streamHandle)
 
 proc `=copy`*(dest: var RecordBatchReader, src: RecordBatchReader) =
   if dest.handle != src.handle:
@@ -82,10 +129,13 @@ proc `=destroy`*(it: RecordBatchIterator) =
   if it.handle != nil:
     g_object_unref(it.handle)
 
-proc `=sink`*(dest: var RecordBatchIterator, src: RecordBatchIterator) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
+proc `=wasMoved`*(it: var RecordBatchIterator) =
+  it.handle = nil
+
+proc `=dup`*(it: RecordBatchIterator): RecordBatchIterator =
+  result.handle = it.handle
+  if it.handle != nil:
+    discard g_object_ref(it.handle)
 
 proc `=copy`*(dest: var RecordBatchIterator, src: RecordBatchIterator) =
   if dest.handle != src.handle:
@@ -99,10 +149,13 @@ proc `=destroy`*(rb: RecordBatchBuilder) =
   if rb.handle != nil:
     g_object_unref(rb.handle)
 
-proc `=sink`*(dest: var RecordBatchBuilder, src: RecordBatchBuilder) =
-  if dest.handle != nil and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
+proc `=wasMoved`*(rb: var RecordBatchBuilder) =
+  rb.handle = nil
+
+proc `=dup`*(rb: RecordBatchBuilder): RecordBatchBuilder =
+  result.handle = rb.handle
+  if rb.handle != nil:
+    discard g_object_ref(rb.handle)
 
 proc `=copy`*(dest: var RecordBatchBuilder, src: RecordBatchBuilder) =
   if dest.handle != src.handle:
@@ -127,7 +180,7 @@ proc schema*(reader: RecordBatchReader): Schema =
   result = newSchema(handle)
 
 proc newRecordBatch*(arr: pointer, schema: Schema): RecordBatch =
-  let handle = check garrow_record_batch_import(arr, schema.handle)
+  let handle = verify garrow_record_batch_import(arr, schema.handle)
   result.handle = handle
 
 proc newRecordBatch*(handle: ptr GArrowRecordBatch): RecordBatch =
@@ -159,7 +212,7 @@ macro newRecordBatch*(schema: Schema, arrays: varargs[typed]): RecordBatch =
     `builderSym`.flush()
 
 proc `$`*(rb: RecordBatch): string =
-  let cstr = check garrow_record_batch_to_string(rb.handle)
+  let cstr = verify garrow_record_batch_to_string(rb.handle)
   result = $newGString(cstr)
 
 proc validate*(rb: RecordBatch): bool =
@@ -215,11 +268,11 @@ proc slice*(rb: RecordBatch, offset: int64, length: int64): RecordBatch =
 
 proc addColumn*(rb: RecordBatch, idx: uint, field: Field, column: Array): RecordBatch =
   let handle =
-    check garrow_record_batch_add_column(rb.toPtr, idx.guint, field.toPtr, column.toPtr)
+    verify garrow_record_batch_add_column(rb.toPtr, idx.guint, field.toPtr, column.toPtr)
   result = newRecordBatch(handle)
 
 proc removeColumn*(rb: RecordBatch, idx: uint): RecordBatch =
-  let handle = check garrow_record_batch_remove_column(rb.toPtr, idx.guint)
+  let handle = verify garrow_record_batch_remove_column(rb.toPtr, idx.guint)
   result = newRecordBatch(handle)
 
 proc toPtr*(b: RecordBatchBuilder): ptr GArrowRecordBatchBuilder {.inline.} =
@@ -229,7 +282,7 @@ proc schema*(builder: RecordBatchBuilder): Schema =
   result = newSchema(garrow_record_batch_builder_get_schema(builder.toPtr))
 
 proc newRecordBatchBuilder*(schema: Schema): RecordBatchBuilder =
-  let handle = check garrow_record_batch_builder_new(schema.toPtr)
+  let handle = verify garrow_record_batch_builder_new(schema.toPtr)
   result = RecordBatchBuilder(handle: handle)
 
 proc newRecordBatchBuilder*(schema: Schema, capacity: int): RecordBatchBuilder =
@@ -246,7 +299,7 @@ proc columnBuilder*[T](
   result = newArrayBuilder[T](cBuilder)
 
 proc flush*(builder: RecordBatchBuilder): RecordBatch =
-  let handle = check garrow_record_batch_builder_flush(builder.toPtr)
+  let handle = verify garrow_record_batch_builder_flush(builder.toPtr)
   result = RecordBatch(handle: handle)
 
 proc newRecordBatchIterator*(recordBatches: seq[RecordBatch]): RecordBatchIterator =

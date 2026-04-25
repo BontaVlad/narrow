@@ -33,13 +33,13 @@ type Writable* =
       w.toPtr is ptr GArrowTable | ptr GArrowRecordBatch
 
 proc newFileReader*(sis: SeekableInputStream): FileReader =
-  result.handle = check gparquet_arrow_file_reader_new_arrow(sis.toPtr)
+  result.handle = verify gparquet_arrow_file_reader_new_arrow(sis.toPtr)
 
 proc newFileReader*(uri: string): FileReader =
-  result.handle = check gparquet_arrow_file_reader_new_path(uri)
+  result.handle = verify gparquet_arrow_file_reader_new_path(uri)
 
 proc schema*(pfr: FileReader): Schema =
-  let handle = check gparquet_arrow_file_reader_get_schema(pfr.toPtr)
+  let handle = verify gparquet_arrow_file_reader_get_schema(pfr.toPtr)
   result = newSchema(handle)
 
 func nRowGroups*(pfr: FileReader): int {.inline.} =
@@ -53,7 +53,7 @@ proc close*(pfr: FileReader) =
 
 proc readRowGroup*(pfr: FileReader, rowGroupIndex: int): ArrowTable =
   ## Reads a specific row group, returning all columns.
-  let handle = check gparquet_arrow_file_reader_read_row_group(
+  let handle = verify gparquet_arrow_file_reader_read_row_group(
     pfr.toPtr, rowGroupIndex.gint, nil, 0
   )
   result = newArrowTable(handle)
@@ -70,14 +70,14 @@ proc readRowGroup*(
   for i, idx in columnIndices:
     indices[i] = idx.gint
 
-  let handle = check gparquet_arrow_file_reader_read_row_group(
+  let handle = verify gparquet_arrow_file_reader_read_row_group(
     pfr.toPtr, rowGroupIndex.gint, addr indices[0], indices.len.gsize
   )
   result = newArrowTable(handle)
 
 proc readColumnData*(pfr: FileReader, columnIndex: int): ChunkedArray[void] =
   let handle =
-    check gparquet_arrow_file_reader_read_column_data(pfr.toPtr, columnIndex.gint)
+    verify gparquet_arrow_file_reader_read_column_data(pfr.toPtr, columnIndex.gint)
   result = newChunkedArray[void](handle)
 
 proc `useThreads=`*(pfr: FileReader, useThreads: bool) =
@@ -92,19 +92,19 @@ proc metadata*(reader: FileReader): FileMetadata =
 
 proc newFileWriter*(uri: string, schema: Schema, wp: WriterProperties): FileWriter =
   result.handle =
-    check gparquet_arrow_file_writer_new_path(schema.toPtr, uri.cstring, wp.toPtr)
+    verify gparquet_arrow_file_writer_new_path(schema.toPtr, uri.cstring, wp.toPtr)
 
 proc newFileWriter*(
     snk: OutputStream, schema: Schema, wp: WriterProperties
 ): FileWriter =
   result.handle =
-    check gparquet_arrow_file_writer_new_arrow(schema.toPtr, snk.toPtr, wp.toPtr)
+    verify gparquet_arrow_file_writer_new_arrow(schema.toPtr, snk.toPtr, wp.toPtr)
 
 proc close*(fw: FileWriter) =
-  check gparquet_arrow_file_writer_close(fw.toPtr)
+  verify gparquet_arrow_file_writer_close(fw.toPtr)
 
 proc newRowGroup*(fw: FileWriter) =
-  check gparquet_arrow_file_writer_new_row_group(fw.toPtr)
+  verify gparquet_arrow_file_writer_new_row_group(fw.toPtr)
 
 proc schema*(fw: FileWriter): Schema =
   let handle = gparquet_arrow_file_writer_get_schema(fw.toPtr)
@@ -194,7 +194,7 @@ func nColumns*(m: RowGroupMetadata): int {.inline.} =
 
 proc columnChunk*(m: RowGroupMetadata, index: int): ColumnChunkMetadata =
   result.handle =
-    check gparquet_row_group_metadata_get_column_chunk(m.toPtr, index.gint)
+    verify gparquet_row_group_metadata_get_column_chunk(m.toPtr, index.gint)
 
 func nRows*(m: RowGroupMetadata): int64 {.inline.} =
   gparquet_row_group_metadata_get_n_rows(m.toPtr)
@@ -227,7 +227,7 @@ func nRowGroups*(m: FileMetadata): int {.inline.} =
   gparquet_file_metadata_get_n_row_groups(m.toPtr)
 
 proc rowGroup*(m: FileMetadata, index: int): RowGroupMetadata =
-  newRowGroupMetadata(check gparquet_file_metadata_get_row_group(m.toPtr, index.gint))
+  newRowGroupMetadata(verify gparquet_file_metadata_get_row_group(m.toPtr, index.gint))
 
 func createdBy*(m: FileMetadata): string {.inline.} =
   $gparquet_file_metadata_get_created_by(m.toPtr)
@@ -278,6 +278,7 @@ proc filterRowGroups*(
 
   result = @[]
 
+  result = newSeqOfCap[int](numRowGroups)
   for i in 0 ..< numRowGroups:
     let rowGroupMeta = fileMeta.rowGroup(i)
 
@@ -293,7 +294,7 @@ proc filterRowGroups*(
 
 proc readTable*(uri: string): ArrowTable =
   let reader = newFileReader(uri)
-  let handle = check gparquet_arrow_file_reader_read_table(reader.toPtr)
+  let handle = verify gparquet_arrow_file_reader_read_table(reader.toPtr)
   result = newArrowTable(handle)
 
 proc readTable*(uri: string, columns: sink seq[string]): ArrowTable =
@@ -303,7 +304,7 @@ proc readTable*(uri: string, columns: sink seq[string]): ArrowTable =
   let schema = reader.schema
 
   var fields = newSeq[Field]()
-  var data = newSeq[ChunkedArray[void]]()
+  var data = newSeqOfCap[ChunkedArray[void]](columns.len)
   for c in columns:
     let fld = schema.tryGetField(c)
     if fld.isNone:
@@ -341,9 +342,8 @@ proc readTable*(
   let neededColumns = readColumns + filterCols
   let metadata = reader.metadata
   let columnIndices = neededColumns.mapIt(schema.getFieldIndex(it))
-  var tables: seq[ArrowTable]
-
   let rowGroupIndices = filterRowGroups(metadata, schema, filter)
+  var tables = newSeqOfCap[ArrowTable](rowGroupIndices.len)
 
   if rowGroupIndices.len == 0:
     # No row groups match the filter, return an empty table with the requested schema
@@ -363,8 +363,8 @@ proc writeTable*[T: Writable](
   defer:
     writer.close()
   when writable is ArrowTable:
-    check gparquet_arrow_file_writer_write_table(
+    verify gparquet_arrow_file_writer_write_table(
       writer.toPtr, writable.toPtr, chunk_size.gsize
     )
   elif writable is RecordBatch:
-    check gparquet_arrow_file_writer_write_record_batch(writer.toPtr, writable.toPtr)
+    verify gparquet_arrow_file_writer_write_record_batch(writer.toPtr, writable.toPtr)

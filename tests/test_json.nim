@@ -1,7 +1,7 @@
 import std/[os]
 import unittest2
 import testfixture
-import ../src/narrow except check
+import ../src/narrow
 
 suite "JSON Reader":
   test "readJSON reads simple JSON file":

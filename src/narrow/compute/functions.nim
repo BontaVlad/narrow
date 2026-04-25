@@ -20,10 +20,13 @@ proc `=destroy`*(fn: Function) =
   if not isNil(fn.handle):
     g_object_unref(fn.handle)
 
-proc `=sink`*(dest: var Function, src: Function) =
-  if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
+proc `=wasMoved`*(fn: var Function) =
+  fn.handle = nil
+
+proc `=dup`*(fn: Function): Function =
+  result.handle = fn.handle
+  if not isNil(fn.handle):
+    discard g_object_ref(fn.handle)
 
 proc `=copy`*(dest: var Function, src: Function) =
   if dest.handle != src.handle:
@@ -41,10 +44,13 @@ proc `=destroy`*(options: FunctionOptions) =
   if not isNil(options.handle):
     g_object_unref(options.handle)
 
-proc `=sink`*(dest: var FunctionOptions, src: FunctionOptions) =
-  if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
+proc `=wasMoved`*(options: var FunctionOptions) =
+  options.handle = nil
+
+proc `=dup`*(options: FunctionOptions): FunctionOptions =
+  result.handle = options.handle
+  if not isNil(options.handle):
+    discard g_object_ref(options.handle)
 
 proc `=copy`*(dest: var FunctionOptions, src: FunctionOptions) =
   if dest.handle != src.handle:
@@ -62,10 +68,13 @@ proc `=destroy`*(doc: FunctionDoc) =
   if not isNil(doc.handle):
     g_object_unref(doc.handle)
 
-proc `=sink`*(dest: var FunctionDoc, src: FunctionDoc) =
-  if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
+proc `=wasMoved`*(doc: var FunctionDoc) =
+  doc.handle = nil
+
+proc `=dup`*(doc: FunctionDoc): FunctionDoc =
+  result.handle = doc.handle
+  if not isNil(doc.handle):
+    discard g_object_ref(doc.handle)
 
 proc `=copy`*(dest: var FunctionDoc, src: FunctionDoc) =
   if dest.handle != src.handle:
@@ -104,7 +113,9 @@ proc name*(fn: Function): string =
   # result = $newGString(cstr)
 
 proc listFunctions*(): seq[Function] =
-  for f in newGList[ptr GArrowFunction](garrow_function_all()):
+  let glist = newGList[ptr GArrowFunction](garrow_function_all())
+  result = newSeqOfCap[Function](glist.len)
+  for f in glist:
     result.add(Function(handle: f))
 
 proc `$`*(fn: Function): string {.inline.} =
@@ -180,7 +191,7 @@ proc execute*(
   # Execute the function
   let optionsPtr = if options.handle.isNil: nil else: options.handle
   let resultHandle =
-    check garrow_function_execute(fn.handle, argList.toPtr, optionsPtr, ctx)
+    verify garrow_function_execute(fn.handle, argList.toPtr, optionsPtr, ctx)
 
   result = newDatum(resultHandle)
 

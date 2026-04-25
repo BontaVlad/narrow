@@ -1,6 +1,6 @@
 import unittest2
 import testfixture
-import ../src/narrow except check
+import ../src/narrow
 
 suite "IPC File Format":
   var fixture: TestFixture

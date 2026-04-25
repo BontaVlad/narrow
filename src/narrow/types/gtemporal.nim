@@ -151,12 +151,12 @@ proc `$`*(d: Date64): string {.inline.} =
 
 # Timestamp constructors
 proc newTimestamp*(
-    val: int64, unit: GArrowTimeUnit = GARROW_TIME_UNIT_NANO, tz: string = "UTC"
+    val: int64, unit: GArrowTimeUnit = GARROW_TIME_UNIT_NANO, tz: sink string = "UTC"
 ): Timestamp =
   Timestamp(value: val, unit: unit, tz: tz)
 
 proc newTimestamp*(
-    dt: DateTime, unit: GArrowTimeUnit = GARROW_TIME_UNIT_NANO, tz: string = "UTC"
+    dt: DateTime, unit: GArrowTimeUnit = GARROW_TIME_UNIT_NANO, tz: sink string = "UTC"
 ): Timestamp =
   let unixNano = dt.toTime.toUnixFloat.int64 * 1_000_000_000
   let scaled =
@@ -172,7 +172,10 @@ proc newTimestamp*(
   Timestamp(value: scaled, unit: unit, tz: tz)
 
 proc `$`*(ts: Timestamp): string =
-  $ts.toDateTime() & " [" & ts.tz & "]"
+  result = $ts.toDateTime()
+  result.add(" [")
+  result.add(ts.tz)
+  result.add("]")
 
 # Duration - time intervals
 proc newDuration*(val: int64, unit: GArrowTimeUnit = GARROW_TIME_UNIT_NANO): Duration =
@@ -193,19 +196,25 @@ proc `$`*(d: Duration): string =
   let nanos = d.toNanos()
   let secs = nanos div 1_000_000_000
   let ms = (nanos mod 1_000_000_000) div 1_000_000
-  $secs & "." & $ms & "s"
+  result = $secs
+  result.add(".")
+  result.add($ms)
+  result.add("s")
 
 # TimestampArray memory management
 proc `=destroy`*(ta: TimestampArray) =
   if not isNil(ta.handle):
     g_object_unref(ta.handle)
 
-proc `=sink`*(dest: var TimestampArray, src: TimestampArray) =
-  if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-  dest.unit = src.unit
-  dest.tz = src.tz
+proc `=wasMoved`*(ta: var TimestampArray) =
+  ta.handle = nil
+
+proc `=dup`*(ta: TimestampArray): TimestampArray =
+  result.handle = ta.handle
+  result.unit = ta.unit
+  result.tz = ta.tz
+  if not isNil(ta.handle):
+    discard g_object_ref(ta.handle)
 
 proc `=copy`*(dest: var TimestampArray, src: TimestampArray) =
   if dest.handle != src.handle:
@@ -222,12 +231,15 @@ proc `=destroy`*(tab: TimestampArrayBuilder) =
   if not isNil(tab.handle):
     g_object_unref(tab.handle)
 
-proc `=sink`*(dest: var TimestampArrayBuilder, src: TimestampArrayBuilder) =
-  if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-  dest.unit = src.unit
-  dest.tz = src.tz
+proc `=wasMoved`*(tab: var TimestampArrayBuilder) =
+  tab.handle = nil
+
+proc `=dup`*(tab: TimestampArrayBuilder): TimestampArrayBuilder =
+  result.handle = tab.handle
+  result.unit = tab.unit
+  result.tz = tab.tz
+  if not isNil(tab.handle):
+    discard g_object_ref(tab.handle)
 
 proc `=copy`*(dest: var TimestampArrayBuilder, src: TimestampArrayBuilder) =
   if dest.handle != src.handle:
@@ -244,10 +256,13 @@ proc `=destroy`*(d32a: Date32Array) =
   if not isNil(d32a.handle):
     g_object_unref(d32a.handle)
 
-proc `=sink`*(dest: var Date32Array, src: Date32Array) =
-  if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
+proc `=wasMoved`*(d32a: var Date32Array) =
+  d32a.handle = nil
+
+proc `=dup`*(d32a: Date32Array): Date32Array =
+  result.handle = d32a.handle
+  if not isNil(d32a.handle):
+    discard g_object_ref(d32a.handle)
 
 proc `=copy`*(dest: var Date32Array, src: Date32Array) =
   if dest.handle != src.handle:
@@ -262,10 +277,13 @@ proc `=destroy`*(d32ab: Date32ArrayBuilder) =
   if not isNil(d32ab.handle):
     g_object_unref(d32ab.handle)
 
-proc `=sink`*(dest: var Date32ArrayBuilder, src: Date32ArrayBuilder) =
-  if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
+proc `=wasMoved`*(d32ab: var Date32ArrayBuilder) =
+  d32ab.handle = nil
+
+proc `=dup`*(d32ab: Date32ArrayBuilder): Date32ArrayBuilder =
+  result.handle = d32ab.handle
+  if not isNil(d32ab.handle):
+    discard g_object_ref(d32ab.handle)
 
 proc `=copy`*(dest: var Date32ArrayBuilder, src: Date32ArrayBuilder) =
   if dest.handle != src.handle:
@@ -280,11 +298,14 @@ proc `=destroy`*(t32a: Time32Array) =
   if not isNil(t32a.handle):
     g_object_unref(t32a.handle)
 
-proc `=sink`*(dest: var Time32Array, src: Time32Array) =
-  if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-  dest.unit = src.unit
+proc `=wasMoved`*(t32a: var Time32Array) =
+  t32a.handle = nil
+
+proc `=dup`*(t32a: Time32Array): Time32Array =
+  result.handle = t32a.handle
+  result.unit = t32a.unit
+  if not isNil(t32a.handle):
+    discard g_object_ref(t32a.handle)
 
 proc `=copy`*(dest: var Time32Array, src: Time32Array) =
   if dest.handle != src.handle:
@@ -300,11 +321,14 @@ proc `=destroy`*(t32ab: Time32ArrayBuilder) =
   if not isNil(t32ab.handle):
     g_object_unref(t32ab.handle)
 
-proc `=sink`*(dest: var Time32ArrayBuilder, src: Time32ArrayBuilder) =
-  if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-  dest.unit = src.unit
+proc `=wasMoved`*(t32ab: var Time32ArrayBuilder) =
+  t32ab.handle = nil
+
+proc `=dup`*(t32ab: Time32ArrayBuilder): Time32ArrayBuilder =
+  result.handle = t32ab.handle
+  result.unit = t32ab.unit
+  if not isNil(t32ab.handle):
+    discard g_object_ref(t32ab.handle)
 
 proc `=copy`*(dest: var Time32ArrayBuilder, src: Time32ArrayBuilder) =
   if dest.handle != src.handle:
@@ -320,11 +344,14 @@ proc `=destroy`*(t64a: Time64Array) =
   if not isNil(t64a.handle):
     g_object_unref(t64a.handle)
 
-proc `=sink`*(dest: var Time64Array, src: Time64Array) =
-  if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-  dest.unit = src.unit
+proc `=wasMoved`*(t64a: var Time64Array) =
+  t64a.handle = nil
+
+proc `=dup`*(t64a: Time64Array): Time64Array =
+  result.handle = t64a.handle
+  result.unit = t64a.unit
+  if not isNil(t64a.handle):
+    discard g_object_ref(t64a.handle)
 
 proc `=copy`*(dest: var Time64Array, src: Time64Array) =
   if dest.handle != src.handle:
@@ -340,11 +367,14 @@ proc `=destroy`*(t64ab: Time64ArrayBuilder) =
   if not isNil(t64ab.handle):
     g_object_unref(t64ab.handle)
 
-proc `=sink`*(dest: var Time64ArrayBuilder, src: Time64ArrayBuilder) =
-  if not isNil(dest.handle) and dest.handle != src.handle:
-    g_object_unref(dest.handle)
-  dest.handle = src.handle
-  dest.unit = src.unit
+proc `=wasMoved`*(t64ab: var Time64ArrayBuilder) =
+  t64ab.handle = nil
+
+proc `=dup`*(t64ab: Time64ArrayBuilder): Time64ArrayBuilder =
+  result.handle = t64ab.handle
+  result.unit = t64ab.unit
+  if not isNil(t64ab.handle):
+    discard g_object_ref(t64ab.handle)
 
 proc `=copy`*(dest: var Time64ArrayBuilder, src: Time64ArrayBuilder) =
   if dest.handle != src.handle:
@@ -409,10 +439,10 @@ proc len*(t64a: Time64Array): int =
   garrow_array_get_length(cast[ptr GArrowArray](t64a.handle))
 
 proc append*(tab: TimestampArrayBuilder, val: int64) =
-  check garrow_timestamp_array_builder_append_value(tab.handle, val)
+  verify garrow_timestamp_array_builder_append_value(tab.handle, val)
 
 proc appendNull*(tab: TimestampArrayBuilder) =
-  check garrow_timestamp_array_builder_append_null(tab.handle)
+  verify garrow_timestamp_array_builder_append_null(tab.handle)
 
 proc append*(tab: TimestampArrayBuilder, val: Timestamp) =
   if val.unit != tab.unit:
@@ -429,15 +459,15 @@ proc append*(tab: TimestampArrayBuilder, val: Option[Timestamp]) =
 
 proc finish*(tab: TimestampArrayBuilder): TimestampArray =
   let handle =
-    check garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](tab.handle))
+    verify garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](tab.handle))
   newTimestampArray(cast[ptr GArrowTimestampArray](handle), tab.unit, tab.tz)
 
 # Date32Array operations
 proc append*(d32ab: Date32ArrayBuilder, val: int32) =
-  check garrow_date32_array_builder_append_value(d32ab.handle, val)
+  verify garrow_date32_array_builder_append_value(d32ab.handle, val)
 
 proc appendNull*(d32ab: Date32ArrayBuilder) =
-  check garrow_date32_array_builder_append_null(d32ab.handle)
+  verify garrow_date32_array_builder_append_null(d32ab.handle)
 
 proc append*(d32ab: Date32ArrayBuilder, val: Date32) =
   d32ab.append(val.value)
@@ -450,7 +480,7 @@ proc append*(d32ab: Date32ArrayBuilder, val: Option[Date32]) =
 
 proc finish*(d32ab: Date32ArrayBuilder): Date32Array =
   let handle =
-    check garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](d32ab.handle))
+    verify garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](d32ab.handle))
   Date32Array(handle: cast[ptr GArrowDate32Array](handle))
 
 # Array operations
@@ -480,11 +510,11 @@ proc isNull*(ta: TimestampArray, idx: int): bool =
   garrow_array_is_null(cast[ptr GArrowArray](ta.handle), idx) != 0
 
 proc `$`*(ta: TimestampArray): string =
-  let cStr = check garrow_array_to_string(cast[ptr GArrowArray](ta.handle))
+  let cStr = verify garrow_array_to_string(cast[ptr GArrowArray](ta.handle))
   $newGString(cStr)
 
 proc `$`*(d32a: Date32Array): string =
-  let cStr = check garrow_array_to_string(cast[ptr GArrowArray](d32a.handle))
+  let cStr = verify garrow_array_to_string(cast[ptr GArrowArray](d32a.handle))
   $newGString(cStr)
 
 # Time32 constructors and operations
@@ -502,7 +532,11 @@ proc `$`*(t: Time32): string =
   let hours = secs div 3600
   let mins = (secs mod 3600) div 60
   let s = secs mod 60
-  $hours & ":" & $mins & ":" & $s
+  result = $hours
+  result.add(":")
+  result.add($mins)
+  result.add(":")
+  result.add($s)
 
 # Time64 constructors and operations
 proc newTime64*(nanos: int64): Time64 =
@@ -517,7 +551,8 @@ proc toMicros*(t: Time64): float =
 proc `$`*(t: Time64): string =
   let micros = t.value
   let millis = micros div 1000
-  $millis & " ms"
+  result = $millis
+  result.add(" ms")
 
 # Time32Array builders and operations
 proc newTime32ArrayBuilder*(
@@ -550,10 +585,10 @@ proc newTime32ArrayBuilder*(
   Time32ArrayBuilder(handle: handle, unit: unit)
 
 proc append*(t32ab: Time32ArrayBuilder, val: int32) =
-  check garrow_time32_array_builder_append_value(t32ab.handle, val)
+  verify garrow_time32_array_builder_append_value(t32ab.handle, val)
 
 proc appendNull*(t32ab: Time32ArrayBuilder) =
-  check garrow_time32_array_builder_append_null(t32ab.handle)
+  verify garrow_time32_array_builder_append_null(t32ab.handle)
 
 proc append*(t32ab: Time32ArrayBuilder, val: Time32) =
   t32ab.append(val.value)
@@ -566,7 +601,7 @@ proc append*(t32ab: Time32ArrayBuilder, val: Option[Time32]) =
 
 proc finish*(t32ab: Time32ArrayBuilder): Time32Array =
   let handle =
-    check garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](t32ab.handle))
+    verify garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](t32ab.handle))
   Time32Array(handle: cast[ptr GArrowTime32Array](handle), unit: t32ab.unit)
 
 # Time64Array builders and operations
@@ -600,10 +635,10 @@ proc newTime64ArrayBuilder*(
   Time64ArrayBuilder(handle: handle, unit: unit)
 
 proc append*(t64ab: Time64ArrayBuilder, val: int64) =
-  check garrow_time64_array_builder_append_value(t64ab.handle, val)
+  verify garrow_time64_array_builder_append_value(t64ab.handle, val)
 
 proc appendNull*(t64ab: Time64ArrayBuilder) =
-  check garrow_time64_array_builder_append_null(t64ab.handle)
+  verify garrow_time64_array_builder_append_null(t64ab.handle)
 
 proc append*(t64ab: Time64ArrayBuilder, val: Time64) =
   t64ab.append(val.value)
@@ -616,7 +651,7 @@ proc append*(t64ab: Time64ArrayBuilder, val: Option[Time64]) =
 
 proc finish*(t64ab: Time64ArrayBuilder): Time64Array =
   let handle =
-    check garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](t64ab.handle))
+    verify garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](t64ab.handle))
   Time64Array(handle: cast[ptr GArrowTime64Array](handle), unit: t64ab.unit)
 
 # Duration operations (scalar only, array support via Time64 or Timestamp)
@@ -630,10 +665,13 @@ proc toDuration*(dur: Duration): string =
   let millis = remaining div 1_000_000
   if millis == 0:
     return $seconds & "s"
-  $seconds & "." & $millis & "s"
+  result = $seconds
+  result.add(".")
+  result.add($millis)
+  result.add("s")
 
 proc `$`*(t64a: Time64Array): string =
-  let cStr = check garrow_array_to_string(cast[ptr GArrowArray](t64a.handle))
+  let cStr = verify garrow_array_to_string(cast[ptr GArrowArray](t64a.handle))
   $newGString(cStr)
 
 # Interval type constructors and operations
@@ -649,10 +687,19 @@ proc newMonthDayNanoInterval*(
   MonthDayNanoInterval(months: months, days: days, nanos: nanos)
 
 proc `$`*(mi: MonthInterval): string =
-  $mi.months & " months"
+  result = $mi.months
+  result.add(" months")
 
 proc `$`*(dti: DayTimeInterval): string =
-  $dti.days & " days " & $dti.millis & " ms"
+  result = $dti.days
+  result.add(" days ")
+  result.add($dti.millis)
+  result.add(" ms")
 
 proc `$`*(mdni: MonthDayNanoInterval): string =
-  $mdni.months & " months " & $mdni.days & " days " & $mdni.nanos & " ns"
+  result = $mdni.months
+  result.add(" months ")
+  result.add($mdni.days)
+  result.add(" days ")
+  result.add($mdni.nanos)
+  result.add(" ns")

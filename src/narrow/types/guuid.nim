@@ -6,7 +6,7 @@ arcGObject:
     handle*: ptr GArrowUUIDDataType
 
 proc newUUIDType*(): UUIDType =
-  result.handle = check garrow_uuid_data_type_new()
+  result.handle = verify garrow_uuid_data_type_new()
 
 proc extensionName*(u: UUIDType): string =
   let namePtr = garrow_extension_data_type_get_extension_name(
