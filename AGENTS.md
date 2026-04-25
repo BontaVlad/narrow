@@ -415,11 +415,44 @@ Restore full traces: `--lineTrace:on` (implies `--stackTrace:on`).
 
 Benchmarks live in `benchmarks/` and use `criterion`.
 
+### Running benchmarks
+
 | Command | Description |
 |---------|-------------|
 | `just benchmark` | Compile and run all benchmarks in release mode |
+| `just benchmark <output_dir>` | Run all benchmarks and save JSON results to `output_dir/` |
+| `just benchmark-compare <baseline> <new>` | Compare two saved result directories and print deltas |
 | `just benchmark-heaptrack <name>` | Record a heap profile for one benchmark (e.g. `just benchmark-heaptrack bench_primitive`) |
 | `just benchmark-heaptrack-all` | Profile all benchmarks under heaptrack |
+
+### Saving benchmark results
+
+`criterion` can export measurements to JSON via `cfg.outputPath`:
+
+```nim
+let cfg = newDefaultConfig()
+cfg.outputPath = "my_benchmark.json"
+benchmark(cfg):
+  # ...
+```
+
+In Narrow, `benchmarks/config.nim` wires this through the `NARROW_BENCH_OUTPUT` environment variable so the `justfile` can set it per-suite. Use `just benchmark <dir>` to automatically save each suite as `<dir>/bench_*.json`.
+
+**Workflow for performance work:**
+1. Establish a baseline on `main`:
+   ```bash
+   just benchmark benchmarks/results/baseline
+   ```
+2. Make your changes.
+3. Run again and compare:
+   ```bash
+   just benchmark benchmarks/results/new
+   just benchmark-compare benchmarks/results/baseline benchmarks/results/new
+   ```
+
+### Performance refactoring policy
+
+**No performance refactoring may be accepted without a clear improvement demonstrated against a saved baseline.** Run `just benchmark` before and after the change, save the results, and use `just benchmark-compare` to verify the delta. A change that shows no improvement or a regression must be rejected or revised.
 
 **Heaptrack workflow (non-GUI, agent-friendly):**
 
@@ -447,6 +480,7 @@ Benchmarks live in `benchmarks/` and use `criterion`.
 - Heaptrack adds ~2–5× overhead; budget/sampling in criterion is unchanged.
 - Benchmark binaries are compiled with `-g -fno-omit-frame-pointer` for accurate stack traces.
 - Profile traces are written to `profiles/` and are **not** committed.
+- Saved benchmark JSON files are **not** committed.
 
 ## Dependencies
 - Apache Arrow C++ GLib (arrow-glib 22.0.0+), Parquet GLib (parquet-glib), Arrow Dataset GLib (arrow-dataset-glib)

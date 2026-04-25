@@ -256,7 +256,7 @@ dbg file:
           "{{file}}" && \
     lldb "./$$out"
 
-benchmark:
+benchmark output_dir="":
     #!/usr/bin/env bash
     set -euo pipefail
 
@@ -285,9 +285,87 @@ benchmark:
             -o:"$outdir/$name" \
             "$file"
 
-        "$outdir/$name"
+        if [ -n "{{output_dir}}" ]; then
+            mkdir -p "{{output_dir}}"
+            NARROW_BENCH_OUTPUT="{{output_dir}}/$name.json" "$outdir/$name"
+        else
+            "$outdir/$name"
+        fi
         echo ""
     done
+
+benchmark-compare baseline new:
+    #!/usr/bin/env python3
+    import json, sys
+    from pathlib import Path
+
+    baseline_dir = Path("{{baseline}}")
+    new_dir = Path("{{new}}")
+
+    if not baseline_dir.is_dir() or not new_dir.is_dir():
+        print("Both baseline and new must be directories containing saved benchmark JSON files.")
+        sys.exit(1)
+
+    print("{:<40} {:>12} {:>12} {:>10} {:>8}".format(
+        "Benchmark", "Baseline", "New", "Delta", "%"
+    ))
+    print("-" * 86)
+
+    any_regression = False
+
+    for new_file in sorted(new_dir.glob("*.json")):
+        base_file = baseline_dir / new_file.name
+        if not base_file.exists():
+            print("{:<40} {:>12}".format(new_file.stem, "NO BASELINE"))
+            continue
+
+        with open(base_file) as f:
+            base_data = json.load(f)
+        with open(new_file) as f:
+            new_data = json.load(f)
+
+        base_map = {r["label"]: r for r in base_data}
+        new_map = {r["label"]: r for r in new_data}
+
+        for label in sorted(new_map.keys()):
+            if label not in base_map:
+                print("{:<40} {:>12}".format(new_file.stem + "/" + label, "NO BASELINE"))
+                continue
+
+            base_time = base_map[label]["estimates"]["time"]["mean"]["value"]
+            new_time = new_map[label]["estimates"]["time"]["mean"]["value"]
+
+            delta = new_time - base_time
+            pct = (delta / base_time) * 100 if base_time != 0 else 0
+
+            if abs(delta) < 0.0001:
+                delta_str = "{:+.6f}".format(delta)
+            elif abs(delta) < 0.1:
+                delta_str = "{:+.6f}".format(delta)
+            else:
+                delta_str = "{:+.4f}".format(delta)
+
+            pct_str = "{:+.2f}%".format(pct)
+
+            marker = ""
+            if pct > 5.0:
+                marker = "  REGRESSION"
+                any_regression = True
+            elif pct < -5.0:
+                marker = "  IMPROVEMENT"
+
+            print("{:<40} {:>12.6f} {:>12.6f} {:>10} {:>8}{}".format(
+                new_file.stem + "/" + label,
+                base_time,
+                new_time,
+                delta_str,
+                pct_str,
+                marker
+            ))
+
+    if any_regression:
+        print("\nWARNING: Regressions detected.")
+        sys.exit(1)
 
 # Profile a single benchmark under heaptrack (e.g. just benchmark-heaptrack bench_primitive)
 benchmark-heaptrack BENCH:

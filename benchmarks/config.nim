@@ -1,5 +1,6 @@
 import criterion
 import criterion/config
+import std/os
 
 proc narrowConfig*(): config.Config =
   ## Default benchmark configuration for Narrow.
@@ -9,3 +10,6 @@ proc narrowConfig*(): config.Config =
   result.budget = 0.1
   result.minSamples = 20
   result.verbose = true
+  let outputPath = getEnv("NARROW_BENCH_OUTPUT", "")
+  if outputPath != "":
+    result.outputPath = outputPath
