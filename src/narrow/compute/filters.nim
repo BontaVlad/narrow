@@ -13,10 +13,9 @@ arcGObject:
     BooleanArray* = object
       handle*: ptr GArrowBooleanArray
 
-  type
-    FilterNullSelectionBehavior* = enum
-      Drop = GARROW_FILTER_NULL_SELECTION_DROP.int
-      EmitNull = GARROW_FILTER_NULL_SELECTION_EMIT_NULL.int
+  type FilterNullSelectionBehavior* = enum
+    Drop = GARROW_FILTER_NULL_SELECTION_DROP.int
+    EmitNull = GARROW_FILTER_NULL_SELECTION_EMIT_NULL.int
 
 proc newFilterOptions*(): FilterOptions =
   result.handle = garrow_filter_options_new()
@@ -122,8 +121,9 @@ proc filter*(
 proc filter*[T](
     chunkedArray: ChunkedArray[T], filter: BooleanArray, options: FilterOptions
 ): ChunkedArray[T] =
-  let handle =
-    verify garrow_chunked_array_filter(chunkedArray.toPtr, filter.handle, options.handle)
+  let handle = verify garrow_chunked_array_filter(
+    chunkedArray.toPtr, filter.handle, options.handle
+  )
   result = newChunkedArray[T](handle)
 
 proc filter*[T](

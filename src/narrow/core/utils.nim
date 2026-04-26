@@ -61,7 +61,11 @@ func freshGenericParams(gp: NimNode): NimNode =
       if n.kind == nnkIdent:
         result.add(newIdentDefs(ident(n.strVal), newEmptyNode()))
       elif n.kind == nnkPostfix and n[1].kind == nnkIdent:
-        result.add(newIdentDefs(newNimNode(nnkPostfix).add(ident"*", ident(n[1].strVal)), newEmptyNode()))
+        result.add(
+          newIdentDefs(
+            newNimNode(nnkPostfix).add(ident"*", ident(n[1].strVal)), newEmptyNode()
+          )
+        )
 
 func makeParamType(typeName: NimNode, genericParams: NimNode): NimNode =
   ## Build TypeName[T, U] from the base type name and generic params.
@@ -111,8 +115,7 @@ func hookProc(
     pragmas: NimNode = newEmptyNode(),
     genericParams: NimNode = newEmptyNode(),
 ): NimNode =
-  let procName =
-    newNimNode(nnkPostfix).add(ident"*", makeAccQuoted(name))
+  let procName = newNimNode(nnkPostfix).add(ident"*", makeAccQuoted(name))
   makeProcDef(procName, params, body, pragmas, genericParams)
 
 func genHooks(
@@ -146,9 +149,7 @@ func genHooks(
   result.add hookProc(
     "=wasMoved",
     [newEmptyNode(), newIdentDefs(x, varParamType)],
-    newStmtList(
-      newAssignment(x.dot(h), newNilLit())
-    ),
+    newStmtList(newAssignment(x.dot(h), newNilLit())),
     genericParams = genericParams,
   )
 
@@ -162,10 +163,12 @@ func genHooks(
         (
           infix(x.dot(h), "!=", newNilLit()),
           newStmtList(
-            newNimNode(nnkDiscardStmt).add(newCall(refProc, newDotExpr(ident"result", ident(h))))
+            newNimNode(nnkDiscardStmt).add(
+              newCall(refProc, newDotExpr(ident"result", ident(h)))
+            )
           ),
         )
-      )
+      ),
     ),
     genericParams = genericParams,
   )
@@ -245,7 +248,13 @@ macro arcGObject*(body: untyped): untyped =
               else:
                 nameNode
             let genericParams = freshGenericParams(typeDef[1])
-            result.add genHooks(typeName, impl[2], ident"g_object_unref", ident"g_object_ref", genericParams)
+            result.add genHooks(
+              typeName,
+              impl[2],
+              ident"g_object_unref",
+              ident"g_object_ref",
+              genericParams,
+            )
 
 macro arcRef*(unrefName, refName: static[string], body: untyped): untyped =
   ## Statement macro with custom ref/unref functions.
@@ -273,4 +282,6 @@ macro arcRef*(unrefName, refName: static[string], body: untyped): untyped =
               else:
                 nameNode
             let genericParams = freshGenericParams(typeDef[1])
-            result.add genHooks(typeName, impl[2], ident(unrefName), ident(refName), genericParams)
+            result.add genHooks(
+              typeName, impl[2], ident(unrefName), ident(refName), genericParams
+            )

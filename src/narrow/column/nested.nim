@@ -570,7 +570,8 @@ proc appendNull*(sb: StructBuilder) =
   verify garrow_struct_array_builder_append_null(sb.toPtr)
 
 proc finish*(sb: StructBuilder): StructArray =
-  let handle = verify garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](sb.toPtr))
+  let handle =
+    verify garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](sb.toPtr))
   result.handle = cast[ptr GArrowStructArray](handle)
 
 # String representation

@@ -1304,7 +1304,8 @@ type
 
   GFormatSizeFlags* = enum_GFormatSizeFlags
     ## Generated based on /usr/include/glib-2.0/glib/gutils.h:302:3
-  guint64* = culonglong ## Generated based on /usr/lib/glib-2.0/include/glibconfig.h:67:23
+  guint64* = culonglong
+    ## Generated based on /usr/lib/glib-2.0/include/glibconfig.h:67:23
   goffset* = gint64 ## Generated based on /usr/lib/glib-2.0/include/glibconfig.h:93:16
   GVoidFunc* = proc(): void {.cdecl.}
     ## Generated based on /usr/include/glib-2.0/glib/gutils.h:324:16

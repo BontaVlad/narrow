@@ -229,8 +229,9 @@ proc version*(reader: IpcFileReader): GArrowMetadataVersion =
 
 proc readRecordBatch*(reader: IpcFileReader, index: int): RecordBatch =
   ## Read a specific record batch by index (random access)
-  let handle =
-    verify garrow_record_batch_file_reader_read_record_batch(reader.handle, guint(index))
+  let handle = verify garrow_record_batch_file_reader_read_record_batch(
+    reader.handle, guint(index)
+  )
   result = newRecordBatch(handle)
 
 # ============================================================================
@@ -239,7 +240,8 @@ proc readRecordBatch*(reader: IpcFileReader, index: int): RecordBatch =
 
 proc newIpcStreamWriter*(stream: OutputStream, schema: Schema): IpcStreamWriter =
   ## Create a streaming IPC writer
-  let handle = verify garrow_record_batch_stream_writer_new(stream.handle, schema.handle)
+  let handle =
+    verify garrow_record_batch_stream_writer_new(stream.handle, schema.handle)
   result.handle = handle
 
 proc newIpcStreamWriter*(

@@ -209,8 +209,10 @@ if err:
 
 ## Memory Management (ARC/ORC)
 
-### Using `arcGObject` (Preferred for GObject types)
-From `utils.nim` — auto-generates `=destroy`, `=sink`, `=copy`, `toPtr` for all types in the block:
+### Using `arcGObject` (Default for all GObject types)
+**You MUST use `arcGObject` (or `arcRef`) for every new GObject-wrapped type unless the type falls into one of the explicit exceptions below.** Do not write manual `=destroy`/`=sink`/`=copy`/`=dup`/`toPtr` boilerplate for simple GObject wrappers — the macro generates all five hooks correctly and consistently.
+
+From `utils.nim` — auto-generates `=destroy`, `=wasMoved`, `=dup`, `=copy`, and `toPtr` for all types in the block:
 ```nim
 import ../core/[utils, ffi]
 
@@ -221,6 +223,8 @@ arcGObject:
     FileSelector* = object
       handle*: ptr GArrowFileSelector
 ```
+
+**Self-check before writing manual hooks:** If the type is a plain Nim `object` with a single `handle*: ptr GArrow*` field (or multiple such fields), use `arcGObject`. Only proceed to manual implementation if you can point to a specific reason on the exception list below.
 
 ### Using `arcRef` (Custom ref/unref functions)
 ```nim

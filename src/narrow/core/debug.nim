@@ -48,48 +48,58 @@ func getGType*(obj: pointer): GType {.inline.} =
   ## Reads the GType from a GObject instance.
   ## Layout: GObject → GTypeInstance → g_class (ptr GTypeClass) → g_type
   doAssert obj != nil, "getGType: null pointer"
-  let classPtr = cast[ptr pointer](obj)[]       # GTypeInstance.g_class
-  result = cast[ptr GType](classPtr)[]           # GTypeClass.g_type
+  let classPtr = cast[ptr pointer](obj)[] # GTypeInstance.g_class
+  result = cast[ptr GType](classPtr)[] # GTypeClass.g_type
 
 func typeName*(obj: pointer): string {.inline.} =
-  if obj == nil: return "<nil>"
+  if obj == nil:
+    return "<nil>"
   let n = g_type_name(getGType(obj))
-  if n == nil: "<unknown>" else: $n
+  if n == nil:
+    "<unknown>"
+  else:
+    $n
 
 func getRefCount*(obj: pointer): uint32 {.inline.} =
-  if obj == nil: return 0
+  if obj == nil:
+    return 0
   cast[ptr GObject](obj).ref_count
 
 # ─── Poison / canary constants ────────────────────────────────────────────────
 
 const
-  FREED_POISON*  = 0xDEAD_BEEF'u32   ## refcount written on fake-free detection
-  CANARY_MAGIC*  = 0xCAFE_F00D'u64   ## sentinel stored in tracker entries
+  FREED_POISON* = 0xDEAD_BEEF'u32 ## refcount written on fake-free detection
+  CANARY_MAGIC* = 0xCAFE_F00D'u64 ## sentinel stored in tracker entries
 
 # ─── Object lifecycle tracker ─────────────────────────────────────────────────
 
 type
   LifecycleEvent* = enum
-    evAlloc, evRef, evUnref, evFree, evDoubleFree, evRefAfterFree
+    evAlloc
+    evRef
+    evUnref
+    evFree
+    evDoubleFree
+    evRefAfterFree
 
   TrackEntry* = object
-    address*:    pointer
-    typeName*:   string
-    refCount*:   uint32          ## snapshot at event time
-    event*:      LifecycleEvent
+    address*: pointer
+    typeName*: string
+    refCount*: uint32 ## snapshot at event time
+    event*: LifecycleEvent
     stackTrace*: string
-    canary*:     uint64
+    canary*: uint64
 
   ObjectRecord* = object
-    address*:    pointer
-    typeName*:   string
-    peakRef*:    uint32
-    events*:     seq[TrackEntry]
-    freed*:      bool
-    canary*:     uint64
+    address*: pointer
+    typeName*: string
+    peakRef*: uint32
+    events*: seq[TrackEntry]
+    freed*: bool
+    canary*: uint64
 
 var
-  gTracker*:   Table[pointer, ObjectRecord]
+  gTracker*: Table[pointer, ObjectRecord]
   gTrackerLock*: Lock
   gTrackerEnabled* = false
 
@@ -103,30 +113,28 @@ func captureStack(): string =
       result.add &"  {entry.filename}:{entry.line} {entry.procname}\n"
 
 proc trackerRecord*(obj: pointer, ev: LifecycleEvent) =
-  if not gTrackerEnabled or obj == nil: return
+  if not gTrackerEnabled or obj == nil:
+    return
   withLock gTrackerLock:
-    let rc  = getRefCount(obj)
-    let tn  = typeName(obj)
+    let rc = getRefCount(obj)
+    let tn = typeName(obj)
     let stk = captureStack()
     let entry = TrackEntry(
-      address:    obj,
-      typeName:   tn,
-      refCount:   rc,
-      event:      ev,
+      address: obj,
+      typeName: tn,
+      refCount: rc,
+      event: ev,
       stackTrace: stk,
-      canary:     CANARY_MAGIC
+      canary: CANARY_MAGIC,
     )
     if obj notin gTracker:
       gTracker[obj] = ObjectRecord(
-        address:  obj,
-        typeName: tn,
-        peakRef:  rc,
-        freed:    false,
-        canary:   CANARY_MAGIC
+        address: obj, typeName: tn, peakRef: rc, freed: false, canary: CANARY_MAGIC
       )
     var rec = addr gTracker[obj]
     rec.events.add entry
-    if rc > rec.peakRef: rec.peakRef = rc
+    if rc > rec.peakRef:
+      rec.peakRef = rc
     case ev
     of evFree:
       if rec.freed:
@@ -139,7 +147,8 @@ proc trackerRecord*(obj: pointer, ev: LifecycleEvent) =
         rec.events[^1].event = evRefAfterFree
         stderr.writeLine &"[GObj] ⚠  UNREF AFTER FREE: {tn} @ {cast[uint](obj):#x}"
         stderr.writeLine stk
-    else: discard
+    else:
+      discard
 
 # ─── Safe wrappers that auto-track ────────────────────────────────────────────
 
@@ -195,8 +204,8 @@ proc reportLeaks*() =
 # ─── Structural validator ─────────────────────────────────────────────────────
 
 type ValidationResult* = object
-  ok*:      bool
-  issues*:  seq[string]
+  ok*: bool
+  issues*: seq[string]
 
 proc validateObject*(obj: pointer): ValidationResult =
   ## Sanity-check a live GObject pointer.
@@ -224,11 +233,11 @@ proc validateObject*(obj: pointer): ValidationResult =
   if classPtr == nil:
     result.ok = false
     result.issues.add "g_class pointer is nil – corrupt or freed GTypeInstance"
-    return                         # can't safely dereference further
+    return # can't safely dereference further
 
   # Verify type name is readable
   let gtype = cast[ptr GType](classPtr)[]
-  let name  = g_type_name(gtype)
+  let name = g_type_name(gtype)
   if name == nil:
     result.ok = false
     result.issues.add &"g_type_name returned nil for GType {cast[uint](gtype)}"
@@ -241,7 +250,11 @@ proc validate*(obj: pointer, label = "") =
   ## Validate and print a report.  Aborts on critical failures when
   ## compileOption("assertions") is on.
   let r = validateObject(obj)
-  let tag = if label.len > 0: label else: typeName(obj)
+  let tag =
+    if label.len > 0:
+      label
+    else:
+      typeName(obj)
   if r.ok:
     echo &"[GObj] ✓  {tag} @ {cast[uint](obj):#x}  rc={getRefCount(obj)}"
   else:
@@ -258,8 +271,8 @@ proc dumpObject*(obj: pointer) =
   if obj == nil:
     echo "[GObj] dumpObject: <nil>"
     return
-  let rc    = getRefCount(obj)
-  let tn    = typeName(obj)
+  let rc = getRefCount(obj)
+  let tn = typeName(obj)
   let gtype = getGType(obj)
   echo &"""
 ┌─ GObject Dump ──────────────────────────────────
@@ -282,7 +295,8 @@ proc dumpHistory*(obj: pointer) =
       echo &"  [{i:>3}] {ev.event:<14} rc={ev.refCount}"
       if ev.stackTrace.len > 0:
         for ln in ev.stackTrace.splitLines:
-          if ln.len > 0: echo &"         {ln}"
+          if ln.len > 0:
+            echo &"         {ln}"
 
 # ─── Convenience macros ───────────────────────────────────────────────────────
 
@@ -300,16 +314,17 @@ template assertRefCount*(obj: pointer, expected: uint32) =
   if got != expected:
     let tn = typeName(obj)
     raiseAssert &"assertRefCount failed for {tn} @ {cast[uint](obj):#x}: " &
-                &"expected {expected}, got {got}"
+      &"expected {expected}, got {got}"
 
 template snapshotScope*(label: string, body: untyped) =
   ## Print any refcount changes that occur inside `body`.
   let snapBefore = takeSnapshot()
   body
-  let snapAfter  = takeSnapshot()
-  let snapDiffs  = diffSnapshots(snapBefore, snapAfter)
+  let snapAfter = takeSnapshot()
+  let snapDiffs = diffSnapshots(snapBefore, snapAfter)
   if snapDiffs.len > 0:
     echo &"[Snapshot '{label}'] changes:"
-    for d in snapDiffs: echo "  ", d
+    for d in snapDiffs:
+      echo "  ", d
   else:
     echo &"[Snapshot '{label}'] no changes"

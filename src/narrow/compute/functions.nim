@@ -7,7 +7,7 @@ type
     handle: ptr GArrowFunction
 
   FunctionOptions* = object
-    handle: ptr GArrowFunctionOptions
+    handle*: ptr GArrowFunctionOptions
 
   FunctionDoc* = object
     handle: ptr GArrowFunctionDoc

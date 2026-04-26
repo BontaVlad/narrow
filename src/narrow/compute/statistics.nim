@@ -31,23 +31,25 @@ proc toPtr*(s: Statistics): ptr GParquetStatistics =
 proc toPtr*(s: BooleanStatistics): ptr GParquetBooleanStatistics =
   s.handle
 
-proc toPtr*(s: Int32Statistics): ptr GParquetInt32Statistics =  
+proc toPtr*(s: Int32Statistics): ptr GParquetInt32Statistics =
   s.handle
 
 proc toPtr*(s: Int64Statistics): ptr GParquetInt64Statistics =
   s.handle
 
-proc toPtr*(s: FloatStatistics): ptr GParquetFloatStatistics =  
+proc toPtr*(s: FloatStatistics): ptr GParquetFloatStatistics =
   s.handle
 
-proc toPtr*(s: DoubleStatistics): ptr GParquetDoubleStatistics =        
+proc toPtr*(s: DoubleStatistics): ptr GParquetDoubleStatistics =
   s.handle
 
 proc toPtr*(s: ByteArrayStatistics): ptr GParquetByteArrayStatistics =
   s.handle
 
-proc toPtr*(s: FixedLengthByteArrayStatistics): ptr GParquetFixedLengthByteArrayStatistics =    
-  s.handle  
+proc toPtr*(
+    s: FixedLengthByteArrayStatistics
+): ptr GParquetFixedLengthByteArrayStatistics =
+  s.handle
 
 proc newStatistics*(handle: ptr GParquetStatistics): Statistics =
   result.handle = handle
@@ -204,7 +206,9 @@ proc isByteArrayStatistics*(s: Statistics): bool =
 
 proc isFixedLengthByteArrayStatistics*(s: Statistics): bool =
   let inst = cast[ptr GTypeInstance](s.handle)
-  g_type_check_instance_is_a(inst, gparquet_fixed_length_byte_array_statistics_get_type()) != 0
+  g_type_check_instance_is_a(
+    inst, gparquet_fixed_length_byte_array_statistics_get_type()
+  ) != 0
 
 # ============================================================================
 # Type Conversion Functions

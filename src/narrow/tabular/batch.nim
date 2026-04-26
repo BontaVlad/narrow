@@ -267,8 +267,9 @@ proc slice*(rb: RecordBatch, offset: int64, length: int64): RecordBatch =
   result = newRecordBatch(handle)
 
 proc addColumn*(rb: RecordBatch, idx: uint, field: Field, column: Array): RecordBatch =
-  let handle =
-    verify garrow_record_batch_add_column(rb.toPtr, idx.guint, field.toPtr, column.toPtr)
+  let handle = verify garrow_record_batch_add_column(
+    rb.toPtr, idx.guint, field.toPtr, column.toPtr
+  )
   result = newRecordBatch(handle)
 
 proc removeColumn*(rb: RecordBatch, idx: uint): RecordBatch =

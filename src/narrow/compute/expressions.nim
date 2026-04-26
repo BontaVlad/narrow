@@ -176,10 +176,7 @@ let emptyExprSeq: seq[Expression] = @[]
 
 proc children*(expr: Expression): seq[Expression] {.inline.} =
   ## Returns child expressions. Empty for leaf nodes.
-  if expr.isCall:
-    expr.args
-  else:
-    emptyExprSeq
+  if expr.isCall: expr.args else: emptyExprSeq
 
 # ============================================================================
 # Expression — Recursive Field Collection
@@ -202,7 +199,9 @@ func referencedFields*(expr: Expression): HashSet[string] =
   result = initHashSet[string]()
   collectFieldsImpl(expr, result)
 
-proc referencedFieldSeqWalk(e: Expression, seen: var HashSet[string], res: var seq[string]) =
+proc referencedFieldSeqWalk(
+    e: Expression, seen: var HashSet[string], res: var seq[string]
+) =
   ## Helper for `referencedFieldSeq` — recursively walks expression tree.
   if e.isNil:
     return
@@ -393,17 +392,28 @@ proc newDatum*(sc: Scalar): Datum =
 
 proc newDatum*[T: ArrowPrimitive](value: T): Datum =
   let scalar =
-    when T is bool: cast[ptr GArrowScalar](garrow_boolean_scalar_new(value.gboolean))
-    elif T is int8: cast[ptr GArrowScalar](garrow_int8_scalar_new(value.gint8))
-    elif T is uint8: cast[ptr GArrowScalar](garrow_uint8_scalar_new(value.guint8))
-    elif T is int16: cast[ptr GArrowScalar](garrow_int16_scalar_new(value.gint16))
-    elif T is uint16: cast[ptr GArrowScalar](garrow_uint16_scalar_new(value.guint16))
-    elif T is int32: cast[ptr GArrowScalar](garrow_int32_scalar_new(value.gint32))
-    elif T is uint32: cast[ptr GArrowScalar](garrow_uint32_scalar_new(value.guint32))
-    elif T is int64 or T is int: cast[ptr GArrowScalar](garrow_int64_scalar_new(value.gint64))
-    elif T is uint64 or T is uint: cast[ptr GArrowScalar](garrow_uint64_scalar_new(value.guint64))
-    elif T is float32: cast[ptr GArrowScalar](garrow_float_scalar_new(value.gfloat))
-    elif T is float64: cast[ptr GArrowScalar](garrow_double_scalar_new(value.gdouble))
+    when T is bool:
+      cast[ptr GArrowScalar](garrow_boolean_scalar_new(value.gboolean))
+    elif T is int8:
+      cast[ptr GArrowScalar](garrow_int8_scalar_new(value.gint8))
+    elif T is uint8:
+      cast[ptr GArrowScalar](garrow_uint8_scalar_new(value.guint8))
+    elif T is int16:
+      cast[ptr GArrowScalar](garrow_int16_scalar_new(value.gint16))
+    elif T is uint16:
+      cast[ptr GArrowScalar](garrow_uint16_scalar_new(value.guint16))
+    elif T is int32:
+      cast[ptr GArrowScalar](garrow_int32_scalar_new(value.gint32))
+    elif T is uint32:
+      cast[ptr GArrowScalar](garrow_uint32_scalar_new(value.guint32))
+    elif T is int64 or T is int:
+      cast[ptr GArrowScalar](garrow_int64_scalar_new(value.gint64))
+    elif T is uint64 or T is uint:
+      cast[ptr GArrowScalar](garrow_uint64_scalar_new(value.guint64))
+    elif T is float32:
+      cast[ptr GArrowScalar](garrow_float_scalar_new(value.gfloat))
+    elif T is float64:
+      cast[ptr GArrowScalar](garrow_double_scalar_new(value.gdouble))
     elif T is string:
       let gbytes = g_bytes_new(cast[gconstpointer](value.cstring), value.len.gsize)
       let buffer = garrow_buffer_new_bytes(gbytes)
@@ -412,16 +422,21 @@ proc newDatum*[T: ArrowPrimitive](value: T): Datum =
       g_object_unref(buffer)
       sc
     elif T is seq[byte]:
-      let gbytes = g_bytes_new(cast[gconstpointer](value[0].unsafeAddr), value.len.gsize)
+      let gbytes =
+        g_bytes_new(cast[gconstpointer](value[0].unsafeAddr), value.len.gsize)
       let buffer = garrow_buffer_new_bytes(gbytes)
       g_bytes_unref(gbytes)
       let sc = cast[ptr GArrowScalar](garrow_binary_scalar_new(buffer))
       g_object_unref(buffer)
       sc
-    elif T is Date32: cast[ptr GArrowScalar](garrow_date32_scalar_new(value.int32.gint32))
-    elif T is Date64: cast[ptr GArrowScalar](garrow_date64_scalar_new(value.int64.gint64))
-    elif T is MonthInterval: cast[ptr GArrowScalar](garrow_month_interval_scalar_new(value.int32.gint32))
-    else: nil
+    elif T is Date32:
+      cast[ptr GArrowScalar](garrow_date32_scalar_new(value.int32.gint32))
+    elif T is Date64:
+      cast[ptr GArrowScalar](garrow_date64_scalar_new(value.int64.gint64))
+    elif T is MonthInterval:
+      cast[ptr GArrowScalar](garrow_month_interval_scalar_new(value.int32.gint32))
+    else:
+      nil
   result.handle = cast[ptr GArrowDatum](garrow_scalar_datum_new(scalar))
   if not scalar.isNil:
     g_object_unref(scalar)
@@ -1026,7 +1041,9 @@ proc newFieldExpression*(name: sink string): Expression =
 # Expression Constructors — Call Nodes
 # ============================================================================
 
-proc newCallExpression*(function: sink string, args: openArray[Expression]): Expression =
+proc newCallExpression*(
+    function: sink string, args: openArray[Expression]
+): Expression =
   ## Creates a call expression node.
   ##
   ## Common functions: "equal", "not_equal", "less", "less_equal",
@@ -1049,9 +1066,8 @@ proc newCallExpression*(function: sink string, args: openArray[Expression]): Exp
   new(result)
   result[] = ExpressionObj(
     kind: ekCall,
-    handle: cast[ptr GArrowExpression](garrow_call_expression_new(
-      cfunc, argList.toPtr, nil
-    )),
+    handle:
+      cast[ptr GArrowExpression](garrow_call_expression_new(cfunc, argList.toPtr, nil)),
     functionName: move(function),
     args: move(childExprs),
   )
@@ -1466,8 +1482,11 @@ proc parse*(filters: seq[FilterClause]): Expression =
     result = newCallExpression("and", [result, parseFilter(filters[i])])
 
 proc extractGuaranteeBoundsExtract(
-    expr: Expression, fieldName: string,
-    minExpr: var Expression, maxExpr: var Expression) =
+    expr: Expression,
+    fieldName: string,
+    minExpr: var Expression,
+    maxExpr: var Expression,
+) =
   ## Helper for `extractGuaranteeBounds` — recursively extracts bound expressions.
   if expr.isNil:
     return
@@ -1748,7 +1767,6 @@ proc statisticsAsExpression*(fieldName: string, stats: Statistics): Option[Expre
   ##   min ≤ field ≤ max
   ##
   ## Returns none if statistics are not available or have no min/max.
-
 
   if not stats.hasMinMax:
     return none(Expression)
