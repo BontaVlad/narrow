@@ -565,6 +565,14 @@ func kind*(dt: Datum): DatumKind {.inline.} =
     return dkTable
   return dkNone
 
+proc toChunkedArray*(dt: Datum): ChunkedArray[void] =
+  if dt.kind != dkChunkedArray:
+    raise newException(ValueError, "Datum is not a chunked array")
+  var caPtr: ptr GArrowChunkedArray
+  g_object_get(dt.handle, "value", addr caPtr, nil)
+  discard g_object_ref(caPtr)
+  result = newChunkedArray[void](caPtr)
+
 # ============================================================================
 # Scalar Methods
 # ============================================================================

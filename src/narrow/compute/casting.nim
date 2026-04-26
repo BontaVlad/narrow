@@ -124,19 +124,18 @@ proc castChunks(
 ): ptr GArrowChunkedArray =
   let nChunks = garrow_chunked_array_get_n_chunks(colHandle)
   var chunkList = newGList[ptr GArrowArray]()
-  var castedChunks = newSeq[ptr GArrowArray](nChunks.int)
   g_object_set(options.handle, "to-data-type", targetGType.toPtr, nil)
 
   for chunkIdx in 0.uint ..< nChunks:
     let chunk = garrow_chunked_array_get_chunk(colHandle, chunkIdx.guint)
     let casted = verify garrow_array_cast(chunk, targetGType.toPtr, options.toPtr)
-    castedChunks[chunkIdx.int] = casted
     chunkList.append(casted)
+    g_object_unref(chunk)
 
   result = verify garrow_chunked_array_new(chunkList.toPtr)
 
-  # Unref our refs — the new ChunkedArray owns them now
-  for casted in castedChunks:
+  # Unref our array refs — the new ChunkedArray holds shared_ptrs to the data
+  for casted in chunkList.items:
     g_object_unref(casted)
 
 # ============================================================================
@@ -162,6 +161,19 @@ proc castTable*(
     targetMap[name] = gtype
 
   let schema = table.schema
+
+  # Fast path: if no types actually change, return the original table
+  var anyCastNeeded = false
+  for i in 0 ..< schema.nFields:
+    let field = schema.getField(i)
+    if targetMap.hasKey(field.name) and
+        garrow_data_type_equal(field.dataType.toPtr, targetMap[field.name].toPtr) == 0:
+      anyCastNeeded = true
+      break
+  if not anyCastNeeded:
+    result = table
+    return
+
   var columns = newSeq[ptr GArrowChunkedArray](schema.nFields)
   var fields = newSeq[Field](schema.nFields)
 
@@ -205,6 +217,20 @@ proc castTable*(
   ##     ])
   ##     let result = castTable(table, newSchema)
   let oldSchema = table.schema
+
+  # Fast path: if schemas are identical, return the original table
+  var anyCastNeeded = false
+  for i in 0 ..< schema.nFields:
+    let newField = schema.getField(i)
+    let oldIdx = oldSchema.getFieldIndex(newField.name)
+    let oldField = oldSchema.getField(oldIdx)
+    if garrow_data_type_equal(oldField.dataType.toPtr, newField.dataType.toPtr) == 0:
+      anyCastNeeded = true
+      break
+  if not anyCastNeeded:
+    result = table
+    return
+
   var columns = newSeq[ptr GArrowChunkedArray](schema.nFields)
   var fields = newSeq[Field](schema.nFields)
 
