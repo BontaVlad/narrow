@@ -39,7 +39,9 @@ benchmark cfg:
     removeFile(path)
 
   proc benchReadParquet1M {.measure.} =
-    discard readTable(tmpPath)
+    var result = readTable(tmpPath)
+    blackBox(result)
 
   proc benchReadParquetColumns1M {.measure.} =
-    discard readTable(tmpPath, @["id", "value"])
+    var result = readTable(tmpPath, @["id", "value"])
+    blackBox(result)

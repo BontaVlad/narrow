@@ -10,7 +10,7 @@ type
   ArrayBuilder*[T: ArrowValue] = object
     handle: ptr GArrowArrayBuilder
 
-  Array*[T: ArrowValue] = object
+  Array*[T: ArrowValue = void] = object
     handle: ptr GArrowArray
 
 func toPtr*[T](b: ArrayBuilder[T]): ptr GArrowArrayBuilder {.inline.} =
@@ -18,6 +18,7 @@ func toPtr*[T](b: ArrayBuilder[T]): ptr GArrowArrayBuilder {.inline.} =
 
 func toPtr*[T](a: Array[T]): ptr GArrowArray {.inline.} =
   a.handle
+
 
 proc `=destroy`*[T](builder: ArrayBuilder[T]) =
   if not isNil(builder.handle):
@@ -58,6 +59,12 @@ proc `=copy`*[T](dest: var Array[T], src: Array[T]) =
     dest.handle = src.handle
     if not isNil(dest.handle):
       discard g_object_ref(dest.handle)
+
+
+
+proc toUntyped*[T: ArrowValue](arr: Array[T]): Array[void] =
+  ## Convert a typed Array to untyped.
+  result.handle = arr.handle
 
 # ============================================================================
 # Array Builders
@@ -403,6 +410,11 @@ proc newArray*[T](gptr: pointer): Array[T] =
 proc newArray*[T](handle: ptr GArrowArray): Array[T] =
   result = Array[T](handle: handle)
 
+proc toTyped*[T: ArrowValue](arr: Array): Array[T] =
+  ## Convert an untyped (or differently typed) Array to a typed Array.
+  ## This is the key runtime -> compile-time bridge.
+  if not isNil(arr.handle):
+    result.handle = cast[ptr GArrowArray](g_object_ref(arr.handle))
 proc `==`*[T, U](a: Array[T], b: Array[U]): bool =
   if a.handle == nil or b.handle == nil:
     return a.handle == b.handle
@@ -517,11 +529,12 @@ proc `$`*(arr: Array): string =
 # ChunkedArray Types
 # ============================================================================
 
-type ChunkedArray*[T] = object
+type ChunkedArray*[T = void] = object
   handle: ptr GArrowChunkedArray
 
 proc toPtr*[T](c: ChunkedArray[T] | ChunkedArray): ptr GArrowChunkedArray {.inline.} =
   c.handle
+
 
 proc `=destroy`*[T](c: ChunkedArray[T]) =
   if not isNil(c.toPtr):
@@ -563,6 +576,10 @@ proc newChunkedArray*[T](cAbiArrayStream: pointer): ChunkedArray[T] =
 
 proc newChunkedArray*[T](rawPtr: ptr GArrowChunkedArray): ChunkedArray[T] =
   result = ChunkedArray[T](handle: rawPtr)
+
+proc toTyped*[T: ArrowValue](ca: ChunkedArray): ChunkedArray[T] =
+  if not isNil(ca.handle):
+    result.handle = cast[ptr GArrowChunkedArray](g_object_ref(ca.handle))
 
 proc `==`*[T, U](a: ChunkedArray[T], b: ChunkedArray[U]): bool {.inline.} =
   result = garrow_chunked_array_equal(a.toPtr, b.toPtr) != 0

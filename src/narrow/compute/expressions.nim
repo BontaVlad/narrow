@@ -1,4 +1,4 @@
-import std/[strutils, sets, options]
+import std/[strutils, sets, options, parseutils]
 import ../column/primitive
 import ../types/gtypes
 import ../types/glist
@@ -1249,7 +1249,8 @@ proc extractFieldReferences*(expr: Expression): HashSet[string] =
 
 proc parseValue*(value: string): Expression =
   ## Parses a string value into the appropriate typed literal expression.
-  ## Case-insensitive comparison without allocating a copy.
+  ## Uses exception-free parsing via ``parseutils`` to avoid allocation
+  ## overhead on non-numeric inputs.
   template eqIgnoreCase(s: string, target: static string): bool =
     s.len == target.len and cmpIgnoreCase(s, target) == 0
 
@@ -1259,20 +1260,21 @@ proc parseValue*(value: string): Expression =
     return newLiteralExpression(false)
 
   if value.contains('.') or value.contains('e') or value.contains('E'):
-    try:
-      let f = parseFloat(value)
+    var f: float
+    if parseFloat(value, f) == value.len:
       return newLiteralExpression(f.float64)
-    except ValueError:
-      discard
 
+  var intVal: int64
+  var intChars = 0
   try:
-    let intVal = parseInt(value)
+    intChars = parseBiggestInt(value, intVal)
+  except ValueError:
+    discard
+  if intChars == value.len:
     if intVal >= int32.low.int64 and intVal <= int32.high.int64:
       return newLiteralExpression(intVal.int32)
     else:
       return newLiteralExpression(intVal)
-  except ValueError:
-    discard
 
   return newLiteralExpression(value)
 

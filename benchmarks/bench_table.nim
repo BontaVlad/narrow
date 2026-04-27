@@ -27,20 +27,25 @@ proc makeTable(nRows: int): ArrowTable =
 benchmark cfg:
 
   proc benchBuildTable100K {.measure.} =
-    discard makeTable(100_000)
+    var result = makeTable(100_000)
+    blackBox(result)
 
   proc benchBuildTable1M {.measure.} =
-    discard makeTable(1_000_000)
+    var result = makeTable(1_000_000)
+    blackBox(result)
 
   proc benchTableConcatenate {.measure.} =
     let t1 = makeTable(100_000)
     let t2 = makeTable(100_000)
-    discard t1.concatenate([t2])
+    var result = t1.concatenate([t2])
+    blackBox(result)
 
   proc benchTableSlice {.measure.} =
     let t = makeTable(1_000_000)
-    discard t.slice(100_000, 500_000)
+    var result = t.slice(100_000, 500_000)
+    blackBox(result)
 
   proc benchTableValidate {.measure.} =
     let t = makeTable(100_000)
-    discard t.validate()
+    var result = t.validate()
+    blackBox(result)

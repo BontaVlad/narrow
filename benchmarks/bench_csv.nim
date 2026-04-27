@@ -36,5 +36,5 @@ benchmark cfg:
     removeFile(path)
 
   proc benchCsvReadTable100K {.measure.} =
-    discard readCsv(csvTmpPath)
-
+    var result = readCsv(csvTmpPath)
+    blackBox(result)

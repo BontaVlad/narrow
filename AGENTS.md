@@ -423,8 +423,10 @@ Benchmarks live in `benchmarks/` and use `criterion`.
 
 | Command | Description |
 |---------|-------------|
-| `just benchmark` | Compile and run all benchmarks in release mode |
-| `just benchmark <output_dir>` | Run all benchmarks and save JSON results to `output_dir/` |
+| `just benchmark` | Run all benchmarks; saves JSON to `benchmarks/results/YYYYMMDD_HHMMSS/` |
+| `just benchmark -o <dir>` | Run all benchmarks; saves JSON to `<dir>/` |
+| `just benchmark <file.nim>` | Run a single benchmark file |
+| `just benchmark <file.nim> -o <path.json>` | Run a single file; save JSON to exact path |
 | `just benchmark-compare <baseline> <new>` | Compare two saved result directories and print deltas |
 | `just benchmark-heaptrack <name>` | Record a heap profile for one benchmark (e.g. `just benchmark-heaptrack bench_primitive`) |
 | `just benchmark-heaptrack-all` | Profile all benchmarks under heaptrack |
@@ -440,19 +442,32 @@ benchmark(cfg):
   # ...
 ```
 
-In Narrow, `benchmarks/config.nim` wires this through the `NARROW_BENCH_OUTPUT` environment variable so the `justfile` can set it per-suite. Use `just benchmark <dir>` to automatically save each suite as `<dir>/bench_*.json`.
+In Narrow, `benchmarks/config.nim` wires this through the `NARROW_BENCH_OUTPUT` environment variable so the `justfile` can set it per-suite. By default `just benchmark` automatically saves each suite to a timestamped directory. Use `-o` when you want a stable name for comparison, or when running a single file.
 
-**Workflow for performance work:**
+**Workflow for performance work (full suite):**
 1. Establish a baseline on `main`:
    ```bash
-   just benchmark benchmarks/results/baseline
+   just benchmark -o benchmarks/results/baseline
    ```
 2. Make your changes.
 3. Run again and compare:
    ```bash
-   just benchmark benchmarks/results/new
+   just benchmark -o benchmarks/results/new
    just benchmark-compare benchmarks/results/baseline benchmarks/results/new
    ```
+
+**Workflow for performance work (single benchmark, fast iteration):**
+1. Baseline a single file:
+   ```bash
+   just benchmark benchmarks/bench_cast.nim -o benchmarks/results/cast_base.json
+   ```
+2. Make your changes.
+3. Run again:
+   ```bash
+   just benchmark benchmarks/bench_cast.nim -o benchmarks/results/cast_new.json
+   ```
+   (Comparison for single JSON files is not yet automated — inspect the two files manually
+   or place them in directories and use `just benchmark-compare`.)
 
 ### Performance refactoring policy
 

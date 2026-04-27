@@ -98,16 +98,20 @@ proc tryGetField*(schema: Schema, name: string): Option[Field] =
     return none(Field)
   result = some(newField(handle))
 
+proc getFieldIndex*(schema: Schema, name: string): int =
+  result = garrow_schema_get_field_index(schema.handle, name.cstring).int
+  if result < 0:
+    raise newException(KeyError, fmt"Field with name: [{name}] does not exist")
+
 proc `[]`*(schema: Schema, idx: int): Field {.inline.} =
   schema.getField(idx)
 
 proc `[]`*(schema: Schema, name: string): Field {.inline.} =
   schema.getFieldByName(name)
 
-proc getFieldIndex*(schema: Schema, name: string): int =
-  result = garrow_schema_get_field_index(schema.handle, name.cstring).int
-  if result < 0:
-    raise newException(KeyError, fmt"Field with name: [{name}] does not exist")
+proc replaceField*(schema: Schema, idx: int, field: Field): Schema =
+  let schemaPtr = verify garrow_schema_replace_field(schema.handle, idx.guint, field.handle)
+  result = newSchema(schemaPtr)
 
 proc ffields*(schema: Schema): seq[Field] =
   let gFields = newGList[ptr GArrowField](garrow_schema_get_fields(schema.handle))

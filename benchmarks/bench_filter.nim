@@ -29,19 +29,23 @@ benchmark cfg:
   proc benchFilterTableInt64Equal1M {.measure.} =
     let table = makeFilterTable(1_000_000)
     let filter = col("id") == 500_000'i64
-    discard filterTable(table, filter)
+    var result = filterTable(table, filter)
+    blackBox(result)
 
   proc benchFilterTableFloat64Greater1M {.measure.} =
     let table = makeFilterTable(1_000_000)
     let filter = col("value") > 500_000.0
-    discard filterTable(table, filter)
+    var result = filterTable(table, filter)
+    blackBox(result)
 
   proc benchFilterTableBoolEqual1M {.measure.} =
     let table = makeFilterTable(1_000_000)
     let filter = col("active") == true
-    discard filterTable(table, filter)
+    var result = filterTable(table, filter)
+    blackBox(result)
 
   proc benchFilterTableCompound1M {.measure.} =
     let table = makeFilterTable(1_000_000)
     let filter = (col("id") >= 100_000'i64) and (col("value") < 900_000.0)
-    discard filterTable(table, filter)
+    var result = filterTable(table, filter)
+    blackBox(result)

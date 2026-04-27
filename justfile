@@ -256,17 +256,77 @@ dbg file:
           "{{file}}" && \
     lldb "./$$out"
 
-benchmark output_dir="":
+benchmark *args="":
     #!/usr/bin/env bash
     set -euo pipefail
 
     BENCH_ROOT="benchmarks"
     OUT_ROOT="nimcache/benchmarks"
 
+    # just expands {{args}} but does not pass variadic params to shebang recipes
+    # as positional parameters, so we reconstruct them manually.
+    set -- {{args}}
+
+    # Parse arguments: extract -o/--output and the positional target
+    TARGET=""
+    OUTPUT_ARG=""
+    while [[ $# -gt 0 ]]; do
+      case $1 in
+        -o|--output)
+          OUTPUT_ARG="$2"
+          shift 2
+          ;;
+        *)
+          TARGET="$1"
+          shift
+          ;;
+      esac
+    done
+
+    # Determine benchmark files and save location
+    SAVE_DIR=""
+    SINGLE_OUTPUT=""
+
+    if [[ -z "$TARGET" ]]; then
+        # No target -> run all benchmarks
+        mapfile -t BENCH_FILES < <(find "$BENCH_ROOT" -name 'bench_*.nim' | sort)
+        if [[ -n "$OUTPUT_ARG" ]]; then
+            SAVE_DIR="$OUTPUT_ARG"
+        else
+            SAVE_DIR="benchmarks/results/$(date +%Y%m%d_%H%M%S)"
+        fi
+    elif [[ "$TARGET" == *.nim && -f "$TARGET" ]]; then
+        # Single benchmark file
+        BENCH_FILES=("$TARGET")
+        BENCH_ROOT="$(dirname "$TARGET")"
+        if [[ -n "$OUTPUT_ARG" ]]; then
+            if [[ "$OUTPUT_ARG" == *.json ]]; then
+                SAVE_DIR="$(dirname "$OUTPUT_ARG")"
+                SINGLE_OUTPUT="$(basename "$OUTPUT_ARG")"
+            else
+                SAVE_DIR="$OUTPUT_ARG"
+            fi
+        else
+            SAVE_DIR="benchmarks/results/$(date +%Y%m%d_%H%M%S)"
+        fi
+    elif [[ -d "$TARGET" && -n $(find "$TARGET" -maxdepth 1 -name 'bench_*.nim' -print -quit 2>/dev/null) ]]; then
+        # Directory containing benchmark files
+        BENCH_ROOT="$TARGET"
+        mapfile -t BENCH_FILES < <(find "$BENCH_ROOT" -maxdepth 1 -name 'bench_*.nim' | sort)
+        if [[ -n "$OUTPUT_ARG" ]]; then
+            SAVE_DIR="$OUTPUT_ARG"
+        else
+            SAVE_DIR="benchmarks/results/$(date +%Y%m%d_%H%M%S)"
+        fi
+    else
+        # Backward compat: bare arg is an output directory
+        mapfile -t BENCH_FILES < <(find "$BENCH_ROOT" -name 'bench_*.nim' | sort)
+        SAVE_DIR="$TARGET"
+    fi
+
     rm -rf "$OUT_ROOT"
     mkdir -p "$OUT_ROOT"
-
-    mapfile -t BENCH_FILES < <(find "$BENCH_ROOT" -name 'bench_*.nim' | sort)
+    mkdir -p "$SAVE_DIR"
 
     for file in "${BENCH_FILES[@]}"; do
         name="$(basename "$file" .nim)"
@@ -285,14 +345,16 @@ benchmark output_dir="":
             -o:"$outdir/$name" \
             "$file"
 
-        if [ -n "{{output_dir}}" ]; then
-            mkdir -p "{{output_dir}}"
-            NARROW_BENCH_OUTPUT="{{output_dir}}/$name.json" "$outdir/$name"
+        if [[ -n "$SINGLE_OUTPUT" ]]; then
+            NARROW_BENCH_OUTPUT="$SAVE_DIR/$SINGLE_OUTPUT" "$outdir/$name"
         else
-            "$outdir/$name"
+            NARROW_BENCH_OUTPUT="$SAVE_DIR/$name.json" "$outdir/$name"
         fi
         echo ""
     done
+
+    echo ""
+    echo "Results saved to: $SAVE_DIR"
 
 benchmark-compare baseline new:
     #!/usr/bin/env python3
@@ -368,11 +430,19 @@ benchmark-compare baseline new:
         sys.exit(1)
 
 # Profile a single benchmark under heaptrack (e.g. just benchmark-heaptrack bench_primitive)
-benchmark-heaptrack BENCH:
+# Set gui=true to open heaptrack_gui instead of heaptrack_print.
+benchmark-heaptrack BENCH gui="false":
     #!/usr/bin/env bash
     set -euo pipefail
 
-    BENCH_FILE="benchmarks/{{BENCH}}.nim"
+    # Normalize input: accept bare name, path, or path with .nim suffix
+    raw="{{BENCH}}"
+    raw="${raw%.nim}"          # strip .nim if present
+    raw="${raw#benchmarks/}"   # strip benchmarks/ prefix if present
+    GUI="{{gui}}"
+    GUI="${GUI#gui=}"          # accept both "true" and "gui=true"
+
+    BENCH_FILE="benchmarks/${raw}.nim"
     OUT_ROOT="nimcache/benchmarks"
     PROFILE_DIR="profiles"
     mkdir -p "$PROFILE_DIR"
@@ -382,7 +452,7 @@ benchmark-heaptrack BENCH:
         exit 1
     fi
 
-    name="{{BENCH}}"
+    name="$raw"
     outdir="$OUT_ROOT/$name"
     mkdir -p "$outdir"
 
@@ -402,7 +472,11 @@ benchmark-heaptrack BENCH:
 
     echo "==> Recording heap profile: $name"
     rm -f "$PROFILE_DIR/${name}.heaptrack"*.zst
-    heaptrack -o "$PROFILE_DIR/${name}.heaptrack" "$outdir/$name"
+    if [ "$GUI" = "true" ]; then
+        heaptrack -o "$PROFILE_DIR/${name}.heaptrack" "$outdir/$name"
+    else
+        heaptrack --record-only -o "$PROFILE_DIR/${name}.heaptrack" "$outdir/$name"
+    fi
 
     # Find the generated trace file
     trace_file=$(ls -t "$PROFILE_DIR/${name}.heaptrack"*.zst 2>/dev/null | head -1)
@@ -410,21 +484,36 @@ benchmark-heaptrack BENCH:
     if [ -n "$trace_file" ]; then
         echo ""
         echo "==> Analyzing heap profile: $trace_file"
-        heaptrack_print \
-            --shorten-templates \
-            --print-peaks \
-            --print-allocators \
-            --print-leaks \
-            --peak-limit 10 \
-            -f "$trace_file"
+        if [ "$GUI" = "true" ]; then
+            if command -v heaptrack_gui >/dev/null 2>&1; then
+                heaptrack_gui "$trace_file"
+            else
+                echo "heaptrack_gui not found; falling back to heaptrack_print"
+                heaptrack_print \
+                    --shorten-templates \
+                    --print-peaks \
+                    --print-allocators \
+                    --print-leaks \
+                    --peak-limit 10 \
+                    -f "$trace_file"
+            fi
+        else
+            heaptrack_print \
+                --shorten-templates \
+                --print-peaks \
+                --print-allocators \
+                --print-leaks \
+                --peak-limit 10 \
+                -f "$trace_file"
+        fi
     fi
 
     echo ""
     echo "Profile trace: $trace_file"
     echo "Full analysis: heaptrack_print -f $trace_file"
 
-# Profile all benchmarks under heaptrack
-benchmark-heaptrack-all:
+# Profile all benchmarks under heaptrack (no GUI)
+benchmark-heaptrack-all gui="false":
     #!/usr/bin/env bash
     set -euo pipefail
 
@@ -433,7 +522,7 @@ benchmark-heaptrack-all:
 
     for file in "${BENCH_FILES[@]}"; do
         name="$(basename "$file" .nim)"
-        just benchmark-heaptrack "$name"
+        just benchmark-heaptrack "$name" "{{gui}}"
     done
 
 clean:

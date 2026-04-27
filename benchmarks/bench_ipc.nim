@@ -43,4 +43,5 @@ benchmark cfg:
     removeFile(path)
 
   proc benchIpcReadTable1M {.measure.} =
-    discard readTable(ipcTmpPath)
+    var result = readTable(ipcTmpPath)
+    blackBox(result)

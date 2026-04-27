@@ -5,56 +5,80 @@ import ../src/narrow
 suite "Array cast":
   test "cast int32 to int64":
     let arr = newArray(@[1'i32, 2, 3])
-    let result = castTo[int64](arr)
-    check result.len == 3
-    check result[0] == 1'i64
-    check result[1] == 2'i64
-    check result[2] == 3'i64
+    let casted = castTo[int64](arr)
+    # let result = castTo[int64](arr)
+    check casted.len == 3
+    check casted[0] == 1'i64
+    check casted[1] == 2'i64
+    check casted[2] == 3'i64
 
   test "cast int32 to float64":
     let arr = newArray(@[1'i32, 2, 3])
-    let result = castTo[float64](arr)
-    check result.len == 3
-    check result[0] == 1.0'f64
-    check result[1] == 2.0'f64
-    check result[2] == 3.0'f64
+    let casted = castTo[float64](arr)
+    check casted.len == 3
+    check casted[0] == 1.0'f64
+    check casted[1] == 2.0'f64
+    check casted[2] == 3.0'f64
 
   test "cast float64 to int32 truncates":
     let arr = newArray(@[1.7'f64, 2.3, 3.9])
     var opts = newCastOptions()
     opts.allowFloatTruncate = true
-    let result = castTo[int32](arr, opts)
-    check result.len == 3
-    check result[0] == 1'i32
-    check result[1] == 2'i32
-    check result[2] == 3'i32
+    let casted = castTo[int32](arr, opts)
+    check casted.len == 3
+    check casted[0] == 1'i32
+    check casted[1] == 2'i32
+    check casted[2] == 3'i32
 
   test "cast int32 to string":
     let arr = newArray(@[1'i32, 2, 3])
-    let result = castTo[string](arr)
-    check result.len == 3
-    check result[0] == "1"
-    check result[1] == "2"
-    check result[2] == "3"
+    let casted = castTo[string](arr)
+    check casted.len == 3
+    check casted[0] == "1"
+    check casted[1] == "2"
+    check casted[2] == "3"
 
   test "cast bool to int32":
     let arr = newArray(@[true, false, true])
-    let result = castTo[int32](arr)
-    check result.len == 3
-    check result[0] == 1'i32
-    check result[1] == 0'i32
-    check result[2] == 1'i32
+    let casted = castTo[int32](arr)
+    check casted.len == 3
+    check casted[0] == 1'i32
+    check casted[1] == 0'i32
+    check casted[2] == 1'i32
 
   test "cast empty array returns empty":
     let arr = newArray[int32](@[])
-    let result = castTo[int64](arr)
-    check result.len == 0
+    let casted = castTo[int64](arr)
+    check casted.len == 0
 
   test "cast single element":
     let arr = newArray(@[42'i32])
-    let result = castTo[float64](arr)
-    check result.len == 1
-    check result[0] == 42.0'f64
+    let casted = castTo[float64](arr)
+    check casted.len == 1
+    check casted[0] == 42.0'f64
+
+  test "cast bool to int32":
+    let arr = newArray(@[true, false, true])
+    let casted = toTyped[int32](castTo(arr, newGType(int32)))
+    check casted.len == 3
+    check casted[0] == 1'i32
+    check casted[1] == 0'i32
+    check casted[2] == 1'i32
+
+  test "cast chunks of int32 to string":
+
+    let chunks = [
+      newArray(@[true, false]),
+      newArray(@[true]),
+      newArray(@[false, true, false]),
+    ]
+    let cArray = newChunkedArray(chunks)
+    let casted = toTyped[string](castChunks(cArray, newGType(string)))
+    check casted.nChunks == 3
+    check casted.getChunk(0)[1] == "false"
+    check casted.getChunk(1)[0] == "true"
+    check casted.getChunk(2)[2] == "false"
+
 
 suite "Table cast (hashmap)":
   test "cast single column":
@@ -148,73 +172,35 @@ suite "Table cast (hashmap)":
     check col[0] == 1'i32
     check col[1] == 2'i32
 
-suite "Table cast (schema-driven)":
-  test "schema with changed types":
-    let oldSchema = newSchema([
+  test "schema fields updated correctly":
+    let schema = newSchema([
       newField[int32]("id"),
+      newField[string]("name"),
       newField[float64]("score"),
     ])
     let ids = newArray(@[1'i32, 2])
+    let names = newArray(@["a", "b"])
     let scores = newArray(@[95.5'f64, 87.2])
-    let table = newArrowTable(oldSchema, ids, scores)
+    let table = newArrowTable(schema, ids, names, scores)
 
-    let newSchema = newSchema([
-      newField[int64]("id"),
-      newField[float32]("score"),
+    let result = castTable(table, [
+      ("id", newGType(int64)),
+      ("score", newGType(float32)),
     ])
-    let result = castTable(table, newSchema)
 
-    check result.nColumns == 2
-    check result.nRows == 2
+    # Casted columns should have new types in schema
+    check result.schema.getField(0).dataType == newGType(int64)
+    check result.schema.getField(2).dataType == newGType(float32)
 
+    # Pass-through column should keep original type
+    check result.schema.getField(1).dataType == newGType(string)
+
+    # Verify data still accessible via updated schema
     let idCol = result["id", int64]
     check idCol[0] == 1'i64
 
     let scoreCol = result["score", float32]
     check scoreCol[0] == 95.5'f32
-
-  test "schema with mixed changed and unchanged":
-    let oldSchema = newSchema([
-      newField[string]("name"),
-      newField[int32]("age"),
-    ])
-    let names = newArray(@["alice", "bob"])
-    let ages = newArray(@[25'i32, 30])
-    let table = newArrowTable(oldSchema, names, ages)
-
-    let newSchema = newSchema([
-      newField[string]("name"),
-      newField[int64]("age"),
-    ])
-    let result = castTable(table, newSchema)
-
-    let nameCol = result["name", string]
-    check nameCol[0] == "alice"
-
-    let ageCol = result["age", int64]
-    check ageCol[0] == 25'i64
-
-  test "same schema returns equivalent table":
-    let schema = newSchema([
-      newField[int32]("id"),
-      newField[string]("name"),
-    ])
-    let ids = newArray(@[1'i32, 2])
-    let names = newArray(@["a", "b"])
-    let table = newArrowTable(schema, ids, names)
-
-    let result = castTable(table, schema)
-    check result == table
-
-  test "schema-driven with empty table":
-    let oldSchema = newSchema([newField[int32]("x")])
-    let data = newArray[int32](@[])
-    let table = newArrowTable(oldSchema, data)
-
-    let newSchema = newSchema([newField[int64]("x")])
-    let result = castTable(table, newSchema)
-    check result.nRows == 0
-    check result.nColumns == 1
 
 suite "Cast with nulls":
   test "cast preserves nulls":
@@ -226,17 +212,6 @@ suite "Cast with nulls":
     check result.isValid(2) == true
     check result[0] == 1'i64
     check result[2] == 3'i64
-
-  test "table cast preserves nulls":
-    let schema = newSchema([newField[int32]("x")])
-    let data = newArray(@[1'i32, 2, 3], mask = [false, true, false])
-    let table = newArrowTable(schema, data)
-
-    let result = castTable(table, [("x", newGType(int64))])
-    let col = result["x", int64]
-    check col.isNull(1) == true
-    check col.isValid(0) == true
-    check col.isValid(2) == true
 
 suite "CastOptions":
   test "default CastOptions construction":

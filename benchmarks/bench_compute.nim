@@ -32,34 +32,34 @@ benchmark cfg:
   proc benchBooleanAnd1M {.measure.} =
     let a = makeBoolArray(1_000_000)
     let b = makeBoolArray(1_000_000)
-    let expr = newCallExpression("and", [col("a"), col("b")])
-    discard expr
+    var expr = newCallExpression("and", [col("a"), col("b")])
+    blackBox(expr)
 
   # ----- String kernels (scalar_string_benchmark.cc inspired) -----
   proc benchStringContains100K {.measure.} =
     let arr = makeStringArray(100_000)
-    let expr = strContains(col("s"), "str_")
-    discard expr
+    var expr = strContains(col("s"), "str_")
+    blackBox(expr)
 
   proc benchStringStartsWith100K {.measure.} =
     let arr = makeStringArray(100_000)
-    let expr = startsWith(col("s"), "str")
-    discard expr
+    var expr = startsWith(col("s"), "str")
+    blackBox(expr)
 
   proc benchStringEndsWith100K {.measure.} =
     let arr = makeStringArray(100_000)
-    let expr = endsWith(col("s"), "0")
-    discard expr
+    var expr = endsWith(col("s"), "0")
+    blackBox(expr)
 
   # ----- Cast kernels (scalar_cast_benchmark.cc inspired) -----
   proc benchCastInt64ToFloat64_1M {.measure.} =
     let arr = makeInt64Array(1_000_000)
-    let expr = newCallExpression("cast", [col("x")])
-    discard expr
+    var expr = newCallExpression("cast", [col("x")])
+    blackBox(expr)
 
   # ----- Function execution (function_benchmark.cc inspired) -----
   proc benchExecuteAddInt64_1M {.measure.} =
     let a = makeInt64Array(1_000_000)
     let b = makeInt64Array(1_000_000, 1)
-    let expr = add(col("a"), col("b"))
-    discard expr
+    var expr = add(col("a"), col("b"))
+    blackBox(expr)
