@@ -128,6 +128,8 @@ func isPrimitive*(arrowType: GArrowType): bool {.inline.} =
 func toPtr*(g: GADType): ptr GArrowDataType {.inline.} =
   g.handle
 
+func `==`*(a, b: GADType): bool {.inline.} =
+  garrow_data_type_equal(a.handle, b.handle).bool
 func `$`*(str: GString): string {.inline.} =
   $str.handle
 

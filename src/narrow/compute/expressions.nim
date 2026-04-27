@@ -570,7 +570,6 @@ proc toChunkedArray*(dt: Datum): ChunkedArray[void] =
     raise newException(ValueError, "Datum is not a chunked array")
   var caPtr: ptr GArrowChunkedArray
   g_object_get(dt.handle, "value", addr caPtr, nil)
-  discard g_object_ref(caPtr)
   result = newChunkedArray[void](caPtr)
 
 # ============================================================================
@@ -833,190 +832,6 @@ proc newLiteralExpression*(dt: Datum): Expression =
     kind: ekLiteral,
     datum: dt,
     handle: cast[ptr GArrowExpression](garrow_literal_expression_new(dt.toPtr)),
-  )
-
-proc newLiteralExpression*(v: bool): Expression =
-  let scalar = cast[ptr GArrowScalar](garrow_boolean_scalar_new(v.gboolean))
-  let datum = cast[ptr GArrowDatum](garrow_scalar_datum_new(scalar))
-  g_object_unref(scalar)
-  new(result)
-  result[] = ExpressionObj(
-    kind: ekLiteral,
-    handle: cast[ptr GArrowExpression](garrow_literal_expression_new(datum)),
-    datum: Datum(handle: datum),
-  )
-
-proc newLiteralExpression*(v: int8): Expression =
-  let scalar = cast[ptr GArrowScalar](garrow_int8_scalar_new(v.gint8))
-  let datum = cast[ptr GArrowDatum](garrow_scalar_datum_new(scalar))
-  g_object_unref(scalar)
-  new(result)
-  result[] = ExpressionObj(
-    kind: ekLiteral,
-    handle: cast[ptr GArrowExpression](garrow_literal_expression_new(datum)),
-    datum: Datum(handle: datum),
-  )
-
-proc newLiteralExpression*(v: uint8): Expression =
-  let scalar = cast[ptr GArrowScalar](garrow_uint8_scalar_new(v.guint8))
-  let datum = cast[ptr GArrowDatum](garrow_scalar_datum_new(scalar))
-  g_object_unref(scalar)
-  new(result)
-  result[] = ExpressionObj(
-    kind: ekLiteral,
-    handle: cast[ptr GArrowExpression](garrow_literal_expression_new(datum)),
-    datum: Datum(handle: datum),
-  )
-
-proc newLiteralExpression*(v: int16): Expression =
-  let scalar = cast[ptr GArrowScalar](garrow_int16_scalar_new(v.gint16))
-  let datum = cast[ptr GArrowDatum](garrow_scalar_datum_new(scalar))
-  g_object_unref(scalar)
-  new(result)
-  result[] = ExpressionObj(
-    kind: ekLiteral,
-    handle: cast[ptr GArrowExpression](garrow_literal_expression_new(datum)),
-    datum: Datum(handle: datum),
-  )
-
-proc newLiteralExpression*(v: uint16): Expression =
-  let scalar = cast[ptr GArrowScalar](garrow_uint16_scalar_new(v.guint16))
-  let datum = cast[ptr GArrowDatum](garrow_scalar_datum_new(scalar))
-  g_object_unref(scalar)
-  new(result)
-  result[] = ExpressionObj(
-    kind: ekLiteral,
-    handle: cast[ptr GArrowExpression](garrow_literal_expression_new(datum)),
-    datum: Datum(handle: datum),
-  )
-
-proc newLiteralExpression*(v: int32): Expression =
-  let scalar = cast[ptr GArrowScalar](garrow_int32_scalar_new(v.gint32))
-  let datum = cast[ptr GArrowDatum](garrow_scalar_datum_new(scalar))
-  g_object_unref(scalar)
-  new(result)
-  result[] = ExpressionObj(
-    kind: ekLiteral,
-    handle: cast[ptr GArrowExpression](garrow_literal_expression_new(datum)),
-    datum: Datum(handle: datum),
-  )
-
-proc newLiteralExpression*(v: uint32): Expression =
-  let scalar = cast[ptr GArrowScalar](garrow_uint32_scalar_new(v.guint32))
-  let datum = cast[ptr GArrowDatum](garrow_scalar_datum_new(scalar))
-  g_object_unref(scalar)
-  new(result)
-  result[] = ExpressionObj(
-    kind: ekLiteral,
-    handle: cast[ptr GArrowExpression](garrow_literal_expression_new(datum)),
-    datum: Datum(handle: datum),
-  )
-
-proc newLiteralExpression*(v: int64): Expression =
-  let scalar = cast[ptr GArrowScalar](garrow_int64_scalar_new(v.gint64))
-  let datum = cast[ptr GArrowDatum](garrow_scalar_datum_new(scalar))
-  g_object_unref(scalar)
-  new(result)
-  result[] = ExpressionObj(
-    kind: ekLiteral,
-    handle: cast[ptr GArrowExpression](garrow_literal_expression_new(datum)),
-    datum: Datum(handle: datum),
-  )
-
-proc newLiteralExpression*(v: uint64): Expression =
-  let scalar = cast[ptr GArrowScalar](garrow_uint64_scalar_new(v.guint64))
-  let datum = cast[ptr GArrowDatum](garrow_scalar_datum_new(scalar))
-  g_object_unref(scalar)
-  new(result)
-  result[] = ExpressionObj(
-    kind: ekLiteral,
-    handle: cast[ptr GArrowExpression](garrow_literal_expression_new(datum)),
-    datum: Datum(handle: datum),
-  )
-
-proc newLiteralExpression*(v: float32): Expression =
-  let scalar = cast[ptr GArrowScalar](garrow_float_scalar_new(v.gfloat))
-  let datum = cast[ptr GArrowDatum](garrow_scalar_datum_new(scalar))
-  g_object_unref(scalar)
-  new(result)
-  result[] = ExpressionObj(
-    kind: ekLiteral,
-    handle: cast[ptr GArrowExpression](garrow_literal_expression_new(datum)),
-    datum: Datum(handle: datum),
-  )
-
-proc newLiteralExpression*(v: float64): Expression =
-  let scalar = cast[ptr GArrowScalar](garrow_double_scalar_new(v.gdouble))
-  let datum = cast[ptr GArrowDatum](garrow_scalar_datum_new(scalar))
-  g_object_unref(scalar)
-  new(result)
-  result[] = ExpressionObj(
-    kind: ekLiteral,
-    handle: cast[ptr GArrowExpression](garrow_literal_expression_new(datum)),
-    datum: Datum(handle: datum),
-  )
-
-proc newLiteralExpression*(v: Date32): Expression =
-  let scalar = cast[ptr GArrowScalar](garrow_date32_scalar_new(v.int32.gint32))
-  let datum = cast[ptr GArrowDatum](garrow_scalar_datum_new(scalar))
-  g_object_unref(scalar)
-  new(result)
-  result[] = ExpressionObj(
-    kind: ekLiteral,
-    handle: cast[ptr GArrowExpression](garrow_literal_expression_new(datum)),
-    datum: Datum(handle: datum),
-  )
-
-proc newLiteralExpression*(v: Date64): Expression =
-  let scalar = cast[ptr GArrowScalar](garrow_date64_scalar_new(v.int64.gint64))
-  let datum = cast[ptr GArrowDatum](garrow_scalar_datum_new(scalar))
-  g_object_unref(scalar)
-  new(result)
-  result[] = ExpressionObj(
-    kind: ekLiteral,
-    handle: cast[ptr GArrowExpression](garrow_literal_expression_new(datum)),
-    datum: Datum(handle: datum),
-  )
-
-proc newLiteralExpression*(v: MonthInterval): Expression =
-  let scalar = cast[ptr GArrowScalar](garrow_month_interval_scalar_new(v.int32.gint32))
-  let datum = cast[ptr GArrowDatum](garrow_scalar_datum_new(scalar))
-  g_object_unref(scalar)
-  new(result)
-  result[] = ExpressionObj(
-    kind: ekLiteral,
-    handle: cast[ptr GArrowExpression](garrow_literal_expression_new(datum)),
-    datum: Datum(handle: datum),
-  )
-
-proc newLiteralExpression*(v: string): Expression =
-  let gbytes = g_bytes_new(cast[gconstpointer](v.cstring), v.len.gsize)
-  let buffer = garrow_buffer_new_bytes(gbytes)
-  g_bytes_unref(gbytes)
-  let scalar = cast[ptr GArrowScalar](garrow_string_scalar_new(buffer))
-  g_object_unref(buffer)
-  let datum = cast[ptr GArrowDatum](garrow_scalar_datum_new(scalar))
-  g_object_unref(scalar)
-  new(result)
-  result[] = ExpressionObj(
-    kind: ekLiteral,
-    handle: cast[ptr GArrowExpression](garrow_literal_expression_new(datum)),
-    datum: Datum(handle: datum),
-  )
-
-proc newLiteralExpression*(v: seq[byte]): Expression =
-  let gbytes = g_bytes_new(cast[gconstpointer](v[0].unsafeAddr), v.len.gsize)
-  let buffer = garrow_buffer_new_bytes(gbytes)
-  g_bytes_unref(gbytes)
-  let scalar = cast[ptr GArrowScalar](garrow_binary_scalar_new(buffer))
-  g_object_unref(buffer)
-  let datum = cast[ptr GArrowDatum](garrow_scalar_datum_new(scalar))
-  g_object_unref(scalar)
-  new(result)
-  result[] = ExpressionObj(
-    kind: ekLiteral,
-    handle: cast[ptr GArrowExpression](garrow_literal_expression_new(datum)),
-    datum: Datum(handle: datum),
   )
 
 proc newLiteralExpression*[T: DatumCompatible](value: T): Expression =
@@ -1566,16 +1381,20 @@ proc isSatisfiable*(expr: Expression): bool =
 
 proc areScalarsComparable(a, b: Scalar): bool =
   ## Check if two scalars can be compared with ordering operators.
-  ## Returns true if both are numeric or both are strings.
+  ## Returns true only if kinds match exactly (numeric or string).
+  ## Cross-type numeric comparisons (e.g. int32 vs int64) are rejected
+  ## to avoid crashes in kind-specific getters.
   template isNumeric(k: ScalarKind): bool =
     k in {
       skInt8, skInt16, skInt32, skInt64, skUInt8, skUInt16, skUInt32, skUInt64,
       skFloat32, skFloat64,
     }
 
-  if isNumeric(a.kind) and isNumeric(b.kind):
+  if a.kind != b.kind:
+    return false
+  if isNumeric(a.kind):
     return true
-  if a.kind == skString and b.kind == skString:
+  if a.kind == skString:
     return true
   return false
 
