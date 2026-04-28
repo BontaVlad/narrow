@@ -388,6 +388,9 @@ proc newStruct*(fields: openArray[Field]): Struct =
   newStruct(gFields)
 
 # StructArray creators
+proc newStructArray*(handle: ptr GArrowStructArray): StructArray =
+  result.handle = handle
+
 proc newStructArray*(
     structType: Struct, fields: varargs[ptr GArrowArray]
 ): StructArray =

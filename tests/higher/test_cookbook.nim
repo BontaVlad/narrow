@@ -2,7 +2,7 @@ import std/[os, sequtils, strformat]
 import unittest2
 import ../testfixture
 
-import ../../src/narrow/[core/ffi, column/primitive, column/metadata, tabular/table, tabular/batch, tabular/dataset, io/parquet, io/ipc, io/csv, io/json, io/filesystem, compute/expressions]
+import ../../src/narrow/[core/ffi, column/primitive, column/nested, column/metadata, tabular/table, tabular/batch, tabular/dataset, io/parquet, io/ipc, io/csv, io/json, io/filesystem, compute/filters, compute/expressions, compute/aggregations]
 
 suite "Reading and Writing Data":
 
@@ -330,4 +330,39 @@ suite "Creating Arrow Objects":
     let table = newArrowTable(data)
     check table["col1"] == newChunkedArray(@[newArray(@[1, 2, 3, 4, 5])])
     check table["col2"] == newChunkedArray(@[newArray(@["a", "b", "c", "d", "e"])])
+
+suite "Data Manipulation":
+  test "Computing mean of an array":
+    let arr = newArray(toSeq(0 .. 99))
+    let m = mean(arr)
+    check m == 49.5
+
+  test "Counting occurrences of elements":
+    var nums: seq[int32]
+    for i in 0 ..< 100:
+      nums.add((i mod 10).int32)
+    let arr = newArray(nums)
+    let cv = countValues(arr)
+    check cv.len == 10
+    # Each distinct value (0..9) appears exactly 10 times
+
+  test "Applying arithmetic functions to arrays":
+    let arr = newArray(toSeq(0 .. 99))
+    let expected = newArray(toSeq(0 .. 99).mapIt(it * 2))
+    check multiply(arr, 2) == newDatum(expected)
+
+  test "Searching for values matching a predicate":
+    let arr = newArray(toSeq(0 ..< 10))
+    let mask = toTyped[bool](greater(arr, 5).toArray())
+    let filtered = arr.filter(newBooleanArray(mask))
+    check filtered.len == 4
+    check filtered[0] == 6
+    check filtered[3] == 9
+
+  test "Filtering arrays using a mask":
+    let arr = newArray(@[1'i32, 2, 3, 4])
+    let mask = toTyped[bool](equal(arr, 2).toArray())
+    let filtered = arr.filter(newBooleanArray(mask))
+    check filtered.len == 1
+    check filtered[0] == 2
 

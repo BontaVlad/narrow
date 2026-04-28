@@ -1,5 +1,6 @@
-import std/cpuinfo
+import std/[cpuinfo, strutils]
 import ../core/[ffi, error, utils]
+import ../types/glist
 import ../column/metadata
 import ../tabular/[table, batch]
 import ../compute/expressions
@@ -128,6 +129,148 @@ proc getReader*(options: SinkNodeOptions, schema: Schema): RecordBatchReader =
   ## The reader streams results while the plan runs.
   let handle = garrow_sink_node_options_get_reader(options.toPtr, schema.toPtr)
   result = RecordBatchReader(handle: handle)
+
+# ============================================================================
+# Aggregation Types
+# ============================================================================
+
+arcGObject:
+  type
+    Aggregation* = object
+      handle*: ptr GArrowAggregation
+
+    AggregateNodeOptions* = object
+      handle*: ptr GArrowAggregateNodeOptions
+
+proc newAggregation*(function, input, output: string): Aggregation =
+  ## Creates an aggregation descriptor for use with Acero aggregate nodes.
+  ##
+  ## Parameters:
+  ##   function: Arrow compute function name (e.g., "sum", "count", "mean")
+  ##   input:    Input field/column name
+  ##   output:   Desired output field/column name
+  result.handle = garrow_aggregation_new(
+    function.cstring, nil, input.cstring, output.cstring
+  )
+  if result.handle.isNil:
+    raise newException(OperationError, "Failed to create Aggregation")
+
+proc newAggregateNodeOptions*(
+    aggregations: openArray[Aggregation],
+    keys: openArray[string] = [],
+): AggregateNodeOptions =
+  ## Creates options for an Acero aggregate node.
+  var aggList = newGList[ptr GArrowAggregation]()
+  for agg in aggregations:
+    aggList.append(agg.handle)
+
+  var keyPtrs: seq[cstring]
+  for k in keys:
+    keyPtrs.add(k.cstring)
+
+  let keysPtr =
+    if keyPtrs.len == 0: nil
+    else: addr keyPtrs[0]
+
+  result.handle = verify garrow_aggregate_node_options_new(
+    aggList.toPtr, keysPtr, keyPtrs.len.gsize
+  )
+
+proc buildAggregateNode*(
+    plan: ExecutePlan, input: ExecuteNode, options: AggregateNodeOptions
+): ExecuteNode =
+  ## Adds an aggregate node after `input`.
+  let handle = verify garrow_execute_plan_build_aggregate_node(
+    plan.toPtr, input.toPtr, options.toPtr
+  )
+  result = ExecuteNode(handle: handle)
+
+# ============================================================================
+# GroupBy / Aggregate Convenience
+# ============================================================================
+
+type GroupBy* = object
+  ## Fluent group-by descriptor. Created via `table.groupBy(keys)`.
+  table*: ArrowTable
+  keys*: seq[string]
+
+proc groupBy*(table: ArrowTable, keys: openArray[string]): GroupBy =
+  ## Start a group-by operation on a table.
+  ##
+  ## Example:
+  ##   .. code-block:: nim
+  ##     let result = table.groupBy("category").aggregate([
+  ##       (field: "amount", fn: "sum", output: "total_amount")
+  ##     ])
+  result.table = table
+  result.keys = @keys
+
+proc groupBy*(table: ArrowTable, key: string): GroupBy =
+  ## Start a group-by operation on a table with a single key.
+  result.table = table
+  result.keys = @[key]
+
+proc aggregateTable*(
+    table: ArrowTable,
+    groupBy: openArray[string] = [],
+    aggregations: openArray[tuple[field, fn, output: string]],
+): ArrowTable =
+  ## Run aggregations on a table, optionally grouping by one or more columns.
+  ##
+  ## Example:
+  ##   .. code-block:: nim
+  ##     let result = aggregateTable(table, @["category"], @[
+  ##       (field: "amount", fn: "sum", output: "total_amount"),
+  ##       (field: "amount", fn: "count", output: "n_transactions"),
+  ##     ])
+  if aggregations.len == 0:
+    raise newException(ValueError, "aggregateTable requires at least one aggregation")
+
+  ensureComputeInitialized()
+
+  let executor = newThreadPool().toExecutor
+  let ctx = newExecuteContext(executor)
+  let plan = newExecutePlan(ctx)
+
+  let sourceOpts = newSourceNodeOptions(table)
+  let sourceNode = plan.buildSourceNode(sourceOpts)
+
+  var aggs = newSeq[Aggregation](aggregations.len)
+  for i, spec in aggregations:
+    let fnName =
+      if groupBy.len > 0 and not spec.fn.startsWith("hash_"):
+        "hash_" & spec.fn
+      else:
+        spec.fn
+    aggs[i] = newAggregation(fnName, spec.field, spec.output)
+
+  let aggOpts = newAggregateNodeOptions(aggs, groupBy)
+  let aggNode = plan.buildAggregateNode(sourceNode, aggOpts)
+
+  let sinkOpts = newSinkNodeOptions()
+  discard plan.buildSinkNode(aggNode, sinkOpts)
+
+  plan.validate()
+
+  let outputSchema = aggNode.outputSchema
+  let reader = sinkOpts.getReader(outputSchema)
+
+  plan.start()
+  result = reader.readAll()
+  plan.wait()
+
+proc aggregate*(
+    gb: GroupBy,
+    aggregations: openArray[tuple[field, fn, output: string]],
+): ArrowTable =
+  ## Execute aggregations on the group-by descriptor.
+  ##
+  ## Example:
+  ##   .. code-block:: nim
+  ##     let result = table.groupBy("category").aggregate([
+  ##       (field: "amount", fn: "sum", output: "total_amount")
+  ##     ])
+  result = aggregateTable(gb.table, gb.keys, aggregations)
 
 # ============================================================================
 # High-level Convenience
