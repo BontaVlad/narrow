@@ -99,16 +99,22 @@ proc `toDataType=`*(options: CastOptions, value: GADType) =
   ## Set the target data type for casting.
   g_object_set(options.handle, "to-data-type", value.toPtr, nil)
 
-proc castTo*(arr: Array, gtype: GADType, options: CastOptions = newCastOptions()): Array[void] =
+proc castTo*(
+    arr: Array, gtype: GADType, options: CastOptions = newCastOptions()
+): Array[void] =
   let handle = verify garrow_array_cast(arr.toPtr, gtype.toPtr, options.toPtr)
   result = newArray[void](handle)
 
-proc castTo*[T: ArrowValue](arr: Array, options: CastOptions = newCastOptions()): Array[T] =
+proc castTo*[T: ArrowValue](
+    arr: Array, options: CastOptions = newCastOptions()
+): Array[T] =
   let gtype = newGType(T)
   let handle = verify garrow_array_cast(arr.toPtr, gtype.toPtr, options.toPtr)
   result = newArray[T](handle)
 
-proc castChunks*(chunkedArray: ChunkedArray, gtype: GADType, options: CastOptions = newCastOptions()): ChunkedArray[void] =
+proc castChunks*(
+    chunkedArray: ChunkedArray, gtype: GADType, options: CastOptions = newCastOptions()
+): ChunkedArray[void] =
   var casted = newSeq[Array[void]]()
   for chunk in chunkedArray.chunks:
     casted.add castTo(chunk, gtype, options)

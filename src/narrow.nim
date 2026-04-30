@@ -11,7 +11,8 @@ import
 import narrow/column/[primitive, nested, metadata]
 import narrow/tabular/[table, batch, dataset]
 import
-  narrow/compute/[filters, expressions, acero, functions, statistics, sorting, casting, aggregations]
+  narrow/compute/
+    [filters, expressions, acero, functions, statistics, sorting, casting, aggregations]
 import narrow/io/[parquet, csv, filesystem, json, ipc, feather]
 
 export

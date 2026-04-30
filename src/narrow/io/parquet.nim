@@ -303,17 +303,14 @@ proc readTable*(uri: string, columns: sink seq[string]): ArrowTable =
   let reader = newFileReader(uri)
   let schema = reader.schema
 
-  var fields = newSeq[Field]()
   var data = newSeqOfCap[ChunkedArray[void]](columns.len)
+  var fields = newSeqOfCap[Field](columns.len)
   for c in columns:
-    let fld = schema.tryGetField(c)
-    if fld.isNone:
-      raise newException(KeyError, "Column '" & c & "' does not exist in schema")
-    let index = schema.getFieldIndex(c)
-    data.add(reader.readColumnData(index))
-
+    let idx = schema.getFieldIndex(c)
+    data.add reader.readColumnData(idx)
+    fields.add schema[idx]
   let tableSchema = newSchema(fields)
-  result = newArrowTable(tableSChema, data)
+  result = newArrowTable(tableSchema, data)
 
 proc readTable*(
     uri: string, filter: Expression, columns: sink seq[string] = @[]
@@ -339,19 +336,52 @@ proc readTable*(
     raise
       newException(KeyError, "Filter references missing columns: " & $(missingFilter))
 
-  let neededColumns = readColumns + filterCols
   let metadata = reader.metadata
-  let columnIndices = neededColumns.mapIt(schema.getFieldIndex(it))
   let rowGroupIndices = filterRowGroups(metadata, schema, filter)
   var tables = newSeqOfCap[ArrowTable](rowGroupIndices.len)
 
   if rowGroupIndices.len == 0:
     # No row groups match the filter, return an empty table with the requested schema
-    result = newArrowTableFromArrays(newSchema(neededColumns.mapIt(schema[it])), @[])
+    let resultSchema =
+      if columns.len > 0:
+        newSchema(columns.mapIt(schema[it]))
+      else:
+        schema
+    result = newArrowTable(resultSchema, newSeq[ChunkedArray[void]]())
   else:
+    # Build deterministic column indices: requested columns first (in order),
+    # then filter-only columns (in schema order)
+    var columnIndices = newSeq[int]()
+    var columnNames = newSeq[string]()
+
+    if columns.len > 0:
+      for c in columns:
+        columnIndices.add(schema.getFieldIndex(c))
+        columnNames.add(c)
+      for f in schema.ffields:
+        if f.name in filterCols and f.name notin readColumns:
+          columnIndices.add(schema.getFieldIndex(f.name))
+          columnNames.add(f.name)
+    else:
+      for f in schema.ffields:
+        columnIndices.add(schema.getFieldIndex(f.name))
+        columnNames.add(f.name)
+
     for rgi in rowGroupIndices:
       tables.add(reader.readRowGroup(rgi, columnIndices))
-    result = filterTable(tables[0].concatenate(tables[1 ..^ 1]), filter)
+
+    let filtered = filterTable(tables[0].concatenate(tables[1 ..^ 1]), filter)
+
+    # Project to only requested columns
+    if columns.len > 0:
+      var selectedFields = newSeqOfCap[Field](columns.len)
+      var selectedData = newSeqOfCap[ChunkedArray[void]](columns.len)
+      for c in columns:
+        selectedFields.add(schema.tryGetField(c).get())
+        selectedData.add(filtered[c])
+      result = newArrowTable(newSchema(selectedFields), selectedData)
+    else:
+      result = filtered
 
 proc writeTable*[T: Writable](
     writable: T,

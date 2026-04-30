@@ -149,15 +149,13 @@ proc newAggregation*(function, input, output: string): Aggregation =
   ##   function: Arrow compute function name (e.g., "sum", "count", "mean")
   ##   input:    Input field/column name
   ##   output:   Desired output field/column name
-  result.handle = garrow_aggregation_new(
-    function.cstring, nil, input.cstring, output.cstring
-  )
+  result.handle =
+    garrow_aggregation_new(function.cstring, nil, input.cstring, output.cstring)
   if result.handle.isNil:
     raise newException(OperationError, "Failed to create Aggregation")
 
 proc newAggregateNodeOptions*(
-    aggregations: openArray[Aggregation],
-    keys: openArray[string] = [],
+    aggregations: openArray[Aggregation], keys: openArray[string] = []
 ): AggregateNodeOptions =
   ## Creates options for an Acero aggregate node.
   var aggList = newGList[ptr GArrowAggregation]()
@@ -169,12 +167,13 @@ proc newAggregateNodeOptions*(
     keyPtrs.add(k.cstring)
 
   let keysPtr =
-    if keyPtrs.len == 0: nil
-    else: addr keyPtrs[0]
+    if keyPtrs.len == 0:
+      nil
+    else:
+      addr keyPtrs[0]
 
-  result.handle = verify garrow_aggregate_node_options_new(
-    aggList.toPtr, keysPtr, keyPtrs.len.gsize
-  )
+  result.handle =
+    verify garrow_aggregate_node_options_new(aggList.toPtr, keysPtr, keyPtrs.len.gsize)
 
 proc buildAggregateNode*(
     plan: ExecutePlan, input: ExecuteNode, options: AggregateNodeOptions
@@ -189,8 +188,7 @@ proc buildAggregateNode*(
 # GroupBy / Aggregate Convenience
 # ============================================================================
 
-type GroupBy* = object
-  ## Fluent group-by descriptor. Created via `table.groupBy(keys)`.
+type GroupBy* = object ## Fluent group-by descriptor. Created via `table.groupBy(keys)`.
   table*: ArrowTable
   keys*: seq[string]
 
@@ -260,8 +258,7 @@ proc aggregateTable*(
   plan.wait()
 
 proc aggregate*(
-    gb: GroupBy,
-    aggregations: openArray[tuple[field, fn, output: string]],
+    gb: GroupBy, aggregations: openArray[tuple[field, fn, output: string]]
 ): ArrowTable =
   ## Execute aggregations on the group-by descriptor.
   ##

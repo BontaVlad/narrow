@@ -328,8 +328,9 @@ proc newGType*(T: typedesc[ArrowPrimitive]): GADType =
   elif T is cstring:
     result.handle = cast[ptr GArrowDataType](garrow_large_string_data_type_new())
   else:
-    raise newException(TypeError,
-      "newGType: unsupported type for automatic Arrow GType construction.")
+    raise newException(
+      TypeError, "newGType: unsupported type for automatic Arrow GType construction."
+    )
 
 proc newGType*(pt: ptr GArrowDataType): GADType =
   if pt.isNil:

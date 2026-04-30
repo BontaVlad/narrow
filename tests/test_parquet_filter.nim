@@ -39,10 +39,65 @@ suite "Filtering parquet at reading":
     writeTable(table, uri)
 
     # Filter on age, requesting only name column
-    # Note: Currently returns all columns due to projection being disabled
     let filtered = readTable(uri, col("age") >= 18'i32, @["name"])
     unittest2.check filtered.nRows == 2
-    unittest2.check filtered.nColumns == 2  # Currently returns filter + requested cols
+    unittest2.check filtered.nColumns == 1
+    unittest2.check filtered.schema[0].name == "name"
+
+  test "readTable with columns only returns requested columns in order":
+    let schema = newSchema(
+      [newField[int32]("a"), newField[string]("b"), newField[bool]("c")]
+    )
+    let avals = newArray(@[1'i32, 2, 3])
+    let bvals = newArray(@["x", "y", "z"])
+    let cvals = newArray(@[true, false, true])
+    let table = newArrowTable(schema, avals, bvals, cvals)
+
+    let uri = fixture / "ordered.parquet"
+    writeTable(table, uri)
+
+    let projected = readTable(uri, @["c", "a"])
+    unittest2.check projected.nColumns == 2
+    unittest2.check projected.schema[0].name == "c"
+    unittest2.check projected.schema[1].name == "a"
+
+  test "readTable with filter preserves requested column order":
+    let schema = newSchema(
+      [newField[int32]("z"), newField[string]("y"), newField[bool]("x")]
+    )
+    let zvals = newArray(@[1'i32, 2, 3])
+    let yvals = newArray(@["a", "b", "c"])
+    let xvals = newArray(@[true, false, true])
+    let table = newArrowTable(schema, zvals, yvals, xvals)
+
+    let uri = fixture / "ordered_filter.parquet"
+    writeTable(table, uri)
+
+    # Filter on z, requesting y then x
+    let filtered = readTable(uri, col("z") >= 2'i32, @["y", "x"])
+    unittest2.check filtered.nRows == 2
+    unittest2.check filtered.nColumns == 2
+    unittest2.check filtered.schema[0].name == "y"
+    unittest2.check filtered.schema[1].name == "x"
+
+  test "readTable with filter and no columns returns all columns in schema order":
+    let schema = newSchema(
+      [newField[int32]("z"), newField[string]("y"), newField[bool]("x")]
+    )
+    let zvals = newArray(@[1'i32, 2, 3])
+    let yvals = newArray(@["a", "b", "c"])
+    let xvals = newArray(@[true, false, true])
+    let table = newArrowTable(schema, zvals, yvals, xvals)
+
+    let uri = fixture / "all_cols.parquet"
+    writeTable(table, uri)
+
+    let filtered = readTable(uri, col("z") >= 2'i32)
+    unittest2.check filtered.nRows == 2
+    unittest2.check filtered.nColumns == 3
+    unittest2.check filtered.schema[0].name == "z"
+    unittest2.check filtered.schema[1].name == "y"
+    unittest2.check filtered.schema[2].name == "x"
 
   test "readTable with filter on non-existent column raises KeyError":
     let schema = newSchema([newField[int32]("x")])

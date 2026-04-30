@@ -19,7 +19,6 @@ func toPtr*[T](b: ArrayBuilder[T]): ptr GArrowArrayBuilder {.inline.} =
 func toPtr*[T](a: Array[T]): ptr GArrowArray {.inline.} =
   a.handle
 
-
 proc `=destroy`*[T](builder: ArrayBuilder[T]) =
   if not isNil(builder.handle):
     g_object_unref(builder.handle)
@@ -59,8 +58,6 @@ proc `=copy`*[T](dest: var Array[T], src: Array[T]) =
     dest.handle = src.handle
     if not isNil(dest.handle):
       discard g_object_ref(dest.handle)
-
-
 
 proc toUntyped*[T: ArrowValue](arr: Array[T]): Array[void] =
   ## Convert a typed Array to untyped.
@@ -415,6 +412,7 @@ proc toTyped*[T: ArrowValue](arr: Array): Array[T] =
   ## This is the key runtime -> compile-time bridge.
   if not isNil(arr.handle):
     result.handle = cast[ptr GArrowArray](g_object_ref(arr.handle))
+
 proc `==`*[T, U](a: Array[T], b: Array[U]): bool =
   if a.handle == nil or b.handle == nil:
     return a.handle == b.handle
@@ -534,7 +532,6 @@ type ChunkedArray*[T = void] = object
 
 proc toPtr*[T](c: ChunkedArray[T] | ChunkedArray): ptr GArrowChunkedArray {.inline.} =
   c.handle
-
 
 proc `=destroy`*[T](c: ChunkedArray[T]) =
   if not isNil(c.toPtr):

@@ -110,7 +110,8 @@ proc `[]`*(schema: Schema, name: string): Field {.inline.} =
   schema.getFieldByName(name)
 
 proc replaceField*(schema: Schema, idx: int, field: Field): Schema =
-  let schemaPtr = verify garrow_schema_replace_field(schema.handle, idx.guint, field.handle)
+  let schemaPtr =
+    verify garrow_schema_replace_field(schema.handle, idx.guint, field.handle)
   result = newSchema(schemaPtr)
 
 proc ffields*(schema: Schema): seq[Field] =
