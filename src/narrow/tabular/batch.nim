@@ -1,5 +1,5 @@
 import std/[macros, options, strformat]
-import ../core/[ffi, error]
+import ../core/[ffi, error, utils]
 import ../types/[gtypes, glist]
 import ../column/[primitive, metadata]
 
@@ -7,91 +7,27 @@ import ../column/[primitive, metadata]
 # RecordBatch and Related Types
 # ============================================================================
 
-type
-  RecordBatchBuilder* = object
-    handle: ptr GArrowRecordBatchBuilder
+arcGObject:
+  type
+    RecordBatchBuilder* = object
+      handle: ptr GArrowRecordBatchBuilder
 
-  RecordBatch* = object
-    handle*: ptr GArrowRecordBatch
+    RecordBatch* = object
+      handle*: ptr GArrowRecordBatch
 
-  RecordBatchIterator* = object
-    handle: ptr GArrowRecordBatchIterator
+    RecordBatchIterator* = object
+      handle: ptr GArrowRecordBatchIterator
 
-  RecordBatchReader* = object
-    handle*: ptr GArrowRecordBatchReader
-    streamHandle*: ptr GArrowInputStream # Keep stream alive as long as reader exists
+    WriteOptions* = object
+      handle: ptr GArrowWriteOptions
 
-  WriteOptions* = object
-    handle: ptr GArrowWriteOptions
+    GBuffer* = object
+      handle: ptr GArrowBuffer
 
-  GBuffer* = object
-    handle: ptr GArrowBuffer
-
-proc `=destroy`*(opt: WriteOptions) =
-  if opt.handle != nil:
-    g_object_unref(opt.handle)
-
-proc `=wasMoved`*(opt: var WriteOptions) =
-  opt.handle = nil
-
-proc `=dup`*(opt: WriteOptions): WriteOptions =
-  result.handle = opt.handle
-  if opt.handle != nil:
-    discard g_object_ref(opt.handle)
-
-proc `=copy`*(dest: var WriteOptions, src: WriteOptions) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
-
-proc `=destroy`*(buf: GBuffer) =
-  if buf.handle != nil:
-    g_object_unref(buf.handle)
-
-proc `=wasMoved`*(buf: var GBuffer) =
-  buf.handle = nil
-
-proc `=dup`*(buf: GBuffer): GBuffer =
-  result.handle = buf.handle
-  if buf.handle != nil:
-    discard g_object_ref(buf.handle)
-
-proc `=copy`*(dest: var GBuffer, src: GBuffer) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
-
-proc newBuffer*(data: pointer, size: int64): GBuffer =
-  return GBuffer(handle: garrow_buffer_new(cast[ptr uint8](data), size.gint64))
-
-proc toPtr*(opt: WriteOptions): ptr GArrowWriteOptions =
-  opt.handle
-
-proc `=destroy`*(rb: RecordBatch) =
-  if rb.handle != nil:
-    g_object_unref(rb.handle)
-
-proc `=wasMoved`*(rb: var RecordBatch) =
-  rb.handle = nil
-
-proc `=dup`*(rb: RecordBatch): RecordBatch =
-  result.handle = rb.handle
-  if rb.handle != nil:
-    discard g_object_ref(rb.handle)
-
-proc `=copy`*(dest: var RecordBatch, src: RecordBatch) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
+# Manual type — multiple handles, not eligible for arcGObject
+type RecordBatchReader* = object
+  handle*: ptr GArrowRecordBatchReader
+  streamHandle*: ptr GArrowInputStream # Keep stream alive as long as reader exists
 
 proc `=destroy`*(reader: RecordBatchReader) =
   if reader.handle != nil:
@@ -125,54 +61,11 @@ proc `=copy`*(dest: var RecordBatchReader, src: RecordBatchReader) =
     if src.streamHandle != nil:
       discard g_object_ref(dest.streamHandle)
 
-proc `=destroy`*(it: RecordBatchIterator) =
-  if it.handle != nil:
-    g_object_unref(it.handle)
-
-proc `=wasMoved`*(it: var RecordBatchIterator) =
-  it.handle = nil
-
-proc `=dup`*(it: RecordBatchIterator): RecordBatchIterator =
-  result.handle = it.handle
-  if it.handle != nil:
-    discard g_object_ref(it.handle)
-
-proc `=copy`*(dest: var RecordBatchIterator, src: RecordBatchIterator) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
-
-proc `=destroy`*(rb: RecordBatchBuilder) =
-  if rb.handle != nil:
-    g_object_unref(rb.handle)
-
-proc `=wasMoved`*(rb: var RecordBatchBuilder) =
-  rb.handle = nil
-
-proc `=dup`*(rb: RecordBatchBuilder): RecordBatchBuilder =
-  result.handle = rb.handle
-  if rb.handle != nil:
-    discard g_object_ref(rb.handle)
-
-proc `=copy`*(dest: var RecordBatchBuilder, src: RecordBatchBuilder) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
-
-proc toPtr*(rb: RecordBatch): ptr GArrowRecordBatch {.inline.} =
-  rb.handle
-
-proc toPtr*(it: RecordBatchIterator): ptr GArrowRecordBatchIterator {.inline.} =
-  it.handle
-
 proc toPtr*(reader: RecordBatchReader): ptr GArrowRecordBatchReader {.inline.} =
   reader.handle
+
+proc newBuffer*(data: pointer, size: int64): GBuffer =
+  return GBuffer(handle: garrow_buffer_new(cast[ptr uint8](data), size.gint64))
 
 proc schema*(reader: RecordBatchReader): Schema =
   ## Returns the schema of the record batch reader.
@@ -275,9 +168,6 @@ proc addColumn*(rb: RecordBatch, idx: uint, field: Field, column: Array): Record
 proc removeColumn*(rb: RecordBatch, idx: uint): RecordBatch =
   let handle = verify garrow_record_batch_remove_column(rb.toPtr, idx.guint)
   result = newRecordBatch(handle)
-
-proc toPtr*(b: RecordBatchBuilder): ptr GArrowRecordBatchBuilder {.inline.} =
-  b.handle
 
 proc schema*(builder: RecordBatchBuilder): Schema =
   result = newSchema(garrow_record_batch_builder_get_schema(builder.toPtr))

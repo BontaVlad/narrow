@@ -1,3 +1,9 @@
+## ArrowTable — A columnar table of data.
+##
+## `ArrowTable` is a class for table. A table has zero or more
+## `ChunkedArray`s and zero or more records. It is a sequence of
+## `ChunkedArray` objects with a matching schema.
+
 import std/[macros, options]
 import ../core/[ffi, error, utils]
 import ../types/[gtypes, glist]
@@ -10,11 +16,14 @@ import ./batch
 
 arcGObject:
   type ArrowTable* = object
+    ## A columnar table of data with a schema and chunked columns.
     handle*: ptr GArrowTable
 
 proc newArrowTableFromRecordBatches*(
     schema: Schema, recordBatches: openArray[ptr GArrowRecordBatch]
 ): ArrowTable =
+  ## Creates a new `ArrowTable` from a schema and record batches.
+  ## All record batches must match the given schema.
   if recordBatches.len == 0:
     result.handle = verify garrow_table_new_record_batches(schema.toPtr, nil, 0.gsize)
   else:
@@ -25,6 +34,8 @@ proc newArrowTableFromRecordBatches*(
 proc newArrowTableFromArrays*(
     schema: Schema, arrays: openArray[ptr GArrowArray]
 ): ArrowTable =
+  ## Creates a new `ArrowTable` from a schema and arrays.
+  ## Each array becomes a single-chunk column.
   if arrays.len == 0:
     result.handle = verify garrow_table_new_arrays(schema.toPtr, nil, 0.gsize)
   else:
@@ -34,6 +45,7 @@ proc newArrowTableFromArrays*(
 proc newArrowTableFromChunkedArrays*(
     schema: Schema, chunkedArrays: openArray[ptr GArrowChunkedArray]
 ): ArrowTable =
+  ## Creates a new `ArrowTable` from a schema and chunked arrays.
   if chunkedArrays.len == 0:
     result.handle = verify garrow_table_new_chunked_arrays(schema.toPtr, nil, 0.gsize)
   else:
@@ -57,11 +69,11 @@ template dispatchNewTable(
   newArrowTableFromChunkedArrays(schema, ptrs)
 
 macro newArrowTable*(schema: Schema, args: varargs[typed]): ArrowTable =
-  ## Creates a new ArrowTable from a schema and either:
-  ## - RecordBatch objects
-  ## - Array[T] objects (can be mixed types)
-  ## - ChunkedArray[T] objects (can be mixed types)
-  ## - seq of any of the above (e.g. seq[RecordBatch])
+  ## Creates a new `ArrowTable` from a schema and either:
+  ## - `RecordBatch` objects
+  ## - `Array[T]` objects (can be mixed types)
+  ## - `ChunkedArray[T]` objects (can be mixed types)
+  ## - `seq` of any of the above (e.g. `seq[RecordBatch]`)
   if args.len == 0:
     error("newArrowTable requires at least one argument after schema")
 
@@ -99,7 +111,7 @@ macro newArrowTable*(schema: Schema, args: varargs[typed]): ArrowTable =
     dispatchNewTable(`schema`, `seqExpr`)
 
 macro newArrowTable*(rows: typed): ArrowTable =
-  ## Creates a new ArrowTable from a sequence of named tuples.
+  ## Creates a new `ArrowTable` from a sequence of named tuples.
   let rowsType = rows.getTypeInst()
 
   if rowsType.kind != nnkBracketExpr or rowsType.len < 2:
@@ -207,66 +219,90 @@ macro newArrowTable*(rows: typed): ArrowTable =
     newArrowTableFromChunkedArrays(`schemaSym`, `chunkedArraysSym`)
 
 proc newArrowTable*(handle: ptr GArrowTable): ArrowTable =
+  ## Creates an `ArrowTable` from an existing `GArrowTable` pointer.
   result.handle = handle
 
 proc `$`*(tbl: ArrowTable): string =
+  ## Returns a formatted string representation of the table content.
   let cstr = verify garrow_table_to_string(tbl.handle)
   result = $newGString(cstr)
 
 proc isValid*(tbl: ArrowTable): bool {.inline.} =
+  ## Returns `true` if the table handle is non-nil.
   tbl.handle != nil
 
 proc schema*(tbl: ArrowTable): Schema =
+  ## Returns the schema of the table.
   let handle = garrow_table_get_schema(tbl.handle)
   result = newSchema(handle)
 
 proc nColumns*(tbl: ArrowTable): int {.inline.} =
+  ## Returns the number of columns in the table.
   garrow_table_get_n_columns(tbl.handle).int
 
 proc nRows*(tbl: ArrowTable): int64 {.inline.} =
+  ## Returns the number of rows in the table.
   garrow_table_get_n_rows(tbl.handle).int64
 
 proc addColumn*(
     tbl: ArrowTable, idx: int, field: Field, column: ChunkedArray
 ): ArrowTable =
+  ## Returns a newly allocated `ArrowTable` with a new column inserted at
+  ## the given index, or raises on error.
   let handle =
     verify garrow_table_add_column(tbl.handle, idx.guint, field.toPtr, column.toPtr)
   result = newArrowTable(handle)
 
 proc removeColumn*(tbl: ArrowTable, idx: int): ArrowTable =
+  ## Returns a newly allocated `ArrowTable` without the column at the
+  ## given index, or raises on error.
   let handle = verify garrow_table_remove_column(tbl.handle, idx.guint)
   result = newArrowTable(handle)
 
 proc removeColumn*(tbl: ArrowTable, key: string): ArrowTable =
+  ## Returns a newly allocated `ArrowTable` without the named column.
+  ## Raises `KeyError` if the column does not exist.
   let idx = tbl.schema.getFieldIndex(key)
   result = tbl.removeColumn(idx)
 
 proc replaceColumn*(
     tbl: ArrowTable, idx: int, field: Field, column: ChunkedArray
 ): ArrowTable =
+  ## Returns a newly allocated `ArrowTable` with the column at the given
+  ## index replaced by the new field and data, or raises on error.
   let handle =
     verify garrow_table_replace_column(tbl.handle, idx.guint, field.toPtr, column.toPtr)
   result = newArrowTable(handle)
 
 proc equal*(a, b: ArrowTable): bool {.inline.} =
+  ## Returns `true` if both tables have the same data.
   garrow_table_equal(a.handle, b.handle).bool
 
 proc `==`*(a, b: ArrowTable): bool {.inline.} =
+  ## Compares two tables for equality.
   a.equal(b)
 
 proc equalMetadata*(a, b: ArrowTable, checkMetadata: bool): bool {.inline.} =
+  ## Returns `true` if both tables have the same data. If
+  ## `checkMetadata` is `true`, metadata is also compared.
   garrow_table_equal_metadata(a.handle, b.handle, checkMetadata.gboolean).bool
 
 proc slice*(tbl: ArrowTable, offset, length: int64): ArrowTable =
+  ## Returns a sub-table covering the range from `offset` to
+  ## `offset + length`. The sub-table shares data with the original.
   let handle = garrow_table_slice(tbl.handle, offset.gint64, length.gint64)
   result = newArrowTable(handle)
 
 proc combineChunks*(tbl: ArrowTable): ArrowTable =
+  ## Returns a new table with each column's chunks combined into a
+  ## single chunk, or raises on error.
   let handle = verify garrow_table_combine_chunks(tbl.handle)
   result = newArrowTable(handle)
 
 # verify in some cases checks for bool, we need to manually handle the error here
 proc validate*(tbl: ArrowTable): bool =
+  ## Performs a cheap validation of the table. Returns `true` on success,
+  ## `false` on error.
   var err: ptr GError
   result = garrow_table_validate(tbl.handle, addr err).bool
   if not isNil(err):
@@ -274,12 +310,16 @@ proc validate*(tbl: ArrowTable): bool =
 
 # verify in some cases checks for bool, we need to manually handle the error here
 proc validateFull*(tbl: ArrowTable): bool =
+  ## Performs an extensive validation of the table. Returns `true` on
+  ## success, `false` on error.
   var err: ptr GError
   result = garrow_table_validate_full(tbl.handle, addr err).bool
   if not isNil(err):
     g_error_free(err)
 
 proc concatenate*(tbl: ArrowTable, others: openArray[ArrowTable]): ArrowTable =
+  ## Concatenates this table with the given tables vertically and returns
+  ## the result, or raises on error.
   var tableList = newGList[ptr GArrowTable]()
   for other in others:
     tableList.append(other.toPtr)
@@ -297,6 +337,7 @@ proc readAll*(reader: RecordBatchReader): ArrowTable =
   result = newArrowTable(handle)
 
 iterator batches*(reader: RecordBatchReader): RecordBatch =
+  ## Iterates over all record batches from the reader.
   while true:
     let handle = verify garrow_record_batch_reader_read_next_record_batch(reader.toPtr)
     if isNil(handle):
@@ -304,11 +345,13 @@ iterator batches*(reader: RecordBatchReader): RecordBatch =
     yield newRecordBatch(handle)
 
 proc newRecordBatchReader*(table: ArrowTable): RecordBatchReader =
-  ## Creates a record batch reader from an ArrowTable.
+  ## Creates a record batch reader from an `ArrowTable`.
   result.handle =
     cast[ptr GArrowRecordBatchReader](garrow_table_batch_reader_new(table.toPtr))
 
 proc getColumnData*[T](tbl: ArrowTable, idx: int): ChunkedArray[T] =
+  ## Returns the data of the `idx`-th column as a `ChunkedArray[T]`.
+  ## In debug mode, the column type is checked against `T`.
   when defined(debug):
     let schema = tbl.schema
     let field = schema.getField(idx)
@@ -319,32 +362,42 @@ proc getColumnData*[T](tbl: ArrowTable, idx: int): ChunkedArray[T] =
   result = newChunkedArray[T](handle)
 
 proc `[]`*(tbl: ArrowTable, idx: int): ChunkedArray[void] =
+  ## Returns the data of the `idx`-th column.
   let handle = garrow_table_get_column_data(tbl.handle, idx.gint)
   result = newChunkedArray[void](handle)
 
 proc `[]`*(tbl: ArrowTable, idx: int, T: typedesc): ChunkedArray[T] =
+  ## Returns the data of the `idx`-th column typed as `ChunkedArray[T]`.
   result = getColumnData[T](tbl, idx)
 
 proc `[]`*(tbl: ArrowTable, key: string): ChunkedArray[void] =
+  ## Returns the data of the named column.
+  ## Raises `KeyError` if the column does not exist.
   let schema = tbl.schema
   let idx = schema.getFieldIndex(key)
   let handle = garrow_table_get_column_data(tbl.handle, idx.gint)
   result = newChunkedArray[void](handle)
 
 proc `[]`*(tbl: ArrowTable, key: string, T: typedesc): ChunkedArray[T] =
+  ## Returns the data of the named column typed as `ChunkedArray[T]`.
+  ## Raises `KeyError` if the column does not exist.
   let schema = tbl.schema
   let idx = schema.getFieldIndex(key)
   result = getColumnData[T](tbl, idx)
 
 iterator keys*(tbl: ArrowTable): string =
+  ## Iterates over the names of all columns in the table.
   for field in tbl.schema:
     yield field.name
 
 iterator columns*(tbl: ArrowTable): Field =
+  ## Iterates over the fields of all columns in the table.
   for field in tbl.schema:
     yield field
 
 proc isNull*(tbl: ArrowTable, rowIdx: int, colIdx: int): bool =
+  ## Returns `true` if the value at the given row and column is null.
+  ## Raises `IndexDefect` if indices are out of bounds.
   if rowIdx < 0 or rowIdx >= tbl.nRows:
     raise newException(IndexDefect, "Row index out of bounds: " & $rowIdx)
   if colIdx < 0 or colIdx >= tbl.nColumns:
@@ -355,17 +408,22 @@ proc isNull*(tbl: ArrowTable, rowIdx: int, colIdx: int): bool =
   result = colArray.isNull(rowIdx)
 
 proc isNull*(tbl: ArrowTable, rowIdx: int, colName: string): bool =
+  ## Returns `true` if the value at the given row and named column is null.
   let schema = tbl.schema
   let colIdx = schema.getFieldIndex(colName)
   result = tbl.isNull(rowIdx, colIdx)
 
 proc isValid*(tbl: ArrowTable, rowIdx: int, colIdx: int): bool {.inline.} =
+  ## Returns `true` if the value at the given row and column is non-null.
   result = not tbl.isNull(rowIdx, colIdx)
 
 proc isValid*(tbl: ArrowTable, rowIdx: int, colName: string): bool {.inline.} =
+  ## Returns `true` if the value at the given row and named column is non-null.
   result = not tbl.isNull(rowIdx, colName)
 
 proc tryGet*[T](tbl: ArrowTable, rowIdx: int, colIdx: int): Option[T] =
+  ## Returns the value at the given row and column as an `Option[T]`.
+  ## Returns `none(T)` if the indices are out of bounds or the value is null.
   if rowIdx < 0 or rowIdx >= tbl.nRows or colIdx < 0 or colIdx >= tbl.nColumns:
     return none(T)
 
@@ -376,6 +434,9 @@ proc tryGet*[T](tbl: ArrowTable, rowIdx: int, colIdx: int): Option[T] =
   result = some(colData[rowIdx])
 
 proc tryGet*[T](tbl: ArrowTable, rowIdx: int, colName: string): Option[T] =
+  ## Returns the value at the given row and named column as an `Option[T]`.
+  ## Returns `none(T)` if the row is out of bounds, the column does not
+  ## exist, or the value is null.
   if rowIdx < 0 or rowIdx >= tbl.nRows:
     return none(T)
 
@@ -386,20 +447,24 @@ proc tryGet*[T](tbl: ArrowTable, rowIdx: int, colName: string): Option[T] =
 
   result = tbl.tryGet[T](rowIdx, colIdx)
 
-type TableRow* = object ## Represents a single row in an ArrowTable for iteration
+type TableRow* = object ## Represents a single row in an `ArrowTable` for iteration.
   table*: ArrowTable
   index*: int
 
 proc len*(row: TableRow): int {.inline.} =
+  ## Returns the number of columns in the row.
   result = row.table.nColumns
 
 proc isNull*(row: TableRow, idx: int): bool =
+  ## Returns `true` if the value at the given column index in this row is null.
   result = row.table.isNull(row.index, idx)
 
 proc isValid*(row: TableRow, idx: int): bool {.inline.} =
+  ## Returns `true` if the value at the given column index in this row is non-null.
   result = not row.isNull(idx)
 
 proc `$`*(row: TableRow): string =
+  ## Returns a string representation of the row.
   result = "Row " & $row.index & ": ["
   for i in 0 ..< row.table.nColumns:
     if i > 0:
@@ -411,10 +476,12 @@ proc `$`*(row: TableRow): string =
   result &= "]"
 
 iterator items*(tbl: ArrowTable): TableRow =
+  ## Iterates over all rows in the table as `TableRow` objects.
   for i in 0 ..< tbl.nRows:
     yield TableRow(table: tbl, index: i.int)
 
 proc nNulls*(tbl: ArrowTable): int64 =
+  ## Returns the total number of null values in the table.
   result = 0
   for i in 0 ..< tbl.nColumns:
     let handle = garrow_table_get_column_data(tbl.handle, i.gint)
