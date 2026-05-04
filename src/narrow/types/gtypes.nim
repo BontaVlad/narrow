@@ -130,11 +130,18 @@ func toPtr*(g: GADType): ptr GArrowDataType {.inline.} =
 
 func `==`*(a, b: GADType): bool {.inline.} =
   garrow_data_type_equal(a.handle, b.handle).bool
-func `$`*(str: GString): string {.inline.} =
-  $str.handle
-
 func newGString*(str: cstring): GString {.inline.} =
   result.handle = str
+
+proc `=destroy`*(str: GString) =
+  if str.handle != nil:
+    g_free(str.handle)
+
+proc `=wasMoved`*(str: var GString) =
+  str.handle = nil
+
+func `$`*(str: sink GString): string {.inline.} =
+  $str.handle
 
 proc `$`*(tp: GADType): string =
   let namePtr = garrow_data_type_get_name(tp.toPtr)
