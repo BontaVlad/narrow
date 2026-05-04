@@ -1,4 +1,3 @@
-import std/[sequtils, options]
 import unittest2
 import ../src/narrow
 
@@ -73,53 +72,53 @@ suite "Element-Wise Helpers":
   test "multiply two int32 arrays":
     let a = newArray(@[1'i32, 2, 3])
     let b = newArray(@[10'i32, 20, 30])
-    let result = multiply(a, b).toArray()
-    check result == newArray(@[10'i32, 40, 90])
+    let res = multiply(a, b).toArray()
+    check res == newArray(@[10'i32, 40, 90])
 
   test "multiply array by scalar":
     let a = newArray(@[1'i32, 2, 3])
-    let result = multiply(a, 2'i32).toArray()
-    check result == newArray(@[2'i32, 4, 6])
+    let res = multiply(a, 2'i32).toArray()
+    check res == newArray(@[2'i32, 4, 6])
 
   test "equal two arrays":
     let a = newArray(@[1'i32, 2, 3])
     let b = newArray(@[1'i32, 4, 3])
-    let result = equal(a, b).toArray()
+    let res = equal(a, b).toArray()
     let expected = newArray(@[true, false, true])
-    check result == expected
+    check res == expected
 
   test "greater array vs scalar":
     let a = newArray(@[1'i32, 5, 3, 8])
-    let result = greater(a, 3'i32).toArray()
+    let res = greater(a, 3'i32).toArray()
     let expected = newArray(@[false, true, false, true])
-    check result == expected
+    check res == expected
 
   test "less array vs array":
     let a = newArray(@[1'i32, 5, 3])
     let b = newArray(@[2'i32, 4, 6])
-    let result = less(a, b).toArray()
+    let res = less(a, b).toArray()
     let expected = newArray(@[true, false, true])
-    check result == expected
+    check res == expected
 
   test "greaterEqual array vs scalar":
     let a = newArray(@[1'i32, 3, 5])
-    let result = greaterEqual(a, 3'i32).toArray()
+    let res = greaterEqual(a, 3'i32).toArray()
     let expected = newArray(@[false, true, true])
-    check result == expected
+    check res == expected
 
   test "lessEqual array vs scalar":
     let a = newArray(@[1'i32, 3, 5])
-    let result = lessEqual(a, 3'i32).toArray()
+    let res = lessEqual(a, 3'i32).toArray()
     let expected = newArray(@[true, true, false])
-    check result == expected
+    check res == expected
 
   test "subtract arrays":
     let a = newArray(@[10'i32, 20, 30])
     let b = newArray(@[1'i32, 2, 3])
-    let result = subtract(a, b).toArray()
-    check result == newArray(@[9'i32, 18, 27])
+    let res = subtract(a, b).toArray()
+    check res == newArray(@[9'i32, 18, 27])
 
   test "divide array by scalar":
     let a = newArray(@[10.0'f64, 20.0, 30.0])
-    let result = divide(a, 2.0'f64).toArray()
-    check result == newArray(@[5.0'f64, 10.0, 15.0])
+    let res = divide(a, 2.0'f64).toArray()
+    check res == newArray(@[5.0'f64, 10.0, 15.0])

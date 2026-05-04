@@ -46,7 +46,7 @@ proc generateRunId(): string =
   initSessionIfNeeded()
   let now = now()
   let timestamp = now.format("yyyyMMdd-HHmmss")
-  let randomSuffix = rng.rand(high(int32)).toHex(8)
+  let randomSuffix = rng.rand(Natural(high(int32))).toHex(8)
   result = fmt"{timestamp}-{randomSuffix}"
 
 proc acquireLock(): File =

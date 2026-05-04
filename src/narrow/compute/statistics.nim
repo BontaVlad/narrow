@@ -135,9 +135,9 @@ proc min*(s: ByteArrayStatistics): seq[byte] =
   if not isNil(bytes):
     let size = g_bytes_get_size(bytes)
     let data = g_bytes_get_data(bytes, nil)
-    result = newSeq[byte](size)
+    result = newSeq[byte](Natural(size))
     if size > 0:
-      copyMem(result[0].addr, data, size)
+      copyMem(result[0].addr, data, Natural(size))
     g_bytes_unref(bytes)
 
 proc max*(s: ByteArrayStatistics): seq[byte] =
@@ -145,9 +145,9 @@ proc max*(s: ByteArrayStatistics): seq[byte] =
   if not isNil(bytes):
     let size = g_bytes_get_size(bytes)
     let data = g_bytes_get_data(bytes, nil)
-    result = newSeq[byte](size)
+    result = newSeq[byte](Natural(size))
     if size > 0:
-      copyMem(result[0].addr, data, size)
+      copyMem(result[0].addr, data, Natural(size))
     g_bytes_unref(bytes)
 
 proc toString*(bytes: seq[byte]): string =
@@ -161,9 +161,9 @@ proc min*(s: FixedLengthByteArrayStatistics): seq[byte] =
   if not isNil(bytes):
     let size = g_bytes_get_size(bytes)
     let data = g_bytes_get_data(bytes, nil)
-    result = newSeq[byte](size)
+    result = newSeq[byte](Natural(size))
     if size > 0:
-      copyMem(result[0].addr, data, size)
+      copyMem(result[0].addr, data, Natural(size))
     g_bytes_unref(bytes)
 
 proc max*(s: FixedLengthByteArrayStatistics): seq[byte] =
@@ -171,9 +171,9 @@ proc max*(s: FixedLengthByteArrayStatistics): seq[byte] =
   if not isNil(bytes):
     let size = g_bytes_get_size(bytes)
     let data = g_bytes_get_data(bytes, nil)
-    result = newSeq[byte](size)
+    result = newSeq[byte](Natural(size))
     if size > 0:
-      copyMem(result[0].addr, data, size)
+      copyMem(result[0].addr, data, Natural(size))
     g_bytes_unref(bytes)
 
 # ============================================================================

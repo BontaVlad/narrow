@@ -1,5 +1,5 @@
 import unittest2
-import ../src/narrow/[core/ffi, compute/expressions, types/gtypes]
+import ../src/narrow/compute/expressions
 
 suite "parseValue - Type Detection":
   test "Parse boolean true":

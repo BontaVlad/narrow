@@ -1,4 +1,3 @@
-import std/options
 import ../core/[ffi, error, utils]
 import ../types/gtypes
 import ../column/primitive

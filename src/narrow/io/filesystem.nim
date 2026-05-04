@@ -336,9 +336,9 @@ proc toBytesSeq(gbytes: ptr GBytes): seq[byte] =
   var sizeOut: gsize
   let data = g_bytes_get_data(gbytes, addr sizeOut)
 
-  result = newSeq[byte](sizeOut)
+  result = newSeq[byte](Natural(sizeOut))
   if sizeOut > 0:
-    copyMem(addr result[0], data, sizeOut)
+    copyMem(addr result[0], data, Natural(sizeOut))
 
   g_bytes_unref(gbytes)
 
@@ -426,7 +426,7 @@ proc readString*(stream: InputStream, nBytes: int64): string =
 
   result = newString(sizeOut.int)
   if sizeOut > 0:
-    copyMem(addr result[0], data, sizeOut)
+    copyMem(addr result[0], data, Natural(sizeOut))
 
   g_bytes_unref(gbytes)
 

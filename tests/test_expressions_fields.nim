@@ -1,5 +1,5 @@
 import unittest2
-import std/[algorithm, sets]
+import std/sets
 import ../src/narrow
 
 suite "Expression - Field Reference Extraction":

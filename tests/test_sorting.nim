@@ -1,4 +1,3 @@
-import std/[sequtils]
 import unittest2
 import ../src/narrow
 
@@ -132,39 +131,39 @@ suite "Array take":
   test "take reorders elements by index":
     let arr = newArray(@[10'i32, 20, 30])
     let indices = newArray(@[2'u64, 0, 1])
-    let result = take(arr, indices)
-    check result.len == 3
-    check result[0] == 30
-    check result[1] == 10
-    check result[2] == 20
+    let res = take(arr, indices)
+    check res.len == 3
+    check res[0] == 30
+    check res[1] == 10
+    check res[2] == 20
 
   test "take with identity indices returns copy":
     let arr = newArray(@[10'i32, 20, 30])
     let indices = newArray(@[0'u64, 1, 2])
-    let result = take(arr, indices)
-    check result[0] == 10
-    check result[1] == 20
-    check result[2] == 30
+    let res = take(arr, indices)
+    check res[0] == 10
+    check res[1] == 20
+    check res[2] == 30
 
   test "take with reverse indices":
     let arr = newArray(@[10'i32, 20, 30])
     let indices = newArray(@[2'u64, 1, 0])
-    let result = take(arr, indices)
-    check result[0] == 30
-    check result[1] == 20
-    check result[2] == 10
+    let res = take(arr, indices)
+    check res[0] == 30
+    check res[1] == 20
+    check res[2] == 10
 
   test "take empty indices returns empty":
     let arr = newArray(@[10'i32, 20, 30])
     let indices = newArray[uint64](@[])
-    let result = take(arr, indices)
-    check result.len == 0
+    let res = take(arr, indices)
+    check res.len == 0
 
   test "take on empty array returns empty":
     let arr = newArray[int32](@[])
     let indices = newArray[uint64](@[])
-    let result = take(arr, indices)
-    check result.len == 0
+    let res = take(arr, indices)
+    check res.len == 0
 
 suite "Table take":
   test "take reorders rows by index":
@@ -177,14 +176,14 @@ suite "Table take":
     let table = newArrowTable(schema, names, ages)
 
     let indices = newArray(@[2'u64, 0, 1])
-    let result = take(table, indices)
-    check result.nRows == 3
-    check result.nColumns == 2
-    let resultNames = result["name", string]
+    let res = take(table, indices)
+    check res.nRows == 3
+    check res.nColumns == 2
+    let resultNames = res["name", string]
     check resultNames[0] == "charlie"
     check resultNames[1] == "alice"
     check resultNames[2] == "bob"
-    let resultAges = result["age", int32]
+    let resultAges = res["age", int32]
     check resultAges[0] == 27
     check resultAges[1] == 25
     check resultAges[2] == 30
@@ -195,9 +194,9 @@ suite "Table take":
     let table = newArrowTable(schema, data)
 
     let indices = newArray(@[1'u64, 3])
-    let result = take(table, indices)
-    check result.nRows == 2
-    let col = result["x", int32]
+    let res = take(table, indices)
+    check res.nRows == 2
+    let col = res["x", int32]
     check col[0] == 200
     check col[1] == 400
 
@@ -207,9 +206,9 @@ suite "Table take":
     let table = newArrowTable(schema, data)
 
     let indices = newArray[uint64](@[])
-    let result = take(table, indices)
-    check result.nRows == 0
-    check result.nColumns == 1
+    let res = take(table, indices)
+    check res.nRows == 0
+    check res.nColumns == 1
 
 suite "Sort + Take composition":
   test "sort then take produces sorted table":
@@ -284,7 +283,7 @@ suite "Null handling":
   test "take propagates nulls correctly":
     let arr = newArray(@[10'i32, 20, 30], mask = [false, true, false])
     let indices = newArray(@[0'u64, 1, 2])
-    let result = take(arr, indices)
-    check result[0] == 10
-    check result[1] == 0  # null value default
-    check result[2] == 30
+    let res = take(arr, indices)
+    check res[0] == 10
+    check res[1] == 0  # null value default
+    check res[2] == 30
