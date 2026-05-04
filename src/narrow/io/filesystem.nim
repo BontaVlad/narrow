@@ -209,32 +209,28 @@ proc fileType*(info: FileInfo): GArrowFileType =
   result = GArrowFileType(fileType)
 
 proc path*(info: FileInfo): string =
-  var cstr: cstring = nil
-  g_object_get(info.handle, PropPath.cstring, addr cstr, nil)
-  if cstr != nil:
-    result = $cstr
-    g_free(cstr)
+  var gstr = newGString(nil)
+  g_object_get(info.handle, PropPath.cstring, addr gstr.handle, nil)
+  if gstr.handle != nil:
+    result = $move(gstr)
 
 proc baseName*(info: FileInfo): string =
-  var cstr: cstring = nil
-  g_object_get(info.handle, PropBaseName.cstring, addr cstr, nil)
-  if cstr != nil:
-    result = $cstr
-    g_free(cstr)
+  var gstr = newGString(nil)
+  g_object_get(info.handle, PropBaseName.cstring, addr gstr.handle, nil)
+  if gstr.handle != nil:
+    result = $move(gstr)
 
 proc dirName*(info: FileInfo): string =
-  var cstr: cstring = nil
-  g_object_get(info.handle, PropDirName.cstring, addr cstr, nil)
-  if cstr != nil:
-    result = $cstr
-    g_free(cstr)
+  var gstr = newGString(nil)
+  g_object_get(info.handle, PropDirName.cstring, addr gstr.handle, nil)
+  if gstr.handle != nil:
+    result = $move(gstr)
 
 proc extension*(info: FileInfo): string =
-  var cstr: cstring = nil
-  g_object_get(info.handle, PropExtension.cstring, addr cstr, nil)
-  if cstr != nil:
-    result = $cstr
-    g_free(cstr)
+  var gstr = newGString(nil)
+  g_object_get(info.handle, PropExtension.cstring, addr gstr.handle, nil)
+  if gstr.handle != nil:
+    result = $move(gstr)
 
 proc size*(info: FileInfo): int64 =
   var size: int64 = -1

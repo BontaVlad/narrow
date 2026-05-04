@@ -229,34 +229,12 @@ proc nRows*(tbl: ArrowTable): int64 {.inline.} =
 proc addColumn*(
     tbl: ArrowTable, idx: int, field: Field, column: ChunkedArray
 ): ArrowTable =
-  var err: ptr GError
   let handle =
-    garrow_table_add_column(tbl.handle, idx.guint, field.toPtr, column.toPtr, addr err)
-
-  if not isNil(err):
-    let msg =
-      if not isNil(err.message):
-        $err.message
-      else:
-        "Add column failed"
-    g_error_free(err)
-    raise newException(OperationError, msg)
-
+    verify garrow_table_add_column(tbl.handle, idx.guint, field.toPtr, column.toPtr)
   result = newArrowTable(handle)
 
 proc removeColumn*(tbl: ArrowTable, idx: int): ArrowTable =
-  var err: ptr GError
-  let handle = garrow_table_remove_column(tbl.handle, idx.guint, addr err)
-
-  if not isNil(err):
-    let msg =
-      if not isNil(err.message):
-        $err.message
-      else:
-        "Remove column failed"
-    g_error_free(err)
-    raise newException(OperationError, msg)
-
+  let handle = verify garrow_table_remove_column(tbl.handle, idx.guint)
   result = newArrowTable(handle)
 
 proc removeColumn*(tbl: ArrowTable, key: string): ArrowTable =
@@ -284,26 +262,17 @@ proc slice*(tbl: ArrowTable, offset, length: int64): ArrowTable =
   result = newArrowTable(handle)
 
 proc combineChunks*(tbl: ArrowTable): ArrowTable =
-  var err: ptr GError
-  let handle = garrow_table_combine_chunks(tbl.handle, addr err)
-
-  if not isNil(err):
-    let msg =
-      if not isNil(err.message):
-        $err.message
-      else:
-        "Combine chunks failed"
-    g_error_free(err)
-    raise newException(OperationError, msg)
-
+  let handle = verify garrow_table_combine_chunks(tbl.handle)
   result = newArrowTable(handle)
 
+# verify in some cases checks for bool, we need to manually handle the error here
 proc validate*(tbl: ArrowTable): bool =
   var err: ptr GError
   result = garrow_table_validate(tbl.handle, addr err).bool
   if not isNil(err):
     g_error_free(err)
 
+# verify in some cases checks for bool, we need to manually handle the error here
 proc validateFull*(tbl: ArrowTable): bool =
   var err: ptr GError
   result = garrow_table_validate_full(tbl.handle, addr err).bool
@@ -333,6 +302,11 @@ iterator batches*(reader: RecordBatchReader): RecordBatch =
     if isNil(handle):
       break
     yield newRecordBatch(handle)
+
+proc newRecordBatchReader*(table: ArrowTable): RecordBatchReader =
+  ## Creates a record batch reader from an ArrowTable.
+  result.handle =
+    cast[ptr GArrowRecordBatchReader](garrow_table_batch_reader_new(table.toPtr))
 
 proc getColumnData*[T](tbl: ArrowTable, idx: int): ChunkedArray[T] =
   when defined(debug):

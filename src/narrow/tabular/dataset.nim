@@ -2,6 +2,7 @@ import ../core/[ffi, error, utils]
 import ../compute/expressions
 import ../column/metadata
 import ../io/filesystem
+import ../types/gtypes
 import ./table
 import ./batch
 
@@ -10,12 +11,13 @@ import ./batch
 ## Arrow Datasets allow you to query against data that has been split across
 ## multiple files. This sharding of data may indicate partitioning, which
 ## can accelerate queries that only touch some partitions (files).
-type
-  Dataset* = object
-    handle: ptr GADatasetDataset
+arcGObject:
+  type
+    Dataset* = object
+      handle: ptr GADatasetDataset
 
-  FileSystemDataset* = object
-    handle: ptr GADatasetFileSystemDataset
+    FileSystemDataset* = object
+      handle: ptr GADatasetFileSystemDataset
 
 type
   Fragment* {.inheritable.} = object
@@ -23,12 +25,13 @@ type
 
   InMemoryFragment* = object of Fragment
 
-type
-  Scanner* = object
-    handle: ptr GADatasetScanner
+arcGObject:
+  type
+    Scanner* = object
+      handle: ptr GADatasetScanner
 
-  ScannerBuilder* = object
-    handle: ptr GADatasetScannerBuilder
+    ScannerBuilder* = object
+      handle: ptr GADatasetScannerBuilder
 
 type
   FileFormatTp* = enum
@@ -40,13 +43,18 @@ type
     handle: ptr GADatasetFileFormat
     kind: FileFormatTp
 
+type SegmentEncoding* = enum
+  None
+  URI
+
 type
   DatasetFactory* {.inheritable.} = object
     handle: ptr GADatasetDatasetFactory
 
   FileSystemDatasetFactory* = object of DatasetFactory
 
-  FinishOptions* = object
+arcGObject:
+  type FinishOptions* = object
     handle: ptr GADatasetFinishOptions
 
 type
@@ -57,41 +65,32 @@ type
 
   HivePartitioning* = object of Partitioning
 
-  HivePartitioningOptions* = object
-    handle: ptr GADatasetHivePartitioningOptions
+arcGObject:
+  type
+    KeyValuePartitioningOptions* = object
+      handle: ptr GADatasetKeyValuePartitioningOptions
 
-type
-  FileWriter* = object
-    handle: ptr GADatasetFileWriter
+    HivePartitioningOptions* = object
+      handle: ptr GADatasetHivePartitioningOptions
 
-  FileWriteOptions* = object
-    handle: ptr GADatasetFileWriteOptions
+arcGObject:
+  type
+    FileWriter* = object
+      handle: ptr GADatasetFileWriter
 
-type PartitioningFactoryOptions* = object
-  ## Options for discovering partitioning from file paths
-  handle: ptr GADatasetPartitioningFactoryOptions
+    FileWriteOptions* = object
+      handle: ptr GADatasetFileWriteOptions
+
+arcGObject:
+  type PartitioningFactoryOptions* = object
+    ## Options for discovering partitioning from file paths
+    handle: ptr GADatasetPartitioningFactoryOptions
+
+arcGObject:
+  type FileSystemDatasetWriteOptions* = object
+    handle*: ptr GADatasetFileSystemDatasetWriteOptions
 
 ensureComputeInitialized()
-
-proc `=destroy`*(ds: Dataset) =
-  if ds.handle != nil:
-    g_object_unref(ds.handle)
-
-proc `=wasMoved`*(ds: var Dataset) =
-  ds.handle = nil
-
-proc `=dup`*(ds: Dataset): Dataset =
-  result.handle = ds.handle
-  if ds.handle != nil:
-    discard g_object_ref(ds.handle)
-
-proc `=copy`*(dest: var Dataset, src: Dataset) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
 
 proc `=destroy`*(frag: Fragment) =
   if frag.handle != nil:
@@ -106,46 +105,6 @@ proc `=dup`*(frag: Fragment): Fragment =
     discard g_object_ref(frag.handle)
 
 proc `=copy`*(dest: var Fragment, src: Fragment) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
-
-proc `=destroy`*(scanner: Scanner) =
-  if scanner.handle != nil:
-    g_object_unref(scanner.handle)
-
-proc `=wasMoved`*(scanner: var Scanner) =
-  scanner.handle = nil
-
-proc `=dup`*(scanner: Scanner): Scanner =
-  result.handle = scanner.handle
-  if scanner.handle != nil:
-    discard g_object_ref(scanner.handle)
-
-proc `=copy`*(dest: var Scanner, src: Scanner) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
-
-proc `=destroy`*(sb: ScannerBuilder) =
-  if sb.handle != nil:
-    g_object_unref(sb.handle)
-
-proc `=wasMoved`*(sb: var ScannerBuilder) =
-  sb.handle = nil
-
-proc `=dup`*(sb: ScannerBuilder): ScannerBuilder =
-  result.handle = sb.handle
-  if sb.handle != nil:
-    discard g_object_ref(sb.handle)
-
-proc `=copy`*(dest: var ScannerBuilder, src: ScannerBuilder) =
   if dest.handle != src.handle:
     if dest.handle != nil:
       g_object_unref(dest.handle)
@@ -213,26 +172,6 @@ proc `=copy`*(dest: var FileSystemDatasetFactory, src: FileSystemDatasetFactory)
     if src.handle != nil:
       discard g_object_ref(dest.handle)
 
-proc `=destroy`*(opts: FinishOptions) =
-  if opts.handle != nil:
-    g_object_unref(opts.handle)
-
-proc `=wasMoved`*(opts: var FinishOptions) =
-  opts.handle = nil
-
-proc `=dup`*(opts: FinishOptions): FinishOptions =
-  result.handle = opts.handle
-  if opts.handle != nil:
-    discard g_object_ref(opts.handle)
-
-proc `=copy`*(dest: var FinishOptions, src: FinishOptions) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
-
 proc `=destroy`*(partitioning: Partitioning) =
   if partitioning.handle != nil:
     g_object_unref(partitioning.handle)
@@ -253,97 +192,8 @@ proc `=copy`*(dest: var Partitioning, src: Partitioning) =
     if src.handle != nil:
       discard g_object_ref(dest.handle)
 
-proc `=destroy`*(opts: HivePartitioningOptions) =
-  if opts.handle != nil:
-    g_object_unref(opts.handle)
-
-proc `=wasMoved`*(opts: var HivePartitioningOptions) =
-  opts.handle = nil
-
-proc `=dup`*(opts: HivePartitioningOptions): HivePartitioningOptions =
-  result.handle = opts.handle
-  if opts.handle != nil:
-    discard g_object_ref(opts.handle)
-
-proc `=copy`*(dest: var HivePartitioningOptions, src: HivePartitioningOptions) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
-
-proc `=destroy`*(writer: FileWriter) =
-  if writer.handle != nil:
-    g_object_unref(writer.handle)
-
-proc `=wasMoved`*(writer: var FileWriter) =
-  writer.handle = nil
-
-proc `=dup`*(writer: FileWriter): FileWriter =
-  result.handle = writer.handle
-  if writer.handle != nil:
-    discard g_object_ref(writer.handle)
-
-proc `=copy`*(dest: var FileWriter, src: FileWriter) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
-
-proc `=destroy`*(opts: FileWriteOptions) =
-  if opts.handle != nil:
-    g_object_unref(opts.handle)
-
-proc `=wasMoved`*(opts: var FileWriteOptions) =
-  opts.handle = nil
-
-proc `=dup`*(opts: FileWriteOptions): FileWriteOptions =
-  result.handle = opts.handle
-  if opts.handle != nil:
-    discard g_object_ref(opts.handle)
-
-proc `=copy`*(dest: var FileWriteOptions, src: FileWriteOptions) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
-
-proc `=destroy`*(opts: PartitioningFactoryOptions) =
-  if opts.handle != nil:
-    g_object_unref(opts.handle)
-
-proc `=wasMoved`*(opts: var PartitioningFactoryOptions) =
-  opts.handle = nil
-
-proc `=dup`*(opts: PartitioningFactoryOptions): PartitioningFactoryOptions =
-  result.handle = opts.handle
-  if opts.handle != nil:
-    discard g_object_ref(opts.handle)
-
-proc `=copy`*(dest: var PartitioningFactoryOptions, src: PartitioningFactoryOptions) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
-
-proc toPtr*(ds: Dataset): ptr GADatasetDataset {.inline.} =
-  ds.handle
-
 proc toPtr*(frag: Fragment): ptr GADatasetFragment {.inline.} =
   frag.handle
-
-proc toPtr*(scanner: Scanner): ptr GADatasetScanner {.inline.} =
-  scanner.handle
-
-proc toPtr*(sb: ScannerBuilder): ptr GADatasetScannerBuilder {.inline.} =
-  sb.handle
 
 proc toPtr*(format: FileFormat): ptr GADatasetFileFormat {.inline.} =
   format.handle
@@ -351,30 +201,11 @@ proc toPtr*(format: FileFormat): ptr GADatasetFileFormat {.inline.} =
 proc toPtr*(factory: DatasetFactory): ptr GADatasetDatasetFactory {.inline.} =
   factory.handle
 
-proc toPtr*(opts: FinishOptions): ptr GADatasetFinishOptions {.inline.} =
-  opts.handle
-
 proc toPtr*(partitioning: Partitioning): ptr GADatasetPartitioning {.inline.} =
   partitioning.handle
 
-proc toPtr*(writer: FileWriter): ptr GADatasetFileWriter {.inline.} =
-  writer.handle
-
-proc toPtr*(opts: FileWriteOptions): ptr GADatasetFileWriteOptions {.inline.} =
-  opts.handle
-
-proc toPtr*(
-    opts: PartitioningFactoryOptions
-): ptr GADatasetPartitioningFactoryOptions {.inline.} =
-  opts.handle
-
 proc toPtr*(pt: HivePartitioning): ptr GADatasetHivePartitioning {.inline.} =
   cast[ptr GADatasetHivePartitioning](pt.handle)
-
-proc toPtr*(
-    pt: HivePartitioningOptions
-): ptr GADatasetHivePartitioningOptions {.inline.} =
-  pt.handle
 
 # =======================================================
 # Dataset and stuff
@@ -426,6 +257,103 @@ proc newHivePartitioning*(schema: Schema): HivePartitioning =
   result.handle = cast[ptr GADatasetPartitioning](verify gadataset_hive_partitioning_new(
     schema.toPtr, nil, opts.toPtr
   ))
+
+proc newKeyValuePartitioningOptions*(): KeyValuePartitioningOptions =
+  ## Creates default options for key-value partitioning
+  result.handle = gadataset_key_value_partitioning_options_new()
+
+proc newDirectoryPartitioning*(
+    schema: Schema, options: KeyValuePartitioningOptions
+): DirectoryPartitioning =
+  ## Creates a directory partitioning scheme with custom options
+  # TODO: implement dictionaries for partitioning
+  result.handle = cast[ptr GADatasetPartitioning](verify gadataset_directory_partitioning_new(
+    schema.toPtr, nil, options.toPtr
+  ))
+
+proc newHivePartitioning*(
+    schema: Schema, options: HivePartitioningOptions
+): HivePartitioning =
+  ## Creates a Hive partitioning scheme with custom options
+  # TODO: implement dictionaries for partitioning
+  result.handle = cast[ptr GADatasetPartitioning](verify gadataset_hive_partitioning_new(
+    schema.toPtr, nil, options.toPtr
+  ))
+
+proc segmentEncoding*(opts: KeyValuePartitioningOptions): SegmentEncoding =
+  ## Gets the segment encoding for path component decoding
+  var encoding: cint
+  g_object_get(opts.toPtr, "segment-encoding", addr encoding, nil)
+  result = SegmentEncoding(encoding)
+
+proc `segmentEncoding=`*(
+    opts: var KeyValuePartitioningOptions, encoding: SegmentEncoding
+) =
+  ## Sets the segment encoding for path component decoding
+  g_object_set(opts.toPtr, "segment-encoding", encoding.cint, nil)
+
+proc nullFallback*(opts: HivePartitioningOptions): string =
+  ## Gets the fallback string for null values in Hive partitioning
+  var gstr = newGString(nil)
+  g_object_get(opts.toPtr, "null-fallback", addr gstr.handle, nil)
+  if gstr.handle != nil:
+    result = $move(gstr)
+
+proc `nullFallback=`*(opts: var HivePartitioningOptions, fallback: string) =
+  ## Sets the fallback string for null values in Hive partitioning
+  g_object_set(opts.toPtr, "null-fallback", fallback.cstring, nil)
+
+proc segmentEncoding*(opts: HivePartitioningOptions): SegmentEncoding =
+  ## Gets the segment encoding (inherited from KeyValuePartitioningOptions)
+  var encoding: cint
+  g_object_get(opts.toPtr, "segment-encoding", addr encoding, nil)
+  result = SegmentEncoding(encoding)
+
+proc `segmentEncoding=`*(opts: var HivePartitioningOptions, encoding: SegmentEncoding) =
+  ## Sets the segment encoding (inherited from KeyValuePartitioningOptions)
+  g_object_set(opts.toPtr, "segment-encoding", encoding.cint, nil)
+
+proc nullFallback*(partitioning: HivePartitioning): string =
+  ## Gets the fallback string for null values from a Hive partitioning
+  if partitioning.handle == nil:
+    return ""
+  let gstr =
+    newGString(gadataset_hive_partitioning_get_null_fallback(partitioning.toPtr))
+  if gstr.handle != nil:
+    result = $gstr
+
+proc inferDictionary*(opts: PartitioningFactoryOptions): bool =
+  ## Gets whether to infer dictionary-encoded types for partition fields
+  var infer: gboolean
+  g_object_get(opts.toPtr, "infer-dictionary", addr infer, nil)
+  result = infer != 0
+
+proc `inferDictionary=`*(opts: var PartitioningFactoryOptions, infer: bool) =
+  ## Sets whether to infer dictionary-encoded types for partition fields
+  g_object_set(opts.toPtr, "infer-dictionary", infer.gboolean, nil)
+
+proc schema*(opts: PartitioningFactoryOptions): Schema =
+  ## Gets the expected schema for partitioning inference
+  var schemaPtr: ptr GArrowSchema
+  g_object_get(opts.toPtr, "schema", addr schemaPtr, nil)
+  if schemaPtr != nil:
+    result.handle = schemaPtr
+
+proc `schema=`*(opts: var PartitioningFactoryOptions, s: Schema) =
+  ## Sets the expected schema for partitioning inference
+  g_object_set(opts.toPtr, "schema", s.toPtr, nil)
+
+proc segmentEncoding*(opts: PartitioningFactoryOptions): SegmentEncoding =
+  ## Gets the segment encoding for path component decoding
+  var encoding: cint
+  g_object_get(opts.toPtr, "segment-encoding", addr encoding, nil)
+  result = SegmentEncoding(encoding)
+
+proc `segmentEncoding=`*(
+    opts: var PartitioningFactoryOptions, encoding: SegmentEncoding
+) =
+  ## Sets the segment encoding for path component decoding
+  g_object_set(opts.toPtr, "segment-encoding", encoding.cint, nil)
 
 proc newFinishOptions*(): FinishOptions =
   ## Creates default finish options for dataset factories
@@ -584,12 +512,17 @@ proc newDataset*(path: string, formatType: FileFormatTp = Parquet): Dataset =
   let fs = newFileSystem(path)
   var factory = newFileSystemDatasetFactory(fmt)
   # Capture specific type first, then upcast to base Dataset type
-  let ds = factory.setFileSystem(fs).addPath(path).finish()
-  result = Dataset(handle: cast[ptr GADatasetDataset](ds.handle))
+  var ds = factory.setFileSystem(fs).addPath(path).finish()
+  result.handle = cast[ptr GADatasetDataset](ds.handle)
+  ds.handle = nil
 
 proc newScannerBuilder*(ds: Dataset): ScannerBuilder =
   ## Creates a scanner builder from a dataset
   result.handle = verify gadataset_scanner_builder_new(ds.toPtr)
+
+proc newScannerBuilder*(reader: RecordBatchReader): ScannerBuilder =
+  ## Creates a scanner builder from a record batch reader
+  result.handle = gadataset_scanner_builder_new_record_batch_reader(reader.toPtr)
 
 proc `filter=`*(sb: var ScannerBuilder, filter: Expression) =
   ## Sets a filter expression for push-down filtering.
@@ -646,7 +579,7 @@ proc openFileWriter*(
   ##
   ## Example:
   ##   .. code-block:: nim
-  ##     let format = newParquetFileFormat()
+  ##     let format = newFileFormat(Parquet)
   ##     let localFs = newLocalFileSystem()
   ##     let outputStream = localFs.openOutputStream("/data/output.parquet")
   ##     let opts = format.getDefaultWriteOptions()
@@ -672,32 +605,117 @@ proc finish*(writer: FileWriter) =
   verify gadataset_file_writer_finish(writer.toPtr)
 
 proc writeDatasetFromScanner*(
-    scanner: Scanner,
-    path: string,
-    format: FileFormat,
-    options: FileWriteOptions = FileWriteOptions(),
+    scanner: Scanner, path: string, format: FileFormat, options: FileWriteOptions
 ) =
-  ## Writes data from a scanner to a file
+  ## Writes data from a scanner to a single file.
   ##
   ## Example:
   ##   .. code-block:: nim
   ##     let scanner = dataset.newScannerBuilder().setFilter(filter).finish()
-  ##     let opts = newParquetFileFormat().getDefaultWriteOptions()
-  ##     writeDatasetFromScanner(scanner, "/data/filtered.parquet", newParquetFileFormat(), options=opts)
-  discard
-  # let filesystem =
-  #   if fs == nil:
-  #     newLocalFileSystem()
-  #   else:
-  #     fs
-  # let outputStream = filesystem.openOutputStream(path)
-  # let reader = scanner.toRecordBatchReader()
-  # let schema = reader.schema
-  # let opts =
-  #   if options.handle.isNil:
-  #     format.getDefaultWriteOptions()
-  #   else:
-  #     options
-  # let writer = openFileWriter(format, outputStream, filesystem, path, schema, opts)
-  # writer.writeRecordBatchReader(reader)
-  # writer.finish()
+  ##     let format = newFileFormat(Parquet)
+  ##     writeDatasetFromScanner(scanner, "/data/filtered.parquet", format, options=format.getDefaultWriteOptions())
+  let filesystem = newLocalFileSystem()
+  let outputStream = filesystem.openOutputStream(path)
+  let reader = scanner.toRecordBatchReader()
+  let schema = reader.schema
+  let writer = openFileWriter(format, outputStream, filesystem, path, schema, options)
+  writer.writeRecordBatchReader(reader)
+  writer.finish()
+
+proc writeDatasetFromScanner*(scanner: Scanner, path: string, format: FileFormat) =
+  ## Writes data from a scanner to a single file.
+  ##
+  ## Example:
+  ##   .. code-block:: nim
+  ##     let scanner = dataset.newScannerBuilder().setFilter(filter).finish()
+  ##     let format = newFileFormat(Parquet)
+  ##     writeDatasetFromScanner(scanner, "/data/filtered.parquet", format))
+  writeDatasetFromScanner(scanner, path, format, format.getDefaultWriteOptions())
+
+proc `baseDir=`*(opts: var FileSystemDatasetWriteOptions, dir: string) =
+  ## Sets the root output directory for the dataset write.
+  g_object_set(opts.toPtr, "base-dir", dir.cstring, nil)
+
+proc baseDir*(opts: FileSystemDatasetWriteOptions): string =
+  ## Gets the root output directory for the dataset write.
+  var gstr = newGString(nil)
+  g_object_get(opts.toPtr, "base-dir", addr gstr.handle, nil)
+  if gstr.handle != nil:
+    result = $move(gstr)
+
+proc `baseNameTemplate=`*(opts: var FileSystemDatasetWriteOptions, tpl: string) =
+  ## Sets the basename template (e.g. `"part-{i}.parquet"`).
+  g_object_set(opts.toPtr, "base-name-template", tpl.cstring, nil)
+
+proc baseNameTemplate*(opts: FileSystemDatasetWriteOptions): string =
+  ## Gets the basename template.
+  var gstr = newGString(nil)
+  g_object_get(opts.toPtr, "base-name-template", addr gstr.handle, nil)
+  if gstr.handle != nil:
+    result = $move(gstr)
+
+proc `fileSystem=`*(opts: var FileSystemDatasetWriteOptions, fs: FileSystem) =
+  ## Sets the filesystem to write into.
+  g_object_set(opts.toPtr, "file-system", fs.handle, nil)
+
+proc `fileWriteOptions=`*(
+    opts: var FileSystemDatasetWriteOptions, fwo: FileWriteOptions
+) =
+  ## Sets the format-specific write options.
+  g_object_set(opts.toPtr, "file-write-options", fwo.toPtr, nil)
+
+proc `maxPartitions=`*(opts: var FileSystemDatasetWriteOptions, max: uint) =
+  ## Sets the maximum number of partitions any batch may be written into.
+  g_object_set(opts.toPtr, "max-partitions", max.guint, nil)
+
+proc maxPartitions*(opts: FileSystemDatasetWriteOptions): uint =
+  ## Gets the maximum number of partitions any batch may be written into.
+  var max: guint
+  g_object_get(opts.toPtr, "max-partitions", addr max, nil)
+  result = max.uint
+
+proc `partitioning=`*(opts: var FileSystemDatasetWriteOptions, part: Partitioning) =
+  ## Sets the partitioning scheme used to generate fragment paths.
+  g_object_set(opts.toPtr, "partitioning", part.handle, nil)
+
+proc writeDataset*(scanner: Scanner, options: FileSystemDatasetWriteOptions) =
+  ## Writes a scanner to a dataset using the given options.
+  verify gadataset_file_system_dataset_write_scanner(scanner.toPtr, options.toPtr)
+
+proc writeDataset*(
+    table: ArrowTable,
+    path: string,
+    format: FileFormat,
+    partitioning: Partitioning = Partitioning(),
+    options: FileWriteOptions = FileWriteOptions(),
+) =
+  ## Writes a table to a partitioned dataset.
+  ##
+  ## Example:
+  ##   .. code-block:: nim
+  ##     let schema = newSchema([newField[int32]("year"), newField[int32]("value")])
+  ##     let table = newArrowTable(schema, years, values)
+  ##     let part = newHivePartitioning(newSchema([newField[int32]("year")]))
+  ##     writeDataset(table, "/data/partitioned", newFileFormat(Parquet), partitioning=part)
+  let fs = newLocalFileSystem()
+  let reader = newRecordBatchReader(table)
+  let scanner = newScannerBuilder(reader).finish()
+  var writeOpts = FileSystemDatasetWriteOptions(
+    handle: gadataset_file_system_dataset_write_options_new()
+  )
+  writeOpts.baseDir = path
+  writeOpts.fileSystem = fs
+  writeOpts.fileWriteOptions =
+    if options.handle.isNil:
+      format.getDefaultWriteOptions()
+    else:
+      options
+  let ext =
+    case format.kind
+    of Parquet: "parquet"
+    of IPC: "arrow"
+    of CSV: "csv"
+  writeOpts.baseNameTemplate = "part-{i}." & ext
+  if partitioning.handle != nil:
+    writeOpts.partitioning = partitioning
+  writeDataset(scanner, writeOpts)
