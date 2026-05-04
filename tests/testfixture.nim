@@ -27,7 +27,7 @@ const
   RunsDir = BaseDir / "runs"
   CurrentSymlink = BaseDir / "current"
   LockFile = BaseDir / ".fixture.lock"
-  MaxRunsToKeep = 2
+  MaxRunsToKeep = 50
 
 # Module-level state for session management
 var
