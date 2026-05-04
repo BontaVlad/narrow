@@ -141,16 +141,15 @@ suite "Reading and Writing Data":
     let partitionDir = fixture / "partitioned"
     createDir(partitionDir)
     
-    # Write each year as a separate partition
-    for year in 2000 .. 2009:
-      let uri = partitionDir / fmt"{year}.parquet"
-      writeTable(table, uri)
+    # Write dataset partitioned by year
+    let partSchema = newSchema([newField[int32]("year")])
+    let partitioning = newDirectoryPartitioning(partSchema)
+    writeDataset(table, partitionDir, newFileFormat(Parquet), partitioning=partitioning)
     
-    # Verify partitions were created
-    let fs = newLocalFileSystem()
-    for year in 2000 .. 2009:
-      let uri = partitionDir / fmt"{year}.parquet"
-      check fs.getFileInfo(uri).exists
+    # Verify dataset was written and can be read back
+    let ds = newDataset(partitionDir)
+    let readBack = ds.toTable()
+    check readBack.nRows == 100
 
   test "Reading Partitioned Datasets":
     let schema = newSchema([
