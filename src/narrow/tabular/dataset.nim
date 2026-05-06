@@ -41,7 +41,7 @@ type
 
   FileFormat* = object
     handle: ptr GADatasetFileFormat
-    kind: FileFormatTp
+    kind*: FileFormatTp
 
 type SegmentEncoding* = enum
   None
@@ -215,6 +215,20 @@ proc toTable*(ds: Dataset): ArrowTable =
   let handle = verify gadataset_dataset_to_table(ds.toPtr)
   result = newArrowTable(handle)
 
+proc toRecordBatchReader*(ds: Dataset): RecordBatchReader =
+  ## Converts the dataset to a RecordBatchReader for streaming reads
+  let handle = verify gadataset_dataset_to_record_batch_reader(ds.toPtr)
+  result.handle = handle
+
+proc beginScan*(ds: Dataset): ScannerBuilder =
+  ## Begins a new scan operation against the dataset.
+  ## Returns a ScannerBuilder for configuring the scan.
+  result.handle = verify gadataset_dataset_begin_scan(ds.toPtr)
+
+proc typeName*(ds: Dataset): string =
+  ## Returns the type name of the dataset (e.g., "filesystem", "in-memory")
+  result = $gadataset_dataset_get_type_name(ds.toPtr)
+
 proc newFileFormat*(format: FileFormatTp): FileFormat =
   case format
   of CSV:
@@ -224,9 +238,6 @@ proc newFileFormat*(format: FileFormatTp): FileFormat =
   of Parquet:
     result.handle = cast[ptr GADatasetFileFormat](gadataset_parquet_file_format_new())
   result.kind = format
-
-proc kind*(fmt: FileFormat): FileFormatTp =
-  fmt.kind
 
 proc newPartitioningFactoryOptions*(): PartitioningFactoryOptions =
   ## Creates default options for discovering partitioning from paths
@@ -469,7 +480,6 @@ proc fileSystem*(ds: Dataset): FileSystem =
   ## Gets the filesystem associated with the dataset (if any)
   var fsPtr: ptr GArrowFileSystem
   g_object_get(ds.toPtr, "file-system", addr fsPtr, nil)
-  echo repr fsPtr
   if fsPtr != nil:
     result = newFileSystem(fsPtr)
 
@@ -489,7 +499,7 @@ proc format*(ds: Dataset): FileFormat =
       of "GArrowIPCFileFormat": IPC
       of "GArrowParquetFileFormat": Parquet
       else: Parquet
-    result = newFileFormat(kind)
+    result.kind = kind
     result.handle = formatPtr
 
 proc `partitioning=`*(ds: var Dataset, part: Partitioning) =
@@ -502,10 +512,6 @@ proc partitioning*(ds: Dataset): Partitioning =
   g_object_get(ds.toPtr, "partitioning", addr partPtr, nil)
   if partPtr != nil:
     result.handle = partPtr
-
-proc files*(ds: Dataset): seq[FileInfo] =
-  echo repr ds
-  result = @[]
 
 proc newDataset*(path: string, formatType: FileFormatTp = Parquet): Dataset =
   let fmt = newFileFormat(formatType)

@@ -466,8 +466,32 @@ In Narrow, `benchmarks/config.nim` wires this through the `NARROW_BENCH_OUTPUT` 
    ```bash
    just benchmark benchmarks/bench_cast.nim -o benchmarks/results/cast_new.json
    ```
-   (Comparison for single JSON files is not yet automated — inspect the two files manually
-   or place them in directories and use `just benchmark-compare`.)
+4. Compare:
+   ```bash
+   just benchmark-compare benchmarks/results/cast_base.json benchmarks/results/cast_new.json
+   ```
+
+**Workflow when you already have uncommitted changes:**
+1. Stash the changes:
+   ```bash
+   git stash push -m "benchmark-wip" -- src/narrow/compute/casting.nim
+   ```
+2. Run the reference benchmark:
+   ```bash
+   just benchmark benchmarks/bench_cast.nim -o benchmarks/results/cast_baseline.json
+   ```
+3. Apply the stashed changes:
+   ```bash
+   git stash pop
+   ```
+4. Run the candidate benchmark:
+   ```bash
+   just benchmark benchmarks/bench_cast.nim -o benchmarks/results/cast_optimized.json
+   ```
+5. Compare:
+   ```bash
+   just benchmark-compare benchmarks/results/cast_baseline.json benchmarks/results/cast_optimized.json
+   ```
 
 ### Performance refactoring policy
 

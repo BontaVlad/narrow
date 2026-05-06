@@ -357,77 +357,7 @@ benchmark *args="":
     echo "Results saved to: $SAVE_DIR"
 
 benchmark-compare baseline new:
-    #!/usr/bin/env python3
-    import json, sys
-    from pathlib import Path
-
-    baseline_dir = Path("{{baseline}}")
-    new_dir = Path("{{new}}")
-
-    if not baseline_dir.is_dir() or not new_dir.is_dir():
-        print("Both baseline and new must be directories containing saved benchmark JSON files.")
-        sys.exit(1)
-
-    print("{:<40} {:>12} {:>12} {:>10} {:>8}".format(
-        "Benchmark", "Baseline", "New", "Delta", "%"
-    ))
-    print("-" * 86)
-
-    any_regression = False
-
-    for new_file in sorted(new_dir.glob("*.json")):
-        base_file = baseline_dir / new_file.name
-        if not base_file.exists():
-            print("{:<40} {:>12}".format(new_file.stem, "NO BASELINE"))
-            continue
-
-        with open(base_file) as f:
-            base_data = json.load(f)
-        with open(new_file) as f:
-            new_data = json.load(f)
-
-        base_map = {r["label"]: r for r in base_data}
-        new_map = {r["label"]: r for r in new_data}
-
-        for label in sorted(new_map.keys()):
-            if label not in base_map:
-                print("{:<40} {:>12}".format(new_file.stem + "/" + label, "NO BASELINE"))
-                continue
-
-            base_time = base_map[label]["estimates"]["time"]["mean"]["value"]
-            new_time = new_map[label]["estimates"]["time"]["mean"]["value"]
-
-            delta = new_time - base_time
-            pct = (delta / base_time) * 100 if base_time != 0 else 0
-
-            if abs(delta) < 0.0001:
-                delta_str = "{:+.6f}".format(delta)
-            elif abs(delta) < 0.1:
-                delta_str = "{:+.6f}".format(delta)
-            else:
-                delta_str = "{:+.4f}".format(delta)
-
-            pct_str = "{:+.2f}%".format(pct)
-
-            marker = ""
-            if pct > 5.0:
-                marker = "  REGRESSION"
-                any_regression = True
-            elif pct < -5.0:
-                marker = "  IMPROVEMENT"
-
-            print("{:<40} {:>12.6f} {:>12.6f} {:>10} {:>8}{}".format(
-                new_file.stem + "/" + label,
-                base_time,
-                new_time,
-                delta_str,
-                pct_str,
-                marker
-            ))
-
-    if any_regression:
-        print("\nWARNING: Regressions detected.")
-        sys.exit(1)
+    python3 benchmarks/compare.py "{{baseline}}" "{{new}}" --sort delta
 
 # Profile a single benchmark under heaptrack (e.g. just benchmark-heaptrack bench_primitive)
 # Set gui=true to open heaptrack_gui instead of heaptrack_print.
@@ -464,6 +394,7 @@ benchmark-heaptrack BENCH gui="false":
         --mm:orc \
         --opt:speed \
         -d:release \
+        -d:heaptrack \
         --passC:-O3 \
         --passC:-fno-omit-frame-pointer \
         -g --debuginfo --linedir:on --stacktrace:on --linetrace:on \
@@ -472,32 +403,38 @@ benchmark-heaptrack BENCH gui="false":
 
     echo "==> Recording heap profile: $name"
     rm -f "$PROFILE_DIR/${name}.heaptrack"*.zst
-    if [ "$GUI" = "true" ]; then
-        heaptrack -o "$PROFILE_DIR/${name}.heaptrack" "$outdir/$name"
-    else
+
+    # Always use --record-only so heaptrack doesn't try to auto-launch the GUI
+    # or analyzer, which can fail and mask the trace file.
+    # LD_LIBRARY_PATH is required because heaptrack intercepts dlopen and the
+    # intercepted version does not search RUNPATH/RPATH.
+    set +e
+    LD_LIBRARY_PATH="/usr/lib/heaptrack${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
         heaptrack --record-only -o "$PROFILE_DIR/${name}.heaptrack" "$outdir/$name"
+    bench_exit=$?
+    set -e
+
+    if [ $bench_exit -ne 0 ]; then
+        echo ""
+        echo "WARNING: benchmark exited with code $bench_exit"
     fi
 
     # Find the generated trace file
     trace_file=$(ls -t "$PROFILE_DIR/${name}.heaptrack"*.zst 2>/dev/null | head -1)
 
-    if [ -n "$trace_file" ]; then
+    if [ -z "$trace_file" ]; then
         echo ""
-        echo "==> Analyzing heap profile: $trace_file"
-        if [ "$GUI" = "true" ]; then
-            if command -v heaptrack_gui >/dev/null 2>&1; then
-                heaptrack_gui "$trace_file"
-            else
-                echo "heaptrack_gui not found; falling back to heaptrack_print"
-                heaptrack_print \
-                    --shorten-templates \
-                    --print-peaks \
-                    --print-allocators \
-                    --print-leaks \
-                    --peak-limit 10 \
-                    -f "$trace_file"
-            fi
+        echo "ERROR: no heaptrack trace file found in $PROFILE_DIR"
+        exit 1
+    fi
+
+    echo ""
+    echo "==> Analyzing heap profile: $trace_file"
+    if [ "$GUI" = "true" ]; then
+        if command -v heaptrack_gui >/dev/null 2>&1; then
+            heaptrack_gui "$trace_file"
         else
+            echo "heaptrack_gui not found; falling back to heaptrack_print"
             heaptrack_print \
                 --shorten-templates \
                 --print-peaks \
@@ -506,6 +443,14 @@ benchmark-heaptrack BENCH gui="false":
                 --peak-limit 10 \
                 -f "$trace_file"
         fi
+    else
+        heaptrack_print \
+            --shorten-templates \
+            --print-peaks \
+            --print-allocators \
+            --print-leaks \
+            --peak-limit 10 \
+            -f "$trace_file"
     fi
 
     echo ""

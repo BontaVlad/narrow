@@ -131,11 +131,18 @@ proc castTable*(
 ): ArrowTable =
   ## Cast specific columns in a table to new types.
   ## Columns not mentioned in the map are passed through unchanged.
+  
+  if castMap.len == 0:
+    return table
+
   result = table
+  let schema = table.schema
+
   for (name, gtype) in castMap:
-    let fieldOpt = result.schema.tryGetField(name)
+    let fieldOpt = schema.tryGetField(name)
     if fieldOpt.isNone:
       raise newException(ValueError, "Column not found in table: " & name)
+
     let field = fieldOpt.get
     if field.dataType == gtype:
       continue
