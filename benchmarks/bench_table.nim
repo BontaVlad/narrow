@@ -24,6 +24,11 @@ proc makeTable(nRows: int): ArrowTable =
     actives.append(i mod 2 == 0)
   newArrowTable(testSchema, ids.finish(), names.finish(), values.finish(), actives.finish())
 
+# Pre-build tables at module scope so operation benchmarks measure
+# only the operation, not construction.
+let table100K = makeTable(100_000)
+let table1M = makeTable(1_000_000)
+
 benchmark cfg:
 
   proc benchBuildTable100K {.measure.} =
@@ -35,17 +40,14 @@ benchmark cfg:
     blackBox(result)
 
   proc benchTableConcatenate {.measure.} =
-    let t1 = makeTable(100_000)
     let t2 = makeTable(100_000)
-    var result = t1.concatenate([t2])
+    var result = table100K.concatenate([t2])
     blackBox(result)
 
   proc benchTableSlice {.measure.} =
-    let t = makeTable(1_000_000)
-    var result = t.slice(100_000, 500_000)
+    var result = table1M.slice(100_000, 500_000)
     blackBox(result)
 
   proc benchTableValidate {.measure.} =
-    let t = makeTable(100_000)
-    var result = t.validate()
+    var result = table100K.validate()
     blackBox(result)

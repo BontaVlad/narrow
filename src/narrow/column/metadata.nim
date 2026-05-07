@@ -35,8 +35,7 @@ proc newField*(name: string, dataType: GADType): Field =
 
 proc name*(field: Field): string =
   let cstr = garrow_field_get_name(field.handle)
-  if cstr != nil:
-    result = $cstr
+  result = $newGString(cstr)
 
 proc dataType*(field: Field): GADType =
   let handle = garrow_field_get_data_type(field.toPtr)

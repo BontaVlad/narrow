@@ -130,8 +130,10 @@ func toPtr*(g: GADType): ptr GArrowDataType {.inline.} =
 
 func `==`*(a, b: GADType): bool {.inline.} =
   garrow_data_type_equal(a.handle, b.handle).bool
+
 func newGString*(str: cstring): GString {.inline.} =
-  result.handle = str
+  if str != nil:
+    result.handle = g_strdup(str)
 
 proc `=destroy`*(str: GString) =
   if str.handle != nil:

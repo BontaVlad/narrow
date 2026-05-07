@@ -105,12 +105,14 @@ benchmark cfg:
     ("col_4", newGType(int64)),
   ]
 
+  let options = newCastOptions()
+
   proc benchArrayCastInt32ToInt64_1M {.measure.} =
-    var result = castTo[int64](arr1M)
+    var result = castTo[int64](arr1M, options)
     blackBox(result)
 
   proc benchArrayCastInt32ToInt64_10M {.measure.} =
-    var result = castTo[int64](arr10M)
+    var result = castTo[int64](arr10M, options)
     blackBox(result)
 
   proc benchChunkedArrayCastInt32ToInt64_1M_1chunk {.measure.} =

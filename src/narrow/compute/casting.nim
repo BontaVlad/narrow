@@ -135,21 +135,45 @@ proc castTable*(
   if castMap.len == 0:
     return table
 
-  result = table
   let schema = table.schema
+  let nCols = table.nColumns
 
+  var allIdentity = true
+  for (name, gtype) in castMap:
+    let fieldOpt = schema.tryGetField(name)
+    if fieldOpt.isNone:
+      raise newException(ValueError, "Column not found in table: " & name)
+    if fieldOpt.get.dataType != gtype:
+      allIdentity = false
+      break
+
+  if allIdentity:
+    return table
+
+  var fields = newSeq[Field](nCols)
+  var castedChunks = newSeq[ChunkedArray[void]](nCols)
+  var touched = newSeq[bool](nCols)
+
+  # Process castMap first — build new fields/chunks for changed columns
   for (name, gtype) in castMap:
     let fieldOpt = schema.tryGetField(name)
     if fieldOpt.isNone:
       raise newException(ValueError, "Column not found in table: " & name)
 
     let field = fieldOpt.get
-    if field.dataType == gtype:
-      continue
+    let idx = schema.getFieldIndex(name)
+    touched[idx] = true
+    if field.dataType != gtype:
+      fields[idx] = newField(name, gtype)
+      castedChunks[idx] = castChunks(table[idx], gtype, options)
     else:
-      let
-        castedField = newField(name, gtype)
-        idx = result.schema.getFieldIndex(name)
+      fields[idx] = field
+      castedChunks[idx] = table[idx]
 
-      let castedChunks = castChunks(result[idx], gtype, options)
-      result = result.replaceColumn(idx, castedField, castedChunks)
+  # Copy pass-through columns (not in castMap at all)
+  for i in 0 ..< nCols:
+    if not touched[i]:
+      fields[i] = schema.getField(i)
+      castedChunks[i] = table[i]
+
+  result = newArrowTable(newSchema(fields), castedChunks)

@@ -28,9 +28,22 @@ type
 arcGObject:
   type
     Scanner* = object
+      ## The execution engine for reading dataset fragments.
+      ##
+      ## A Scanner walks over the fragments in a Dataset, applies push-down
+      ## filtering (using file statistics and partition pruning), and produces
+      ## `RecordBatch`es or a materialized `ArrowTable`. For single-file reads,
+      ## `readTable` is simpler and faster; use Scanner when scanning across
+      ## multiple files or when you need streaming via `toRecordBatchReader`.
       handle: ptr GADatasetScanner
 
     ScannerBuilder* = object
+      ## A configurator / factory for creating a `Scanner`.
+      ##
+      ## Set scan options (such as a filter expression) on the builder, then
+      ## call `finish()` to produce an immutable `Scanner`. This separation
+      ## allows Arrow to apply optimizations (e.g., skipping Parquet row groups
+      ## or entire files) before execution begins.
       handle: ptr GADatasetScannerBuilder
 
 type
@@ -523,39 +536,64 @@ proc newDataset*(path: string, formatType: FileFormatTp = Parquet): Dataset =
   ds.handle = nil
 
 proc newScannerBuilder*(ds: Dataset): ScannerBuilder =
-  ## Creates a scanner builder from a dataset
+  ## Creates a `ScannerBuilder` from a `Dataset`.
+  ##
+  ## Use this when you want to scan across multiple files (e.g., a directory
+  ## of Parquet files) with optional push-down filtering. For single-file
+  ## reads, prefer `readTable` instead.
   result.handle = verify gadataset_scanner_builder_new(ds.toPtr)
 
 proc newScannerBuilder*(reader: RecordBatchReader): ScannerBuilder =
-  ## Creates a scanner builder from a record batch reader
+  ## Creates a `ScannerBuilder` from a `RecordBatchReader`.
+  ##
+  ## This is useful when you already have a reader and want to use the
+  ## Dataset write path (e.g., `writeDatasetFromScanner`).
   result.handle = gadataset_scanner_builder_new_record_batch_reader(reader.toPtr)
 
 proc `filter=`*(sb: var ScannerBuilder, filter: Expression) =
-  ## Sets a filter expression for push-down filtering.
+  ## Sets a push-down filter expression on the builder.
+  ##
+  ## Arrow uses this expression to skip irrelevant fragments, row groups,
+  ## or partitions where possible (e.g., via Parquet statistics or Hive
+  ## partition pruning). The filter is evaluated again on the scanned
+  ## rows, so partial push-down is safe.
   verify gadataset_scanner_builder_set_filter(sb.toPtr, filter.toPtr)
 
 proc setFilter*(sb: ScannerBuilder, filter: Expression): ScannerBuilder =
-  ## Sets a filter expression for push-down filtering.
-  ## Returns self for method chaining.
+  ## Sets a push-down filter expression and returns the builder for chaining.
+  ##
+  ## See `filter=` for details on push-down behavior.
   verify gadataset_scanner_builder_set_filter(sb.toPtr, filter.toPtr)
   result = sb
 
 proc finish*(sb: ScannerBuilder): Scanner =
-  ## Builds the scanner from the builder
+  ## Builds the immutable `Scanner` from the builder configuration.
+  ##
+  ## After `finish()`, the builder can be discarded. The returned Scanner
+  ## is ready to execute via `toTable`, `toRecordBatchReader`, or `scan`.
   result.handle = verify gadataset_scanner_builder_finish(sb.toPtr)
 
 proc toTable*(scanner: Scanner): ArrowTable =
-  ## Executes the scan and returns results as a table
+  ## Executes the scan and materializes all results into an `ArrowTable`.
+  ##
+  ## **Note:** This loads all matching data into memory. For large datasets,
+  ## prefer streaming via `toRecordBatchReader` or the `scan` iterator.
   let handle = verify gadataset_scanner_to_table(scanner.toPtr)
   result = newArrowTable(handle)
 
 proc toRecordBatchReader*(scanner: Scanner): RecordBatchReader =
-  ## Converts the scanner to a record batch reader for iteration
+  ## Converts the scanner to a `RecordBatchReader` for streaming consumption.
+  ##
+  ## This is the preferred way to process large datasets that do not fit
+  ## into memory. Each `RecordBatch` is produced lazily as you iterate.
   let handle = verify gadataset_scanner_to_record_batch_reader(scanner.toPtr)
   result.handle = handle
 
 iterator scan*(scanner: Scanner): RecordBatch =
-  ## Iterates over all record batches from the scanner
+  ## Lazily iterates over all record batches produced by the scanner.
+  ##
+  ## This is a memory-efficient alternative to `toTable` for large datasets.
+  ## Batches are yielded one at a time as the underlying reader produces them.
   ##
   ## Example:
   ##   .. code-block:: nim
@@ -615,6 +653,10 @@ proc writeDatasetFromScanner*(
 ) =
   ## Writes data from a scanner to a single file.
   ##
+  ## This is a convenience wrapper that streams all record batches from the
+  ## scanner into one output file. Use `writeDataset` with
+  ## `FileSystemDatasetWriteOptions` if you need partitioned output.
+  ##
   ## Example:
   ##   .. code-block:: nim
   ##     let scanner = dataset.newScannerBuilder().setFilter(filter).finish()
@@ -629,13 +671,13 @@ proc writeDatasetFromScanner*(
   writer.finish()
 
 proc writeDatasetFromScanner*(scanner: Scanner, path: string, format: FileFormat) =
-  ## Writes data from a scanner to a single file.
+  ## Writes data from a scanner to a single file using default write options.
   ##
   ## Example:
   ##   .. code-block:: nim
   ##     let scanner = dataset.newScannerBuilder().setFilter(filter).finish()
   ##     let format = newFileFormat(Parquet)
-  ##     writeDatasetFromScanner(scanner, "/data/filtered.parquet", format))
+  ##     writeDatasetFromScanner(scanner, "/data/filtered.parquet", format)
   writeDatasetFromScanner(scanner, path, format, format.getDefaultWriteOptions())
 
 proc `baseDir=`*(opts: var FileSystemDatasetWriteOptions, dir: string) =
@@ -685,7 +727,11 @@ proc `partitioning=`*(opts: var FileSystemDatasetWriteOptions, part: Partitionin
   g_object_set(opts.toPtr, "partitioning", part.handle, nil)
 
 proc writeDataset*(scanner: Scanner, options: FileSystemDatasetWriteOptions) =
-  ## Writes a scanner to a dataset using the given options.
+  ## Writes a scanner to a (potentially partitioned) dataset.
+  ##
+  ## Use this when you need control over partitioning, output directory
+  ## structure, or basename templates. For a simple single-file write,
+  ## `writeDatasetFromScanner` is more convenient.
   verify gadataset_file_system_dataset_write_scanner(scanner.toPtr, options.toPtr)
 
 proc writeDataset*(
