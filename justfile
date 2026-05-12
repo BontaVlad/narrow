@@ -1,332 +1,124 @@
-# =========================
-# Defaults
-# =========================
+# =============================================================================
+# Configuration
+# =============================================================================
 
+# Directories
+test_root    := "tests"
+bench_root   := "benchmarks"
+out_root     := "nimcache"
+profile_dir  := "profiles"
+coverage_dir := "coverage"
+
+# Test defaults
 parallel := "false"
-cores := "4"
-mm := "orc"        # orc | arc
-mode := "debug"    # debug | release
-leaks := "true"    # true | false
+cores    := "4"
+mm       := "orc"      # orc | arc
+mode     := "debug"    # debug | release
+leaks    := "true"     # true | false
 
+# Compiler
+cc := "clang"
 
-# =========================
-# Public entry
-# =========================
+# =============================================================================
+# Flag sets (shell arrays, paste into recipes)
+# =============================================================================
 
+_base_flags := "--verbosity:0 --hints:off --lineDir:on"
 
-# List all available commands by default
+_debug_flags := "-d:debug -d:nimDebugDlOpen --opt:none --stacktrace:on --debuginfo:on --debugger:native -d:useMalloc --passC:-O0 --passC:-g3"
+
+_sanitizer_flags := "--passC:-fsanitize=address --passL:-fsanitize=address"
+
+_release_flags := "-d:release --opt:speed"
+
+# Debug symbols + frame pointers for profiling builds
+_profile_flags := "--passC:-O2 --passC:-g --passC:-fno-omit-frame-pointer --passL:-g -g --debuginfo --stacktrace:on --linetrace:on"
+
+# =============================================================================
+# Public targets
+# =============================================================================
+
+# List all available commands
 default:
     @just --choose --justfile {{justfile()}}
 
+# Run tests with current settings
+test: (_run-tests parallel cores mm mode leaks)
 
-test:
-    just _test {{parallel}} {{cores}} {{mm}} {{mode}} {{leaks}}
+# Convenience presets
+test-debug: (_run-tests "false" "4" "orc" "debug" "true")
+test-debug-par: (_run-tests "true" "8" "orc" "debug" "true")
+test-release: (_run-tests "false" "4" "orc" "release" "false")
+test-arc: (_run-tests "false" "4" "arc" "debug" "true")
 
-
-# =========================
-# Implementation
-# =========================
-
-_test parallel cores mm mode leaks:
-    #!/usr/bin/env bash
-    set -euo pipefail
-
-    PARALLEL="{{parallel}}"
-    CORES="{{cores}}"
-    MM="{{mm}}"
-    MODE="{{mode}}"
-    LEAKS="{{leaks}}"
-
-    CC=clang
-    TEST_ROOT="tests"
-    OUT_ROOT="nimcache/tests"
-
-    mkdir -p "$OUT_ROOT"
-
-    mapfile -t TEST_FILES < <(find "$TEST_ROOT" -name 'test_*.nim' | sort)
-
-    if [ "$LEAKS" = "true" ]; then
-        ASAN_OPTIONS="detect_leaks=1"
-        LSAN_OPTIONS="suppressions=lsan.supp:print_suppressions=0"
-    else
-        ASAN_OPTIONS="detect_leaks=0"
-        LSAN_OPTIONS=""
-    fi
-
-    run_test() {
-        local file="$1"
-        local name outdir
-        name="$(basename "$file" .nim)"
-        outdir="$OUT_ROOT/$name"
-
-        mkdir -p "$outdir"
-
-        flags=(
-            --cc:$CC
-            --verbosity:0
-            --hints:off
-            --mm:$MM
-            --lineDir:on
-            --excessiveStackTrace:on
-        )
-
-        if [ "$MODE" = "debug" ]; then
-            flags+=(
-                -d:debug
-                -d:nimDebugDlOpen
-                --opt:none
-                --stacktrace:on
-                --debuginfo:on
-                --debugger:native
-                -d:useMalloc
-                --passc:-O0
-                --passc:-g3
-                --passc:-fsanitize=address
-                --passl:-fsanitize=address
-            )
-        else
-            flags+=(
-                -d:release
-                --opt:speed
-            )
-        fi
-
-        echo "==> $file"
-        nim c \
-            "${flags[@]}" \
-            -o:"$outdir/$name" \
-            "$file"
-
-        ASAN_OPTIONS="$ASAN_OPTIONS" \
-        LSAN_OPTIONS="$LSAN_OPTIONS" \
-        LLVM_PROFILE_FILE="$outdir/$name.profraw" \
-            "$outdir/$name"
-
-    }
-
-    export -f run_test
-    export OUT_ROOT MM MODE CC ASAN_OPTIONS LSAN_OPTIONS
-
-    if [ "$PARALLEL" = "true" ]; then
-        printf '%s\n' "${TEST_FILES[@]}" \
-            | xargs -P "$CORES" -I {} bash -c 'run_test "$1"' _ {}
-    else
-        for file in "${TEST_FILES[@]}"; do
-            run_test "$file"
-        done
-    fi
-
-
-# =========================
-# Convenience targets
-# =========================
-
-test-debug:
-    just _test false 4 orc debug true
-
-test-debug-par:
-    just _test true 8 orc debug true
-
-test-release:
-    just _test false 4 orc release false
-
-test-arc:
-    just _test false 4 arc debug true
-
-coverage-report:
-    #!/usr/bin/env bash
-    set -euo pipefail
-
-    OUT_ROOT="nimcache/tests"
-    COVERAGE_DIR="coverage"
-    LCOV_FILE="coverage.info"
-
-    echo "Cleaning previous coverage data..."
-    rm -rf "$COVERAGE_DIR"
-    find "$OUT_ROOT" -name "*.gcda" -delete 2>/dev/null || true
-    rm -f "$LCOV_FILE"
-
-    # Run tests with gcov-based coverage
-    echo "Running tests with coverage instrumentation..."
-    just _test-gcov
-
-    # Check if we have coverage data
-    GCDA_COUNT=$(find "$OUT_ROOT" -name "*.gcda" | wc -l)
-    if [ "$GCDA_COUNT" -eq 0 ]; then
-        echo "No coverage data (.gcda files) found."
-        exit 1
-    fi
-    echo "Found $GCDA_COUNT .gcda files"
-
-    mkdir -p "$COVERAGE_DIR"
-
-    # Capture coverage data from all cache directories
-    echo "Capturing coverage data..."
-    lcov --capture \
-        --directory "$OUT_ROOT" \
-        --output-file "$LCOV_FILE" \
-        --rc lcov_branch_coverage=1 \
-        --ignore-errors inconsistent,unused,gcov
-
-    # Extract only src/ directory (Nim files)
-    echo "Filtering to src/ directory only..."
-    lcov --extract "$LCOV_FILE" \
-        "*/src/*.nim" \
-        --output-file "$LCOV_FILE" \
-        --rc lcov_branch_coverage=1 \
-        --ignore-errors inconsistent
-
-    # Remove generated code files
-    echo "Removing generated code from coverage..."
-    lcov --remove "$LCOV_FILE" \
-        "*/generated.nim" \
-        --output-file "$LCOV_FILE" \
-        --rc lcov_branch_coverage=1 \
-        --ignore-errors inconsistent
-
-    # Generate HTML report
-    echo "Generating HTML report..."
-    genhtml "$LCOV_FILE" \
-        --output-directory "$COVERAGE_DIR" \
-        --branch-coverage \
-        --legend \
-        --ignore-errors inconsistent,missing,corrupt,range
-
-    # Generate summary
-    echo ""
-    echo "Coverage Summary:"
-    lcov --summary "$LCOV_FILE" --rc lcov_branch_coverage=1 --ignore-errors corrupt,inconsistent 2>&1 | grep -E "(lines|functions|branches)" || true
-
-    echo ""
-    echo "Coverage report generated in: $COVERAGE_DIR/index.html"
-    echo "Open with: xdg-open $COVERAGE_DIR/index.html  # Linux"
-    echo "          open $COVERAGE_DIR/index.html      # macOS"
-
-# Internal target for gcov-based coverage testing
-_test-gcov:
-    #!/usr/bin/env bash
-    set -euo pipefail
-
-    OUT_ROOT="nimcache/tests"
-    TEST_ROOT="tests"
-
-    mkdir -p "$OUT_ROOT"
-
-    mapfile -t TEST_FILES < <(find "$TEST_ROOT" -name 'test_*.nim' | sort)
-
-    for file in "${TEST_FILES[@]}"; do
-        name="$(basename "$file" .nim)"
-        outdir="$OUT_ROOT/$name"
-        cache_dir="$outdir/cache"
-
-        mkdir -p "$outdir"
-
-        echo "==> Compiling: $file"
-        nim c \
-            --cc:gcc \
-            --verbosity:0 \
-            --hints:off \
-            --mm:orc \
-            --lineDir:on \
-            --debugger:native \
-            -d:debug \
-            --opt:none \
-            --passC:--coverage \
-            --passL:--coverage \
-            --nimcache:"$cache_dir" \
-            -o:"$outdir/$name" \
-            "$file"
-
-        echo "==> Running: $name"
-        "$outdir/$name" || true
-    done
-
+# Build and debug a single file with lldb
 dbg file:
-    out="{{file}}"; \
-    out=$${out##*/}; \
-    out=$${out%.nim}; \
-    nim c --cc:clang \
-          -g --debuginfo --linedir:on \
-          --opt:none \
-          --stacktrace:on --linetrace:on \
-          --checks:on --assertions:on \
-          -d:debug \
-          --passC:"-O0 -g3 -fno-omit-frame-pointer" \
-          --passL:"-g" \
-          "{{file}}" && \
-    lldb "./$$out"
+    #!/usr/bin/env bash
+    set -euo pipefail
 
+    name="$(basename "{{file}}" .nim)"
+    outdir="{{out_root}}/dbg"
+    mkdir -p "$outdir"
+
+    nim c \
+        {{_base_flags}} \
+        --cc:{{cc}} \
+        --mm:{{mm}} \
+        {{_debug_flags}} \
+        --excessiveStackTrace:on \
+        -o:"$outdir/$name" \
+        "{{file}}"
+
+    lldb "$outdir/$name"
+
+# Run benchmarks. Examples:
+#   just benchmark
+#   just benchmark benchmarks/bench_foo.nim
+#   just benchmark benchmarks/bench_foo.nim -o results/
 benchmark *args="":
     #!/usr/bin/env bash
     set -euo pipefail
 
-    BENCH_ROOT="benchmarks"
-    OUT_ROOT="nimcache/benchmarks"
+    BENCH_ROOT="{{bench_root}}"
+    OUT_ROOT="{{out_root}}/benchmarks"
 
-    # just expands {{args}} but does not pass variadic params to shebang recipes
-    # as positional parameters, so we reconstruct them manually.
     set -- {{args}}
 
-    # Parse arguments: extract -o/--output and the positional target
+    # Parse arguments
     TARGET=""
     OUTPUT_ARG=""
     while [[ $# -gt 0 ]]; do
-      case $1 in
-        -o|--output)
-          OUTPUT_ARG="$2"
-          shift 2
-          ;;
-        *)
-          TARGET="$1"
-          shift
-          ;;
-      esac
+        case $1 in
+            -o|--output) OUTPUT_ARG="$2"; shift 2 ;;
+            *)           TARGET="$1"; shift ;;
+        esac
     done
 
-    # Determine benchmark files and save location
-    SAVE_DIR=""
+    # Resolve files and output location
+    DEFAULT_DIR="benchmarks/results/$(date +%Y%m%d_%H%M%S)"
     SINGLE_OUTPUT=""
 
     if [[ -z "$TARGET" ]]; then
-        # No target -> run all benchmarks
         mapfile -t BENCH_FILES < <(find "$BENCH_ROOT" -name 'bench_*.nim' | sort)
-        if [[ -n "$OUTPUT_ARG" ]]; then
-            SAVE_DIR="$OUTPUT_ARG"
-        else
-            SAVE_DIR="benchmarks/results/$(date +%Y%m%d_%H%M%S)"
-        fi
+        SAVE_DIR="${OUTPUT_ARG:-$DEFAULT_DIR}"
     elif [[ "$TARGET" == *.nim && -f "$TARGET" ]]; then
-        # Single benchmark file
         BENCH_FILES=("$TARGET")
-        BENCH_ROOT="$(dirname "$TARGET")"
-        if [[ -n "$OUTPUT_ARG" ]]; then
-            if [[ "$OUTPUT_ARG" == *.json ]]; then
-                SAVE_DIR="$(dirname "$OUTPUT_ARG")"
-                SINGLE_OUTPUT="$(basename "$OUTPUT_ARG")"
-            else
-                SAVE_DIR="$OUTPUT_ARG"
-            fi
+        if [[ -n "$OUTPUT_ARG" && "$OUTPUT_ARG" == *.json ]]; then
+            SAVE_DIR="$(dirname "$OUTPUT_ARG")"
+            SINGLE_OUTPUT="$(basename "$OUTPUT_ARG")"
         else
-            SAVE_DIR="benchmarks/results/$(date +%Y%m%d_%H%M%S)"
+            SAVE_DIR="${OUTPUT_ARG:-$DEFAULT_DIR}"
         fi
-    elif [[ -d "$TARGET" && -n $(find "$TARGET" -maxdepth 1 -name 'bench_*.nim' -print -quit 2>/dev/null) ]]; then
-        # Directory containing benchmark files
-        BENCH_ROOT="$TARGET"
-        mapfile -t BENCH_FILES < <(find "$BENCH_ROOT" -maxdepth 1 -name 'bench_*.nim' | sort)
-        if [[ -n "$OUTPUT_ARG" ]]; then
-            SAVE_DIR="$OUTPUT_ARG"
-        else
-            SAVE_DIR="benchmarks/results/$(date +%Y%m%d_%H%M%S)"
-        fi
+    elif [[ -d "$TARGET" ]] && find "$TARGET" -maxdepth 1 -name 'bench_*.nim' -print -quit 2>/dev/null | grep -q .; then
+        mapfile -t BENCH_FILES < <(find "$TARGET" -maxdepth 1 -name 'bench_*.nim' | sort)
+        SAVE_DIR="${OUTPUT_ARG:-$DEFAULT_DIR}"
     else
-        # Backward compat: bare arg is an output directory
         mapfile -t BENCH_FILES < <(find "$BENCH_ROOT" -name 'bench_*.nim' | sort)
         SAVE_DIR="$TARGET"
     fi
 
     rm -rf "$OUT_ROOT"
-    mkdir -p "$OUT_ROOT"
-    mkdir -p "$SAVE_DIR"
+    mkdir -p "$OUT_ROOT" "$SAVE_DIR"
 
     for file in "${BENCH_FILES[@]}"; do
         name="$(basename "$file" .nim)"
@@ -335,13 +127,12 @@ benchmark *args="":
 
         echo "==> Benchmark: $file"
         nim c \
+            {{_base_flags}} \
             --cc:clang \
-            --verbosity:0 \
-            --hints:off \
             --mm:orc \
-            --opt:speed \
-            -d:release \
-            --passC:-O3 \
+            {{_release_flags}} \
+            -d:useMalloc \
+            {{_profile_flags}} \
             -o:"$outdir/$name" \
             "$file"
 
@@ -353,96 +144,64 @@ benchmark *args="":
         echo ""
     done
 
-    echo ""
     echo "Results saved to: $SAVE_DIR"
 
+# Compare two benchmark result sets
 benchmark-compare baseline new:
-    python3 benchmarks/compare.py "{{baseline}}" "{{new}}" --sort delta
+    python3 {{bench_root}}/compare.py "{{baseline}}" "{{new}}" --sort delta
 
-# Profile a single benchmark under heaptrack (e.g. just benchmark-heaptrack bench_primitive)
-# Set gui=true to open heaptrack_gui instead of heaptrack_print.
-benchmark-heaptrack BENCH gui="false":
+# Profile a benchmark with heaptrack
+benchmark-heaptrack bench gui="false":
     #!/usr/bin/env bash
     set -euo pipefail
 
-    # Normalize input: accept bare name, path, or path with .nim suffix
-    raw="{{BENCH}}"
-    raw="${raw%.nim}"          # strip .nim if present
-    raw="${raw#benchmarks/}"   # strip benchmarks/ prefix if present
-    GUI="{{gui}}"
-    GUI="${GUI#gui=}"          # accept both "true" and "gui=true"
+    raw="{{bench}}"
+    raw="${raw%.nim}"
+    raw="${raw#{{bench_root}}/}"
+    name="$raw"
 
-    BENCH_FILE="benchmarks/${raw}.nim"
-    OUT_ROOT="nimcache/benchmarks"
-    PROFILE_DIR="profiles"
-    mkdir -p "$PROFILE_DIR"
+    BENCH_FILE="{{bench_root}}/${name}.nim"
+    OUT_ROOT="{{out_root}}/benchmarks"
+    PROF_DIR="{{profile_dir}}"
 
-    if [ ! -f "$BENCH_FILE" ]; then
-        echo "Benchmark file not found: $BENCH_FILE"
-        exit 1
+    if [[ ! -f "$BENCH_FILE" ]]; then
+        echo "ERROR: Benchmark file not found: $BENCH_FILE"; exit 1
     fi
 
-    name="$raw"
     outdir="$OUT_ROOT/$name"
-    mkdir -p "$outdir"
+    mkdir -p "$outdir" "$PROF_DIR"
 
-    echo "==> Compiling (with debug info for heaptrack): $BENCH_FILE"
+    echo "==> Compiling: $BENCH_FILE"
     nim c \
+        {{_base_flags}} \
         --cc:clang \
-        --verbosity:0 \
-        --hints:off \
         --mm:orc \
-        --opt:speed \
-        -d:release \
+        {{_release_flags}} \
+        -d:useMalloc \
         -d:heaptrack \
-        --passC:-O3 \
-        --passC:-fno-omit-frame-pointer \
-        -g --debuginfo --linedir:on --stacktrace:on --linetrace:on \
+        {{_profile_flags}} \
         -o:"$outdir/$name" \
         "$BENCH_FILE"
 
     echo "==> Recording heap profile: $name"
-    rm -f "$PROFILE_DIR/${name}.heaptrack"*.zst
+    rm -f "$PROF_DIR/${name}.heaptrack"*.zst
 
-    # Always use --record-only so heaptrack doesn't try to auto-launch the GUI
-    # or analyzer, which can fail and mask the trace file.
-    # LD_LIBRARY_PATH is required because heaptrack intercepts dlopen and the
-    # intercepted version does not search RUNPATH/RPATH.
     set +e
     LD_LIBRARY_PATH="/usr/lib/heaptrack${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
-        heaptrack --record-only -o "$PROFILE_DIR/${name}.heaptrack" "$outdir/$name"
+        heaptrack --record-only -o "$PROF_DIR/${name}.heaptrack" "$outdir/$name"
     bench_exit=$?
     set -e
 
-    if [ $bench_exit -ne 0 ]; then
-        echo ""
-        echo "WARNING: benchmark exited with code $bench_exit"
+    [[ $bench_exit -ne 0 ]] && echo "WARNING: benchmark exited with code $bench_exit"
+
+    trace_file=$(ls -t "$PROF_DIR/${name}.heaptrack"*.zst 2>/dev/null | head -1)
+    if [[ -z "$trace_file" ]]; then
+        echo "ERROR: No heaptrack trace file found in $PROF_DIR"; exit 1
     fi
 
-    # Find the generated trace file
-    trace_file=$(ls -t "$PROFILE_DIR/${name}.heaptrack"*.zst 2>/dev/null | head -1)
-
-    if [ -z "$trace_file" ]; then
-        echo ""
-        echo "ERROR: no heaptrack trace file found in $PROFILE_DIR"
-        exit 1
-    fi
-
-    echo ""
-    echo "==> Analyzing heap profile: $trace_file"
-    if [ "$GUI" = "true" ]; then
-        if command -v heaptrack_gui >/dev/null 2>&1; then
-            heaptrack_gui "$trace_file"
-        else
-            echo "heaptrack_gui not found; falling back to heaptrack_print"
-            heaptrack_print \
-                --shorten-templates \
-                --print-peaks \
-                --print-allocators \
-                --print-leaks \
-                --peak-limit 10 \
-                -f "$trace_file"
-        fi
+    echo "==> Analyzing: $trace_file"
+    if [[ "{{gui}}" == "true" ]] && command -v heaptrack_gui >/dev/null 2>&1; then
+        heaptrack_gui "$trace_file"
     else
         heaptrack_print \
             --shorten-templates \
@@ -457,18 +216,212 @@ benchmark-heaptrack BENCH gui="false":
     echo "Profile trace: $trace_file"
     echo "Full analysis: heaptrack_print -f $trace_file"
 
-# Profile all benchmarks under heaptrack (no GUI)
+# Profile all benchmarks with heaptrack
 benchmark-heaptrack-all gui="false":
     #!/usr/bin/env bash
     set -euo pipefail
-
-    BENCH_ROOT="benchmarks"
-    mapfile -t BENCH_FILES < <(find "$BENCH_ROOT" -name 'bench_*.nim' | sort)
-
-    for file in "${BENCH_FILES[@]}"; do
+    for file in $(find "{{bench_root}}" -name 'bench_*.nim' | sort); do
         name="$(basename "$file" .nim)"
         just benchmark-heaptrack "$name" "{{gui}}"
     done
 
+# Profile a benchmark with perf
+perf bench:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    raw="{{bench}}"
+    raw="${raw%.nim}"
+    raw="${raw#{{bench_root}}/}"
+    name="$raw"
+
+    BENCH_FILE="{{bench_root}}/${name}.nim"
+    OUT_ROOT="{{out_root}}/benchmarks"
+    PROF_DIR="{{profile_dir}}"
+
+    if [[ ! -f "$BENCH_FILE" ]]; then
+        echo "ERROR: Benchmark file not found: $BENCH_FILE"; exit 1
+    fi
+
+    outdir="$OUT_ROOT/$name"
+    mkdir -p "$outdir" "$PROF_DIR"
+
+    echo "==> Compiling: $BENCH_FILE"
+    nim c \
+        {{_base_flags}} \
+        --cc:clang \
+        --mm:orc \
+        {{_release_flags}} \
+        -d:useMalloc \
+        {{_profile_flags}} \
+        -o:"$outdir/$name" \
+        "$BENCH_FILE"
+
+    echo "==> Recording perf profile: $name"
+    rm -f "$PROF_DIR/${name}.perf.data"
+
+    DEBUGINFO_URLS="https://debuginfo.archlinux.org" \
+        perf record --call-graph dwarf \
+            -o "$PROF_DIR/${name}.perf.data" \
+            "$outdir/$name"
+
+    echo ""
+    echo "Profile data: $PROF_DIR/${name}.perf.data"
+    echo "==> Opening perf report"
+    perf report -i "$PROF_DIR/${name}.perf.data"
+
+# Generate lcov coverage report
+coverage-report: _run-tests-gcov
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    OUT_ROOT="{{out_root}}/tests"
+    COV_DIR="{{coverage_dir}}"
+    LCOV_FILE="coverage.info"
+
+    GCDA_COUNT=$(find "$OUT_ROOT" -name "*.gcda" | wc -l)
+    if [[ "$GCDA_COUNT" -eq 0 ]]; then
+        echo "No coverage data (.gcda files) found."; exit 1
+    fi
+    echo "Found $GCDA_COUNT .gcda files"
+
+    rm -rf "$COV_DIR"
+    mkdir -p "$COV_DIR"
+
+    lcov --capture \
+        --directory "$OUT_ROOT" \
+        --output-file "$LCOV_FILE" \
+        --rc lcov_branch_coverage=1 \
+        --ignore-errors inconsistent,unused,gcov
+
+    lcov --extract "$LCOV_FILE" "*/src/*.nim" \
+        --output-file "$LCOV_FILE" \
+        --rc lcov_branch_coverage=1 \
+        --ignore-errors inconsistent
+
+    lcov --remove "$LCOV_FILE" "*/generated.nim" \
+        --output-file "$LCOV_FILE" \
+        --rc lcov_branch_coverage=1 \
+        --ignore-errors inconsistent
+
+    genhtml "$LCOV_FILE" \
+        --output-directory "$COV_DIR" \
+        --branch-coverage --legend \
+        --ignore-errors inconsistent,missing,corrupt,range
+
+    echo ""
+    echo "Coverage Summary:"
+    lcov --summary "$LCOV_FILE" --rc lcov_branch_coverage=1 \
+        --ignore-errors corrupt,inconsistent 2>&1 \
+        | grep -E "(lines|functions|branches)" || true
+    echo ""
+    echo "Report: $COV_DIR/index.html"
+
+# Remove all build artifacts
 clean:
-    rm -rf nimcache
+    rm -rf {{out_root}} {{coverage_dir}} coverage.info {{profile_dir}}
+
+# =============================================================================
+# Internal targets
+# =============================================================================
+
+_run-tests parallel cores mm mode leaks:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    TEST_ROOT="{{test_root}}"
+    OUT_ROOT="{{out_root}}/tests"
+    PARALLEL="{{parallel}}"
+    CORES="{{cores}}"
+    MM="{{mm}}"
+    MODE="{{mode}}"
+    CC="{{cc}}"
+
+    BASE_FLAGS="{{_base_flags}}"
+    DEBUG_FLAGS="{{_debug_flags}}"
+    SANITIZER_FLAGS="{{_sanitizer_flags}}"
+    RELEASE_FLAGS="{{_release_flags}}"
+
+    mkdir -p "$OUT_ROOT"
+    mapfile -t TEST_FILES < <(find "$TEST_ROOT" -name 'test_*.nim' | sort)
+
+    if [[ "{{leaks}}" == "true" ]]; then
+        ASAN_OPTIONS="detect_leaks=1"
+        LSAN_OPTIONS="suppressions=lsan.supp:print_suppressions=0"
+    else
+        ASAN_OPTIONS="detect_leaks=0"
+        LSAN_OPTIONS=""
+    fi
+
+    run_test() {
+        local file="$1"
+        local name outdir
+        name="$(basename "$file" .nim)"
+        outdir="$OUT_ROOT/$name"
+        mkdir -p "$outdir"
+
+        local flags="$BASE_FLAGS --cc:$CC --mm:$MM --excessiveStackTrace:on"
+
+        if [[ "$MODE" == "debug" ]]; then
+            flags="$flags $DEBUG_FLAGS $SANITIZER_FLAGS"
+        else
+            flags="$flags $RELEASE_FLAGS"
+        fi
+
+        echo "==> $file"
+        eval nim c $flags -o:"$outdir/$name" "$file"
+
+        ASAN_OPTIONS="$ASAN_OPTIONS" \
+        LSAN_OPTIONS="$LSAN_OPTIONS" \
+        LLVM_PROFILE_FILE="$outdir/$name.profraw" \
+            "$outdir/$name"
+    }
+
+    export -f run_test
+    export OUT_ROOT MM MODE CC ASAN_OPTIONS LSAN_OPTIONS
+    export BASE_FLAGS DEBUG_FLAGS SANITIZER_FLAGS RELEASE_FLAGS
+
+    if [[ "$PARALLEL" == "true" ]]; then
+        printf '%s\n' "${TEST_FILES[@]}" \
+            | xargs -P "$CORES" -I {} bash -c 'run_test "$1"' _ {}
+    else
+        for file in "${TEST_FILES[@]}"; do
+            run_test "$file"
+        done
+    fi
+
+_run-tests-gcov:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    TEST_ROOT="{{test_root}}"
+    OUT_ROOT="{{out_root}}/tests"
+
+    # Clean old gcov data before running
+    find "$OUT_ROOT" -name "*.gcda" -delete 2>/dev/null || true
+    rm -f coverage.info
+
+    mkdir -p "$OUT_ROOT"
+    mapfile -t TEST_FILES < <(find "$TEST_ROOT" -name 'test_*.nim' | sort)
+
+    for file in "${TEST_FILES[@]}"; do
+        name="$(basename "$file" .nim)"
+        outdir="$OUT_ROOT/$name"
+        cache_dir="$outdir/cache"
+        mkdir -p "$outdir"
+
+        echo "==> Compiling: $file"
+        nim c \
+            --cc:gcc \
+            {{_base_flags}} \
+            --mm:orc \
+            --debugger:native \
+            -d:debug --opt:none \
+            --passC:--coverage --passL:--coverage \
+            --nimcache:"$cache_dir" \
+            -o:"$outdir/$name" \
+            "$file"
+
+        echo "==> Running: $name"
+        "$outdir/$name" || true
+    done

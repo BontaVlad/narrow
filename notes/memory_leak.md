@@ -71,7 +71,7 @@ Indirect leak of 128 byte(s) in 2 object(s) allocated from:
 SUMMARY: AddressSanitizer: 1032 byte(s) leaked in 6 allocation(s).
 
 ## Environment
-- Arrow version: [your version - likely 22.0.0 based on .so.2200]
+- Arrow version: 24.0.0 (this leak was observed in Arrow 22.0.0; verify if still present in newer versions)
 - OS: arch
 - Compiler: [gcc version]
 ```

@@ -25,9 +25,9 @@ Narrow wraps the Apache Arrow GLib C API to provide Nim with:
 ## Requirements
 
 - Nim 2.2.6 or later
-- Apache Arrow GLib (`arrow-glib`)
-- Apache Parquet GLib (`parquet-glib`)
-- Apache Arrow Dataset GLib (`arrow-dataset-glib`)
+- Apache Arrow GLib (`arrow-glib`) >= 24.0.0
+- Apache Parquet GLib (`parquet-glib`) >= 24.0.0
+- Apache Arrow Dataset GLib (`arrow-dataset-glib`) >= 24.0.0
 - GLib 2.0 (`glib-2.0`)
 - GObject 2.0 (`gobject-2.0`)
 - pkg-config

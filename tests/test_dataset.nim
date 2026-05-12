@@ -242,7 +242,8 @@ suite "Dataset":
   test "Dataset partitioning getter returns empty when unset":
     # The partitioning property on FileSystemDataset is construct-only;
     # it can only be set during dataset creation, not after.
-    # Arrow GLib 22.0.0 does not expose factory-level partitioning
+    # Arrow GLib 22.0.0 does not expose factory-level partitioning.
+    # This behavior is verified against Arrow GLib 24.0.0.
     # discovery, so newDataset() creates datasets without partitioning.
     let schema = newSchema([
       newField[int32]("id"),
@@ -317,7 +318,7 @@ suite "Partitioning":
 
   # test "Hive partitioning type name":
   #   let schema = newSchema([newField[uint16]("year")])
-  #   # Known issue: newHivePartitioning segfaults in Arrow GLib 22.0.0
+  #   # Known issue: newHivePartitioning segfaults in Arrow GLib 22.0.0 and earlier.
   #   # on this system (SIGSEGV inside gadataset_hive_partitioning_new).
   #   # This is an upstream bug, not a narrow wrapper issue.
   #   var opts = newHivePartitioningOptions()

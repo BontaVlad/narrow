@@ -441,17 +441,17 @@ proc newDatum*[T: ArrowPrimitive](value: T): Datum =
   if not scalar.isNil:
     g_object_unref(scalar)
 
-proc newDatum*[T](arr: Array[T]): Datum =
-  result.handle = cast[ptr GArrowDatum](garrow_array_datum_new(arr.toPtr))
+proc newDatum*[T](arr: sink Array[T]): Datum =
+  result.handle = cast[ptr GArrowDatum](garrow_array_datum_new(move(arr).toPtr))
 
-proc newDatum*[T](ca: ChunkedArray[T]): Datum =
-  result.handle = cast[ptr GArrowDatum](garrow_chunked_array_datum_new(ca.toPtr))
+proc newDatum*[T](ca: sink ChunkedArray[T]): Datum =
+  result.handle = cast[ptr GArrowDatum](garrow_chunked_array_datum_new(move(ca).toPtr))
 
-proc newDatum*(tb: ArrowTable): Datum =
-  result.handle = cast[ptr GArrowDatum](garrow_table_datum_new(tb.toPtr))
+proc newDatum*(tb: sink ArrowTable): Datum =
+  result.handle = cast[ptr GArrowDatum](garrow_table_datum_new(move(tb).toPtr))
 
-proc newDatum*(rb: RecordBatch): Datum =
-  result.handle = cast[ptr GArrowDatum](garrow_record_batch_datum_new(rb.toPtr))
+proc newDatum*(rb: sink RecordBatch): Datum =
+  result.handle = cast[ptr GArrowDatum](garrow_record_batch_datum_new(move(rb).toPtr))
 
 proc newDatum*(handle: ptr GArrowDatum): Datum =
   result.handle = handle

@@ -526,7 +526,7 @@ In Narrow, `benchmarks/config.nim` wires this through the `NARROW_BENCH_OUTPUT` 
 - Saved benchmark JSON files are **not** committed.
 
 ## Dependencies
-- Apache Arrow C++ GLib (arrow-glib 22.0.0+), Parquet GLib (parquet-glib), Arrow Dataset GLib (arrow-dataset-glib)
+- Apache Arrow C++ GLib (arrow-glib 24.0.0), Parquet GLib (parquet-glib), Arrow Dataset GLib (arrow-dataset-glib)
 - GObject/GLib 2.0
 - `futhark` (binding generation), `unittest2 >= 0.2.3` (testing), `criterion >= 0.3.1` (benchmarking)
 - Nim 2.2.6+, ORC memory management, C++ backend, clang+gcc on Linux

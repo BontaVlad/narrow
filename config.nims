@@ -18,6 +18,18 @@ when not defined(nimsuggest):
   if cflags.len > 0:
     switch("passC", cflags)
 
+  # --- Arrow version check ---
+  import std/[strutils, parseutils]
+  let arrowVer = gorge("pkg-config --modversion arrow-glib")
+  if arrowVer.len > 0:
+    let majorDot = arrowVer.find('.')
+    if majorDot > 0:
+      let majorStr = arrowVer[0 ..< majorDot]
+      var major: int
+      if parseInt(majorStr, major) == majorStr.len and major < 24:
+        echo "ERROR: Arrow GLib >= 24.0.0 is required. Found: " & arrowVer
+        quit(1)
+
 # --- Sanitizers ---
 when defined(useSanitizers):
   switch("passL", "-fsanitize=address")
