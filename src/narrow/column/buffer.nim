@@ -1,9 +1,8 @@
 import ../core/[ffi, utils]
 
 arcGObject:
-  type
-    GBuffer* = object
-      handle*: ptr GArrowBuffer
+  type GBuffer* = object
+    handle*: ptr GArrowBuffer
 
 proc newBuffer*(data: pointer, size: int64): GBuffer =
   ## Creates a buffer that **copies** the input data.

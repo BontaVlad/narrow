@@ -60,7 +60,7 @@ proc `=copy`*[T](dest: var Array[T], src: Array[T]) =
     if not isNil(dest.handle):
       discard g_object_ref(dest.handle)
 
-proc toUntyped*[T: ArrowValue](arr: Array[T]): Array=
+proc toUntyped*[T: ArrowValue](arr: Array[T]): Array =
   ## Convert a typed Array to untyped.
   result.handle = arr.handle
 
@@ -453,7 +453,7 @@ proc viewAs*[T: ArrowValue](arr: Array): Array[T] =
   ## The underlying buffers are shared; only the type descriptor changes.
   let targetType = newGType(T)
   let handle = verify garrow_array_view(arr.handle, targetType.toPtr)
-  result = toTyped[T](Array(handle: handle)) 
+  result = toTyped[T](Array(handle: handle))
 
 proc nullBitmap*(arr: Array): GBuffer =
   ## Returns the validity bitmap buffer of the array.
@@ -463,9 +463,8 @@ proc nullBitmap*(arr: Array): GBuffer =
 proc valuesBuffer*(arr: Array): GBuffer =
   ## Returns the raw values data buffer of the array.
   ## Only valid for primitive arrays.
-  let handle = garrow_primitive_array_get_data_buffer(
-    cast[ptr GArrowPrimitiveArray](arr.handle)
-  )
+  let handle =
+    garrow_primitive_array_get_data_buffer(cast[ptr GArrowPrimitiveArray](arr.handle))
   result = GBuffer(handle: handle)
 
 proc `==`*[T, U](a: Array[T], b: Array[U]): bool =
@@ -581,15 +580,13 @@ proc toSeq*[T](arr: Array[T]): seq[T] =
       result[i] = bools[i] != 0
   elif T is int32:
     var length: gint64
-    let data = garrow_int32_array_get_values(
-      cast[ptr GArrowInt32Array](arr.handle), addr length
-    )
+    let data =
+      garrow_int32_array_get_values(cast[ptr GArrowInt32Array](arr.handle), addr length)
     copyMem(addr result[0], data, arr.len * sizeof(int32))
   elif T is int64 or T is int:
     var length: gint64
-    let data = garrow_int64_array_get_values(
-      cast[ptr GArrowInt64Array](arr.handle), addr length
-    )
+    let data =
+      garrow_int64_array_get_values(cast[ptr GArrowInt64Array](arr.handle), addr length)
     copyMem(addr result[0], data, arr.len * sizeof(int64))
   elif T is uint32:
     var length: gint64
@@ -605,9 +602,8 @@ proc toSeq*[T](arr: Array[T]): seq[T] =
     copyMem(addr result[0], data, arr.len * sizeof(uint64))
   elif T is int16:
     var length: gint64
-    let data = garrow_int16_array_get_values(
-      cast[ptr GArrowInt16Array](arr.handle), addr length
-    )
+    let data =
+      garrow_int16_array_get_values(cast[ptr GArrowInt16Array](arr.handle), addr length)
     copyMem(addr result[0], data, arr.len * sizeof(int16))
   elif T is uint16:
     var length: gint64
@@ -617,21 +613,18 @@ proc toSeq*[T](arr: Array[T]): seq[T] =
     copyMem(addr result[0], data, arr.len * sizeof(uint16))
   elif T is int8:
     var length: gint64
-    let data = garrow_int8_array_get_values(
-      cast[ptr GArrowInt8Array](arr.handle), addr length
-    )
+    let data =
+      garrow_int8_array_get_values(cast[ptr GArrowInt8Array](arr.handle), addr length)
     copyMem(addr result[0], data, arr.len * sizeof(int8))
   elif T is uint8:
     var length: gint64
-    let data = garrow_uint8_array_get_values(
-      cast[ptr GArrowUInt8Array](arr.handle), addr length
-    )
+    let data =
+      garrow_uint8_array_get_values(cast[ptr GArrowUInt8Array](arr.handle), addr length)
     copyMem(addr result[0], data, arr.len * sizeof(uint8))
   elif T is float32:
     var length: gint64
-    let data = garrow_float_array_get_values(
-      cast[ptr GArrowFloatArray](arr.handle), addr length
-    )
+    let data =
+      garrow_float_array_get_values(cast[ptr GArrowFloatArray](arr.handle), addr length)
     copyMem(addr result[0], data, arr.len * sizeof(float32))
   elif T is float64:
     var length: gint64

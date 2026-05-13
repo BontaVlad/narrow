@@ -7,9 +7,8 @@ import ./[primitive, metadata]
 # ListArray
 # ============================================================================
 
-type
-  ListArray*[T] = object
-    handle: ptr GArrowListArray
+type ListArray*[T] = object
+  handle: ptr GArrowListArray
 
 proc toPtr*[T](arr: ListArray[T]): ptr GArrowListArray {.inline.} =
   arr.handle
@@ -129,9 +128,8 @@ proc `==`*[T](a, b: ListArray[T]): bool =
 # ListArrayBuilder
 # ============================================================================
 
-type
-  ListArrayBuilder*[T: ArrowValue] = object
-    handle: ptr GArrowListArrayBuilder
+type ListArrayBuilder*[T: ArrowValue] = object
+  handle: ptr GArrowListArrayBuilder
 
 proc `=destroy`*[T](builder: ListArrayBuilder[T]) =
   if not isNil(builder.handle):
@@ -169,9 +167,8 @@ proc appendNull*(builder: ListArrayBuilder) =
   verify garrow_list_array_builder_append_null(builder.handle)
 
 proc finish*[T](builder: ListArrayBuilder[T]): ListArray[T] =
-  let handle = verify garrow_array_builder_finish(
-    cast[ptr GArrowArrayBuilder](builder.handle)
-  )
+  let handle =
+    verify garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](builder.handle))
   result = newListArray[T](cast[ptr GArrowListArray](handle))
 
 # ============================================================================
@@ -343,9 +340,8 @@ proc `$`*[K, V](arr: MapArray[K, V]): string =
 # MapArrayBuilder
 # ============================================================================
 
-type
-  MapArrayBuilder*[K: ArrowValue, V: ArrowValue] = object
-    handle: ptr GArrowMapArrayBuilder
+type MapArrayBuilder*[K: ArrowValue, V: ArrowValue] = object
+  handle: ptr GArrowMapArrayBuilder
 
 proc `=destroy`*[K, V](builder: MapArrayBuilder[K, V]) =
   if not isNil(builder.handle):
@@ -388,9 +384,8 @@ proc appendNull*(builder: MapArrayBuilder) =
   verify garrow_map_array_builder_append_null(builder.handle)
 
 proc finish*[K, V](builder: MapArrayBuilder[K, V]): MapArray[K, V] =
-  let handle = verify garrow_array_builder_finish(
-    cast[ptr GArrowArrayBuilder](builder.handle)
-  )
+  let handle =
+    verify garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](builder.handle))
   result = newMapArray[K, V](cast[ptr GArrowMapArray](handle))
 
 # ============================================================================

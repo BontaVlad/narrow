@@ -131,7 +131,7 @@ proc castTable*(
 ): ArrowTable =
   ## Cast specific columns in a table to new types.
   ## Columns not mentioned in the map are passed through unchanged.
-  
+
   if castMap.len == 0:
     return table
 
