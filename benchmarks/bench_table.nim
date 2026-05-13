@@ -51,3 +51,18 @@ benchmark cfg:
   proc benchTableValidate {.measure.} =
     var result = table100K.validate()
     blackBox(result)
+
+  proc benchTableSchemaRepeated {.measure.} =
+    for _ in 0 ..< 1000:
+      blackBox(table1M.schema)
+
+  proc benchTableColumnByNameRepeated {.measure.} =
+    for _ in 0 ..< 1000:
+      blackBox(table1M["name", string])
+
+  proc benchTableKeysIterator {.measure.} =
+    for _ in 0 ..< 100:
+      var s = 0
+      for k in table1M.keys:
+        s += k.len
+      blackBox(s)

@@ -87,3 +87,23 @@ benchmark cfg:
     let b = newArray(values)
     var result = a == b
     blackBox(result)
+
+  proc benchChunkedArrayIndexManyChunks {.measure.} =
+    var chunks: seq[Array[int32]] = @[]
+    for i in 0 ..< 100:
+      chunks.add(newArray[int32](@[i.int32]))
+    let chunked = newChunkedArray(chunks)
+    var sum = 0'i32
+    for i in 0 ..< chunked.len:
+      sum += chunked[i]
+    blackBox(sum)
+
+  proc benchChunkedArrayIterateManyChunks {.measure.} =
+    var chunks: seq[Array[int32]] = @[]
+    for i in 0 ..< 100:
+      chunks.add(newArray[int32](@[i.int32]))
+    let chunked = newChunkedArray(chunks)
+    var sum = 0'i32
+    for val in chunked:
+      sum += val
+    blackBox(sum)

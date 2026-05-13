@@ -1,7 +1,7 @@
 import std/[macros, options, strformat]
 import ../core/[ffi, error, utils]
 import ../types/[gtypes, glist]
-import ../column/[primitive, metadata]
+import ../column/[primitive, metadata, buffer]
 
 # ============================================================================
 # RecordBatch and Related Types
@@ -20,9 +20,6 @@ arcGObject:
 
     WriteOptions* = object
       handle: ptr GArrowWriteOptions
-
-    GBuffer* = object
-      handle: ptr GArrowBuffer
 
 # Manual type — multiple handles, not eligible for arcGObject
 type RecordBatchReader* = object
@@ -63,9 +60,6 @@ proc `=copy`*(dest: var RecordBatchReader, src: RecordBatchReader) =
 
 proc toPtr*(reader: RecordBatchReader): ptr GArrowRecordBatchReader {.inline.} =
   reader.handle
-
-proc newBuffer*(data: pointer, size: int64): GBuffer =
-  return GBuffer(handle: garrow_buffer_new(cast[ptr uint8](data), size.gint64))
 
 proc schema*(reader: RecordBatchReader): Schema =
   ## Returns the schema of the record batch reader.
@@ -322,8 +316,4 @@ iterator items*(rb: RecordBatch): RecordBatchRow =
 proc nNulls*(rb: RecordBatch): int64 =
   result = 0
   for i in 0 ..< rb.nColumns:
-    let handle = garrow_record_batch_get_column_data(rb.toPtr, i.gint)
-    let colArray = newArray[int8](handle)
-    for j in 0 ..< rb.nRows:
-      if colArray.isNull(j):
-        result += 1
+    result += rb[i, int8].nNulls

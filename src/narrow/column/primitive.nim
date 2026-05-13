@@ -1,6 +1,7 @@
 import std/[options, strformat]
 import ../core/[ffi, error]
 import ../types/[gtypes, glist]
+import ./buffer
 
 # ============================================================================
 # Array Types
@@ -59,7 +60,7 @@ proc `=copy`*[T](dest: var Array[T], src: Array[T]) =
     if not isNil(dest.handle):
       discard g_object_ref(dest.handle)
 
-proc toUntyped*[T: ArrowValue](arr: Array[T]): Array[void] =
+proc toUntyped*[T: ArrowValue](arr: Array[T]): Array=
   ## Convert a typed Array to untyped.
   result.handle = arr.handle
 
@@ -268,6 +269,28 @@ proc appendValues*[T](builder: ArrayBuilder[T], values: openArray[T]) =
       nil,
       0,
     )
+  elif T is bool:
+    var bools = newSeq[gboolean](values.len)
+    for i, v in values:
+      bools[i] = if v: 1.gboolean else: 0.gboolean
+    verify garrow_boolean_array_builder_append_values(
+      cast[ptr GArrowBooleanArrayBuilder](builder.handle),
+      bools[0].addr,
+      values.len.gint64,
+      nil,
+      0,
+    )
+  elif T is string:
+    var cstrs = newSeq[cstring](values.len)
+    for i, v in values:
+      cstrs[i] = v.cstring
+    verify garrow_string_array_builder_append_strings(
+      cast[ptr GArrowStringArrayBuilder](builder.handle),
+      cstrs[0].addr,
+      values.len.gint64,
+      nil,
+      0,
+    )
   else:
     for val in values:
       builder.append(val)
@@ -372,6 +395,18 @@ proc appendValues*[T](builder: ArrayBuilder[T], values: Array[T]) =
       nil,
       0,
     )
+  elif T is bool:
+    var length: gint64
+    let data = garrow_boolean_array_get_values(
+      cast[ptr GArrowBooleanArray](values.handle), addr length
+    )
+    verify garrow_boolean_array_builder_append_values(
+      cast[ptr GArrowBooleanArrayBuilder](builder.handle),
+      data,
+      values.len.gint64,
+      nil,
+      0,
+    )
   else:
     for val in values:
       builder.append(val)
@@ -412,6 +447,26 @@ proc toTyped*[T: ArrowValue](arr: Array): Array[T] =
   ## This is the key runtime -> compile-time bridge.
   if not isNil(arr.handle):
     result.handle = cast[ptr GArrowArray](g_object_ref(arr.handle))
+
+proc viewAs*[T: ArrowValue](arr: Array): Array[T] =
+  ## Returns a zero-copy view of the array reinterpreted as type `T`.
+  ## The underlying buffers are shared; only the type descriptor changes.
+  let targetType = newGType(T)
+  let handle = verify garrow_array_view(arr.handle, targetType.toPtr)
+  result = toTyped[T](Array(handle: handle)) 
+
+proc nullBitmap*(arr: Array): GBuffer =
+  ## Returns the validity bitmap buffer of the array.
+  let handle = garrow_array_get_null_bitmap(arr.handle)
+  result = GBuffer(handle: handle)
+
+proc valuesBuffer*(arr: Array): GBuffer =
+  ## Returns the raw values data buffer of the array.
+  ## Only valid for primitive arrays.
+  let handle = garrow_primitive_array_get_data_buffer(
+    cast[ptr GArrowPrimitiveArray](arr.handle)
+  )
+  result = GBuffer(handle: handle)
 
 proc `==`*[T, U](a: Array[T], b: Array[U]): bool =
   if a.handle == nil or b.handle == nil:
@@ -513,8 +568,80 @@ proc tryGet*[T](arr: Array[T], i: int): Option[T] =
 
 proc toSeq*[T](arr: Array[T]): seq[T] =
   result = newSeq[T](arr.len)
-  for i in 0 ..< arr.len:
-    result[i] = arr[i]
+  if arr.len == 0:
+    return
+
+  when T is bool:
+    var length: gint64
+    let data = garrow_boolean_array_get_values(
+      cast[ptr GArrowBooleanArray](arr.handle), addr length
+    )
+    let bools = cast[ptr UncheckedArray[gboolean]](data)
+    for i in 0 ..< arr.len:
+      result[i] = bools[i] != 0
+  elif T is int32:
+    var length: gint64
+    let data = garrow_int32_array_get_values(
+      cast[ptr GArrowInt32Array](arr.handle), addr length
+    )
+    copyMem(addr result[0], data, arr.len * sizeof(int32))
+  elif T is int64 or T is int:
+    var length: gint64
+    let data = garrow_int64_array_get_values(
+      cast[ptr GArrowInt64Array](arr.handle), addr length
+    )
+    copyMem(addr result[0], data, arr.len * sizeof(int64))
+  elif T is uint32:
+    var length: gint64
+    let data = garrow_uint32_array_get_values(
+      cast[ptr GArrowUInt32Array](arr.handle), addr length
+    )
+    copyMem(addr result[0], data, arr.len * sizeof(uint32))
+  elif T is uint64:
+    var length: gint64
+    let data = garrow_uint64_array_get_values(
+      cast[ptr GArrowUInt64Array](arr.handle), addr length
+    )
+    copyMem(addr result[0], data, arr.len * sizeof(uint64))
+  elif T is int16:
+    var length: gint64
+    let data = garrow_int16_array_get_values(
+      cast[ptr GArrowInt16Array](arr.handle), addr length
+    )
+    copyMem(addr result[0], data, arr.len * sizeof(int16))
+  elif T is uint16:
+    var length: gint64
+    let data = garrow_uint16_array_get_values(
+      cast[ptr GArrowUInt16Array](arr.handle), addr length
+    )
+    copyMem(addr result[0], data, arr.len * sizeof(uint16))
+  elif T is int8:
+    var length: gint64
+    let data = garrow_int8_array_get_values(
+      cast[ptr GArrowInt8Array](arr.handle), addr length
+    )
+    copyMem(addr result[0], data, arr.len * sizeof(int8))
+  elif T is uint8:
+    var length: gint64
+    let data = garrow_uint8_array_get_values(
+      cast[ptr GArrowUInt8Array](arr.handle), addr length
+    )
+    copyMem(addr result[0], data, arr.len * sizeof(uint8))
+  elif T is float32:
+    var length: gint64
+    let data = garrow_float_array_get_values(
+      cast[ptr GArrowFloatArray](arr.handle), addr length
+    )
+    copyMem(addr result[0], data, arr.len * sizeof(float32))
+  elif T is float64:
+    var length: gint64
+    let data = garrow_double_array_get_values(
+      cast[ptr GArrowDoubleArray](arr.handle), addr length
+    )
+    copyMem(addr result[0], data, arr.len * sizeof(float64))
+  else:
+    for i in 0 ..< arr.len:
+      result[i] = arr[i]
 
 proc `@`*[T](arr: Array[T]): seq[T] =
   arr.toSeq

@@ -1,6 +1,6 @@
 import std/options
 import unittest2
-import ../src/narrow/[core/ffi, column/primitive, types/gtypes]
+import ../src/narrow/[core/ffi, column/primitive, types/gtypes, column/buffer]
 
 ## TODO: remove AI GENERATED TESTS THAT DON"T DO ANYTHING
  
@@ -826,3 +826,105 @@ suite "Array - Error Handling: Iterator Edge Cases":
       if val.isSome():
         sum += val.get()
     check sum == 15
+
+
+suite "Array - Buffer Accessors":
+  test "valuesBuffer returns non-nil for primitives":
+    let arr = newArray(@[1'i32, 2, 3])
+    let buf = arr.valuesBuffer
+    check buf.dataSize >= 12
+
+  test "nullBitmap returns non-nil for array with nulls":
+    var builder = newArrayBuilder[int32]()
+    builder.append(1)
+    builder.appendNull()
+    builder.append(3)
+    let arr = builder.finish()
+    let bitmap = arr.nullBitmap
+    check bitmap.dataSize > 0
+
+  test "valuesBuffer size matches element count * size":
+    let arr = newArray(@[1.0'f64, 2.0, 3.0, 4.0])
+    let buf = arr.valuesBuffer
+    check buf.dataSize == 32
+
+  test "nullBitmap is nil when no nulls":
+    let arr = newArray(@[1'i32, 2, 3])
+    let bitmap = arr.nullBitmap
+    check bitmap.handle == nil
+
+suite "Array - Bulk toSeq":
+  test "toSeq for bool array":
+    let arr = newArray(@[true, false, true])
+    let s = arr.toSeq
+    check s == @[true, false, true]
+
+  test "toSeq for int32 array":
+    let arr = newArray(@[1'i32, 2, 3])
+    let s = arr.toSeq
+    check s == @[1'i32, 2, 3]
+
+  test "toSeq for float64 array":
+    let arr = newArray(@[1.0'f64, 2.0, 3.0])
+    let s = arr.toSeq
+    check s == @[1.0'f64, 2.0, 3.0]
+
+  test "toSeq for empty array":
+    let arr = newArray[int32](@[])
+    let s = arr.toSeq
+    check s.len == 0
+
+  test "toSeq with nulls":
+    var builder = newArrayBuilder[int32]()
+    builder.append(1)
+    builder.appendNull()
+    builder.append(3)
+    let arr = builder.finish()
+    let s = arr.toSeq
+    check s == @[1'i32, 0, 3]
+
+suite "Array - Bulk appendValues":
+  test "appendValues openArray[bool]":
+    var builder = newArrayBuilder[bool]()
+    builder.appendValues(@[true, false, true])
+    let arr = builder.finish()
+    check arr.len == 3
+    check arr[0] == true
+    check arr[1] == false
+    check arr[2] == true
+
+  test "appendValues openArray[string]":
+    var builder = newArrayBuilder[string]()
+    builder.appendValues(@["a", "b", "c"])
+    let arr = builder.finish()
+    check arr.len == 3
+    check arr[0] == "a"
+    check arr[1] == "b"
+    check arr[2] == "c"
+
+  test "appendValues Array[bool] to builder":
+    let src = newArray(@[true, false, true])
+    var builder = newArrayBuilder[bool]()
+    builder.appendValues(src)
+    let arr = builder.finish()
+    check arr == src
+
+suite "Array - nNulls":
+  test "nNulls counts nulls correctly":
+    var builder = newArrayBuilder[int32]()
+    builder.append(1)
+    builder.appendNull()
+    builder.append(3)
+    let arr = builder.finish()
+    check arr.nNulls == 1
+
+  test "nNulls for all valid":
+    let arr = newArray(@[1'i32, 2, 3])
+    check arr.nNulls == 0
+
+  test "nNulls for all null":
+    var builder = newArrayBuilder[int32]()
+    builder.appendNull()
+    builder.appendNull()
+    let arr = builder.finish()
+    check arr.nNulls == 2

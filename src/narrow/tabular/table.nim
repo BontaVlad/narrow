@@ -484,8 +484,4 @@ proc nNulls*(tbl: ArrowTable): int64 =
   ## Returns the total number of null values in the table.
   result = 0
   for i in 0 ..< tbl.nColumns:
-    let handle = garrow_table_get_column_data(tbl.handle, i.gint)
-    let colArray = newChunkedArray[int8](handle)
-    for j in 0 ..< tbl.nRows.int:
-      if colArray.isNull(j):
-        result += 1
+    result += tbl[i].nNulls

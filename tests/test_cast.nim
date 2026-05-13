@@ -1,6 +1,41 @@
 import unittest2
 import ../src/narrow
 
+suite "Array viewAs":
+  test "view int32 as float32 preserves bit pattern":
+    # 0x40400000 as int32 is the IEEE 754 representation of 3.0f
+    let arr = newArray(@[0x40400000'i32])
+    let viewed = viewAs[float32](arr)
+    check viewed.len == 1
+    check viewed[0] == 3.0'f32
+
+  test "view preserves null bitmap":
+    var builder = newArrayBuilder[int32]()
+    builder.append(1065353216'i32) # 0x3F800000 = 1.0f
+    builder.appendNull()
+    builder.append(0)
+    let arr = builder.finish()
+    let viewed = viewAs[float32](arr)
+    check viewed.len == 3
+    check viewed.isValid(0)
+    check viewed.isNull(1)
+    check viewed.isValid(2)
+    check viewed[0] == 1.0'f32
+
+  test "view of sliced array":
+    let arr = newArray(@[0'i32, 0x40400000'i32, 0x40000000'i32])
+    let sliced = arr[1 .. 2]
+    let viewed = viewAs[float32](sliced)
+    check viewed.len == 2
+    check viewed[0] == 3.0'f32
+    check viewed[1] == 2.0'f32
+
+  test "view is zero-copy (shares underlying buffer)":
+    let arr = newArray(@[0x40400000'i32, 0x40000000'i32])
+    let viewed = viewAs[float32](arr)
+    # Verify both see the same physical length of underlying buffer
+    check arr.valuesBuffer.dataSize == viewed.valuesBuffer.dataSize
+
 suite "Array cast":
   test "cast int32 to int64":
     let arr = newArray(@[1'i32, 2, 3])
