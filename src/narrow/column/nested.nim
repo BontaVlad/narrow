@@ -7,8 +7,9 @@ import ./[primitive, metadata]
 # ListArray
 # ============================================================================
 
-type ListArray*[T] = object
-  handle: ptr GArrowListArray
+type
+  ListArray*[T] = object
+    handle: ptr GArrowListArray
 
 proc toPtr*[T](arr: ListArray[T]): ptr GArrowListArray {.inline.} =
   arr.handle
@@ -123,6 +124,55 @@ proc `==`*[T](a, b: ListArray[T]): bool =
   result =
     garrow_array_equal(cast[ptr GArrowArray](a.handle), cast[ptr GArrowArray](b.handle)) !=
     0
+
+# ============================================================================
+# ListArrayBuilder
+# ============================================================================
+
+type
+  ListArrayBuilder*[T: ArrowValue] = object
+    handle: ptr GArrowListArrayBuilder
+
+proc `=destroy`*[T](builder: ListArrayBuilder[T]) =
+  if not isNil(builder.handle):
+    g_object_unref(builder.handle)
+
+proc `=wasMoved`*[T](builder: var ListArrayBuilder[T]) =
+  builder.handle = nil
+
+proc `=dup`*[T](builder: ListArrayBuilder[T]): ListArrayBuilder[T] =
+  result.handle = builder.handle
+  if not isNil(builder.handle):
+    discard g_object_ref(builder.handle)
+
+proc `=copy`*[T](dest: var ListArrayBuilder[T], src: ListArrayBuilder[T]) =
+  if dest.handle != src.handle:
+    if not isNil(dest.handle):
+      g_object_unref(dest.handle)
+    dest.handle = src.handle
+    if not isNil(dest.handle):
+      discard g_object_ref(dest.handle)
+
+proc newListArrayBuilder*[T: ArrowValue](): ListArrayBuilder[T] =
+  let field = newField[T]("item")
+  let listType = garrow_list_data_type_new(field.toPtr)
+  result.handle = verify garrow_list_array_builder_new(listType)
+
+proc valueBuilder*[T](builder: ListArrayBuilder[T]): ArrayBuilder[T] =
+  let childHandle = garrow_list_array_builder_get_value_builder(builder.handle)
+  result = newArrayBuilder[T](childHandle)
+
+proc append*(builder: ListArrayBuilder) =
+  verify garrow_list_array_builder_append(builder.handle)
+
+proc appendNull*(builder: ListArrayBuilder) =
+  verify garrow_list_array_builder_append_null(builder.handle)
+
+proc finish*[T](builder: ListArrayBuilder[T]): ListArray[T] =
+  let handle = verify garrow_array_builder_finish(
+    cast[ptr GArrowArrayBuilder](builder.handle)
+  )
+  result = newListArray[T](cast[ptr GArrowListArray](handle))
 
 # ============================================================================
 # MapArray and MapDataType
@@ -290,6 +340,60 @@ proc `$`*[K, V](arr: MapArray[K, V]): string =
   result = $newGString(cStr)
 
 # ============================================================================
+# MapArrayBuilder
+# ============================================================================
+
+type
+  MapArrayBuilder*[K: ArrowValue, V: ArrowValue] = object
+    handle: ptr GArrowMapArrayBuilder
+
+proc `=destroy`*[K, V](builder: MapArrayBuilder[K, V]) =
+  if not isNil(builder.handle):
+    g_object_unref(builder.handle)
+
+proc `=wasMoved`*[K, V](builder: var MapArrayBuilder[K, V]) =
+  builder.handle = nil
+
+proc `=dup`*[K, V](builder: MapArrayBuilder[K, V]): MapArrayBuilder[K, V] =
+  result.handle = builder.handle
+  if not isNil(builder.handle):
+    discard g_object_ref(builder.handle)
+
+proc `=copy`*[K, V](dest: var MapArrayBuilder[K, V], src: MapArrayBuilder[K, V]) =
+  if dest.handle != src.handle:
+    if not isNil(dest.handle):
+      g_object_unref(dest.handle)
+    dest.handle = src.handle
+    if not isNil(dest.handle):
+      discard g_object_ref(dest.handle)
+
+proc newMapArrayBuilder*[K: ArrowValue, V: ArrowValue](): MapArrayBuilder[K, V] =
+  let keyType = newGType(K)
+  let itemType = newGType(V)
+  let mapType = garrow_map_data_type_new(keyType.toPtr, itemType.toPtr)
+  result.handle = verify garrow_map_array_builder_new(mapType)
+
+proc keyBuilder*[K, V](builder: MapArrayBuilder[K, V]): ArrayBuilder[K] =
+  let childHandle = garrow_map_array_builder_get_key_builder(builder.handle)
+  result = newArrayBuilder[K](childHandle)
+
+proc itemBuilder*[K, V](builder: MapArrayBuilder[K, V]): ArrayBuilder[V] =
+  let childHandle = garrow_map_array_builder_get_item_builder(builder.handle)
+  result = newArrayBuilder[V](childHandle)
+
+proc append*(builder: MapArrayBuilder) =
+  verify garrow_map_array_builder_append_value(builder.handle)
+
+proc appendNull*(builder: MapArrayBuilder) =
+  verify garrow_map_array_builder_append_null(builder.handle)
+
+proc finish*[K, V](builder: MapArrayBuilder[K, V]): MapArray[K, V] =
+  let handle = verify garrow_array_builder_finish(
+    cast[ptr GArrowArrayBuilder](builder.handle)
+  )
+  result = newMapArray[K, V](cast[ptr GArrowMapArray](handle))
+
+# ============================================================================
 # Struct, StructArray, and StructBuilder
 # ============================================================================
 
@@ -412,6 +516,14 @@ proc newStructBuilder*(structType: Struct): StructBuilder =
   if handle.isNil:
     raise newException(OperationError, "Failed to create StructArrayBuilder")
   result.handle = handle
+
+proc fieldBuilder*[T](sb: StructBuilder, idx: int): ArrayBuilder[T] =
+  if idx < 0:
+    raise newException(IndexDefect, "Field index cannot be negative")
+  let handle = garrow_struct_array_builder_get_field_builder(sb.toPtr, idx.gint)
+  if handle.isNil:
+    raise newException(KeyError, "Field index " & $idx & " not found")
+  result = newArrayBuilder[T](handle)
 
 # Struct field access
 proc fields*(s: Struct): seq[Field] =
@@ -538,14 +650,14 @@ proc len*(row: StructRow): int {.inline.} =
   row.array.fieldCount
 
 proc getField*[T](row: StructRow, idx: int): T =
-  let fieldArray = row.array.getField[T](idx)
+  let fieldArray = getField[T](row.array, idx)
   result = fieldArray[row.index]
 
 proc getField*[T](row: StructRow, name: string): T =
   let idx = row.array.fieldIndex(name)
   if idx < 0:
     raise newException(KeyError, "Field '" & name & "' not found in struct")
-  result = row.getField[T](idx)
+  result = getField[T](row, idx)
 
 proc `$`*(row: StructRow): string =
   result = "StructRow("
