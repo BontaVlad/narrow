@@ -38,3 +38,24 @@ benchmark cfg:
   proc benchCsvReadTable100K {.measure.} =
     var result = readCsv(csvTmpPath)
     blackBox(result)
+
+  proc benchCsvWriteTable100K {.measure.} =
+    let schema = newSchema([
+      newField[int32]("id"),
+      newField[string]("name"),
+      newField[float64]("value"),
+      newField[bool]("active")
+    ])
+    var ids = newSeq[int32](100_000)
+    var names = newSeq[string](100_000)
+    var values = newSeq[float64](100_000)
+    var actives = newSeq[bool](100_000)
+    for i in 0 ..< 100_000:
+      ids[i] = i.int32
+      names[i] = "name_" & $i
+      values[i] = i.float64
+      actives[i] = i mod 2 == 0
+    let table = newArrowTable(schema, newArray(ids), newArray(names), newArray(values), newArray(actives))
+    let path = csvTmpPath & ".write_table"
+    writeCsv(path, table, newWriteOptions())
+    removeFile(path)

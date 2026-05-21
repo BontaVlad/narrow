@@ -75,12 +75,14 @@ dbg file:
 #   just benchmark
 #   just benchmark benchmarks/bench_foo.nim
 #   just benchmark benchmarks/bench_foo.nim -o results/
+#   just benchmark /any/path/to/file.nim
+#   just benchmark /any/path/to/dir
 benchmark *args="":
     #!/usr/bin/env bash
     set -euo pipefail
 
-    BENCH_ROOT="{{bench_root}}"
     OUT_ROOT="{{out_root}}/benchmarks"
+    DEFAULT_DIR="benchmarks/results/$(date +%Y%m%d_%H%M%S)"
 
     set -- {{args}}
 
@@ -95,13 +97,15 @@ benchmark *args="":
     done
 
     # Resolve files and output location
-    DEFAULT_DIR="benchmarks/results/$(date +%Y%m%d_%H%M%S)"
     SINGLE_OUTPUT=""
+    SAVE_DIR=""
 
     if [[ -z "$TARGET" ]]; then
-        mapfile -t BENCH_FILES < <(find "$BENCH_ROOT" -name 'bench_*.nim' | sort)
+        # Default: run all bench_*.nim in benchmarks/ (backward compat)
+        mapfile -t BENCH_FILES < <(find "{{bench_root}}" -name 'bench_*.nim' | sort)
         SAVE_DIR="${OUTPUT_ARG:-$DEFAULT_DIR}"
-    elif [[ "$TARGET" == *.nim && -f "$TARGET" ]]; then
+    elif [[ -f "$TARGET" && "$TARGET" == *.nim ]]; then
+        # Any .nim file
         BENCH_FILES=("$TARGET")
         if [[ -n "$OUTPUT_ARG" && "$OUTPUT_ARG" == *.json ]]; then
             SAVE_DIR="$(dirname "$OUTPUT_ARG")"
@@ -109,12 +113,18 @@ benchmark *args="":
         else
             SAVE_DIR="${OUTPUT_ARG:-$DEFAULT_DIR}"
         fi
-    elif [[ -d "$TARGET" ]] && find "$TARGET" -maxdepth 1 -name 'bench_*.nim' -print -quit 2>/dev/null | grep -q .; then
-        mapfile -t BENCH_FILES < <(find "$TARGET" -maxdepth 1 -name 'bench_*.nim' | sort)
+    elif [[ -d "$TARGET" ]]; then
+        # Any .nim files in the directory
+        mapfile -t BENCH_FILES < <(find "$TARGET" -maxdepth 1 -name '*.nim' | sort)
+        if [[ ${#BENCH_FILES[@]} -eq 0 ]]; then
+            echo "ERROR: No *.nim files found in directory: $TARGET"
+            exit 1
+        fi
         SAVE_DIR="${OUTPUT_ARG:-$DEFAULT_DIR}"
     else
-        mapfile -t BENCH_FILES < <(find "$BENCH_ROOT" -name 'bench_*.nim' | sort)
-        SAVE_DIR="$TARGET"
+        echo "ERROR: Target not found: $TARGET"
+        echo "Usage: just benchmark [path/to/file.nim|path/to/dir] [-o output]"
+        exit 1
     fi
 
     rm -rf "$OUT_ROOT"
@@ -157,10 +167,15 @@ benchmark-heaptrack bench gui="false":
 
     raw="{{bench}}"
     raw="${raw%.nim}"
-    raw="${raw#{{bench_root}}/}"
-    name="$raw"
 
-    BENCH_FILE="{{bench_root}}/${name}.nim"
+    if [[ "$raw" == */* ]]; then
+        BENCH_FILE="${raw}.nim"
+        name="$(basename "$raw")"
+    else
+        BENCH_FILE="{{bench_root}}/${raw}.nim"
+        name="$raw"
+    fi
+
     OUT_ROOT="{{out_root}}/benchmarks"
     PROF_DIR="{{profile_dir}}"
 
@@ -200,7 +215,7 @@ benchmark-heaptrack bench gui="false":
     fi
 
     echo "==> Analyzing: $trace_file"
-    if [[ "{{gui}}" == "true" ]] && command -v heaptrack_gui >/dev/null 2>&1; then
+    if [[ "{{gui}}" == "true" || "{{gui}}" == "gui=true" ]] && command -v heaptrack_gui >/dev/null 2>&1; then
         heaptrack_gui "$trace_file"
     else
         heaptrack_print \
@@ -232,10 +247,15 @@ perf bench:
 
     raw="{{bench}}"
     raw="${raw%.nim}"
-    raw="${raw#{{bench_root}}/}"
-    name="$raw"
 
-    BENCH_FILE="{{bench_root}}/${name}.nim"
+    if [[ "$raw" == */* ]]; then
+        BENCH_FILE="${raw}.nim"
+        name="$(basename "$raw")"
+    else
+        BENCH_FILE="{{bench_root}}/${raw}.nim"
+        name="$raw"
+    fi
+
     OUT_ROOT="{{out_root}}/benchmarks"
     PROF_DIR="{{profile_dir}}"
 
@@ -347,7 +367,7 @@ _run-tests parallel cores mm mode leaks:
 
     if [[ "{{leaks}}" == "true" ]]; then
         ASAN_OPTIONS="detect_leaks=1"
-        LSAN_OPTIONS="suppressions=lsan.supp:print_suppressions=0"
+        LSAN_OPTIONS="suppressions=lsan.supp:print_suppressions=1"
     else
         ASAN_OPTIONS="detect_leaks=0"
         LSAN_OPTIONS=""

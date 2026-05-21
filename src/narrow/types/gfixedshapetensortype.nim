@@ -127,4 +127,4 @@ proc `$`*(t: FixedShapeTensorType): string =
   let namePtr = garrow_data_type_get_name(gadType.handle)
   if isNil(namePtr):
     return "fixed_shape_tensor"
-  result = $newGString(namePtr)
+  result = $newGString(namePtr, owned = true)

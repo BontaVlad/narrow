@@ -1,10 +1,12 @@
 import std/[macros]
-import ../core/[ffi, error]
+import ../core/[ffi, error, utils]
+
+arcGObject:
+  type
+    GADType* = object
+      handle*: ptr GArrowDataType
 
 type
-  GADType* = object
-    handle*: ptr GArrowDataType
-
   GString* = object
     handle*: cstring
 
@@ -125,15 +127,19 @@ func isNested*(arrowType: GArrowType): bool {.inline.} =
 func isPrimitive*(arrowType: GArrowType): bool {.inline.} =
   not arrowType.isNested
 
-func toPtr*(g: GADType): ptr GArrowDataType {.inline.} =
-  g.handle
-
 func `==`*(a, b: GADType): bool {.inline.} =
   garrow_data_type_equal(a.handle, b.handle).bool
 
 func newGString*(str: cstring): GString {.inline.} =
   if str != nil:
     result.handle = g_strdup(str)
+
+func newGString*(str: cstring, owned: static[bool]): GString {.inline.} =
+  when owned:
+    result.handle = str
+  else:
+    if str != nil:
+      result.handle = g_strdup(str)
 
 proc `=destroy`*(str: GString) =
   if str.handle != nil:
@@ -149,7 +155,7 @@ proc `$`*(tp: GADType): string =
   let namePtr = garrow_data_type_get_name(tp.toPtr)
   if isNil(namePtr):
     return "unknown"
-  result = $newGString(namePtr)
+  result = $newGString(namePtr, owned = true)
 
 func `id`*(tp: GADType): GArrowType {.inline.} =
   garrow_data_type_get_id(tp.toPtr)
@@ -340,9 +346,11 @@ proc newGType*(T: typedesc[ArrowPrimitive]): GADType =
     raise newException(
       TypeError, "newGType: unsupported type for automatic Arrow GType construction."
     )
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc newGType*(pt: ptr GArrowDataType): GADType =
   if pt.isNil:
     raise newException(OperationError, "Failed to create GADType, got nil")
-  let handle = cast[ptr GArrowDataType](g_object_ref(pt))
+  let handle = cast[ptr GArrowDataType](g_object_ref_sink(pt))
   result = GADType(handle: handle)

@@ -511,11 +511,11 @@ proc isNull*(ta: TimestampArray, idx: int): bool =
 
 proc `$`*(ta: TimestampArray): string =
   let cStr = verify garrow_array_to_string(cast[ptr GArrowArray](ta.handle))
-  $newGString(cStr)
+  result = $newGString(cStr, owned = true)
 
 proc `$`*(d32a: Date32Array): string =
   let cStr = verify garrow_array_to_string(cast[ptr GArrowArray](d32a.handle))
-  $newGString(cStr)
+  result = $newGString(cStr, owned = true)
 
 # Time32 constructors and operations
 proc newTime32*(seconds: int32): Time32 =
@@ -672,7 +672,7 @@ proc toDuration*(dur: Duration): string =
 
 proc `$`*(t64a: Time64Array): string =
   let cStr = verify garrow_array_to_string(cast[ptr GArrowArray](t64a.handle))
-  $newGString(cStr)
+  result = $newGString(cStr, owned = true)
 
 # Interval type constructors and operations
 proc newMonthInterval*(months: int32): MonthInterval =

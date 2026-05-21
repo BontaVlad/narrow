@@ -19,6 +19,7 @@ proc newJsonReadOptions*(): JsonReadOptions =
   if handle.isNil:
     raise newException(IOError, "Failed to create JsonReadOptions")
   result.handle = handle
+  discard g_object_ref_sink(result.handle)
 
 proc newJsonReadOptions*(
     unexpectedFieldBehavior: JsonUnexpectedFieldBehavior
@@ -27,6 +28,7 @@ proc newJsonReadOptions*(
   if handle.isNil:
     raise newException(IOError, "Failed to create JsonReadOptions")
   result.handle = handle
+  discard g_object_ref_sink(result.handle)
 
   # Set the unexpected field behavior
   g_object_set(
@@ -89,6 +91,8 @@ proc toPtr*(r: JsonReader): ptr GArrowJSONReader {.inline.} =
 proc newJsonReader*(stream: InputStream, options: JsonReadOptions): JsonReader =
   let handle = verify garrow_json_reader_new(stream.handle, options.handle)
   result.handle = handle
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc read*(reader: JsonReader): ArrowTable =
   let tablePtr = verify garrow_json_reader_read(reader.handle)

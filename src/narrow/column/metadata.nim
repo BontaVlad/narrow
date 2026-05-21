@@ -26,12 +26,16 @@ proc newField*[T](name: string): Field =
 
 proc newField*(handle: ptr GArrowField): Field =
   result.handle = handle
+  if not isNil(handle):
+    discard g_object_ref_sink(handle)
 
 proc newField*(name: string, dataType: GADType): Field =
   let handle = garrow_field_new(name.cstring, dataType.handle)
   if handle.isNil:
     raise newException(OperationError, "Failed to create field")
   result.handle = handle
+  if g_object_is_floating(handle) != 0:
+    discard g_object_ref_sink(handle)
 
 proc name*(field: Field): string =
   let cstr = garrow_field_get_name(field.handle)
@@ -42,7 +46,8 @@ proc dataType*(field: Field): GADType =
   result = newGType(handle)
 
 proc `$`*(field: Field): string {.inline.} =
-  $newGString(garrow_field_to_string(field.handle))
+  let cstr = garrow_field_to_string(field.handle)
+  result = $newGString(cstr, owned = true)
 
 proc `==`*(a, b: Field): bool {.inline.} =
   garrow_field_equal(a.handle, b.handle).bool
@@ -59,16 +64,23 @@ proc newSchema*(fields: openArray[Field]): Schema =
     fieldList.append(field.handle)
 
   result.handle = garrow_schema_new(fieldList.list)
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc newSchema*(gptr: pointer): Schema =
   let handle = verify garrow_schema_import(gptr)
   result.handle = handle
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc newSchema*(handle: ptr GArrowSchema): Schema =
   result.handle = handle
+  if not isNil(handle):
+    discard g_object_ref_sink(handle)
 
 proc `$`*(schema: Schema): string {.inline.} =
-  $newGString(garrow_schema_to_string(schema.handle))
+  let cstr = garrow_schema_to_string(schema.handle)
+  result = $newGString(cstr, owned = true)
 
 proc nFields*(schema: Schema): int =
   garrow_schema_n_fields(schema.handle).int

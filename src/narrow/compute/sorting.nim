@@ -29,6 +29,8 @@ arcGObject:
 proc newSortKey*(name: string, order: SortOrder = Ascending): SortKey =
   let handle = verify garrow_sort_key_new(name.cstring, order.GArrowSortOrder)
   result.handle = handle
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc newSortOptions*(keys: openArray[SortKey]): SortOptions =
   var keyList = newGList[ptr GArrowSortKey]()
@@ -38,12 +40,14 @@ proc newSortOptions*(keys: openArray[SortKey]): SortOptions =
   if isNil(handle):
     raise newException(IOError, "Failed to create SortOptions")
   result.handle = handle
+  discard g_object_ref_sink(result.handle)
 
 proc newTakeOptions*(): TakeOptions =
   let handle = garrow_take_options_new()
   if isNil(handle):
     raise newException(IOError, "Failed to create TakeOptions")
   result.handle = handle
+  discard g_object_ref_sink(result.handle)
 
 # ============================================================================
 # sortIndices

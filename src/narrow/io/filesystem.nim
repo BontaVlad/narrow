@@ -250,7 +250,7 @@ proc exists*(info: FileInfo): bool =
 proc `$`*(info: FileInfo): string =
   ## Get a string representation of the FileInfo
   let cstr = garrow_file_info_to_string(info.handle)
-  result = $newGString(cstr)
+  result = $newGString(cstr, owned = true)
 
 # =============================================================================
 # FileSelector Implementation
@@ -685,7 +685,7 @@ proc typeName*(fs: FileSystem): string =
   ## Get the filesystem type name (e.g., "local", "s3", "gcs")
   let cstr = garrow_file_system_get_type_name(fs.handle)
   if cstr != nil:
-    result = $newGString(cstr)
+    result = $newGString(cstr, owned = true)
 
 proc getFileInfo*(fs: FileSystem, path: string): FileInfo =
   ## Get information about a single path

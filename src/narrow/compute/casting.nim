@@ -4,6 +4,7 @@ import ../types/[gtypes, glist]
 import ../column/primitive
 import ../tabular/table
 import ../column/metadata
+import ../compute/expressions
 import ./functions
 
 # ============================================================================
@@ -23,6 +24,7 @@ proc newCastOptions*(): CastOptions =
   if isNil(handle):
     raise newException(IOError, "Failed to create CastOptions")
   result.handle = handle
+  discard g_object_ref_sink(result.handle)
 
 # ============================================================================
 # Conversion to FunctionOptions (for compute kernel use)
@@ -33,7 +35,7 @@ proc toFunctionOptions*(options: CastOptions): FunctionOptions =
   ## the compute function registry (e.g., ``call("cast", ...)``).
   result.handle = cast[ptr GArrowFunctionOptions](options.handle)
   if not isNil(options.handle):
-    discard g_object_ref(options.handle)
+    discard g_object_ref_sink(options.handle)
 
 # ============================================================================
 # Properties
@@ -115,14 +117,21 @@ proc castTo*[T: ArrowValue](
 proc castChunks*(
     chunkedArray: ChunkedArray, gtype: GADType, options: CastOptions = newCastOptions()
 ): ChunkedArray[void] =
-  var casted = newSeq[Array[void]]()
-  for chunk in chunkedArray.chunks:
-    casted.add castTo(chunk, gtype, options)
-  if casted.len == 0:
-    let handle = verify garrow_chunked_array_new_empty(gtype.toPtr)
-    result = newChunkedArray[void](handle)
-  else:
-    result = newChunkedArray[void](casted)
+    # var opts = options
+    # opts.toDataType = gtype
+    # let arg = newDatum(chunkedArray)
+
+    # let foo = g_object_ref(chunkedArray.toPtr)
+    # result = newChunkedArray[void](chunkedArray.toPtr)
+    # return newChunkedArray[void](castTo(chunkedArray[0], gtype, options))
+    # if chunkedArray.nChunks == 0:
+    #   return chunkedArray
+
+    var opts = options
+    opts.toDataType = gtype
+    let arg = newDatum(chunkedArray)
+    let datum = call("cast", arg, options = toFunctionOptions(opts))
+    result = datum.toChunkedArray
 
 proc castTable*(
     table: ArrowTable,

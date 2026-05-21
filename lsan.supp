@@ -1,12 +1,3 @@
-# === GLib/GObject one-time type system allocations ===
-# These are intentional process-lifetime allocations.
-# Using module path matching since CI GLib may lack debug symbols.
-leak:libgobject-2.0
-leak:libglib-2.0
-leak:g_malloc
-leak:g_slice_alloc
-leak:g_realloc
-
 # === Arrow C++ / Parquet GLib ===
 leak:arrow::csv::ConvertOptions::Defaults
 leak:garrow_csv_read_options_add_schema
@@ -18,7 +9,7 @@ leak:gparquet_row_group_metadata_get_column_chunk
 leak:execute_native_thread_routine
 leak:std::_Hashtable
 
-# === Nim runtime (one-time global state) ===
+# # === Nim runtime (one-time global state) ===
 leak:allocImpl
 leak:reallocImpl
 leak:initRand

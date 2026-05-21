@@ -19,6 +19,8 @@ arcGObject:
 
 proc newFilterOptions*(): FilterOptions =
   result.handle = garrow_filter_options_new()
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc nullSelectionBehavior*(
     options: FilterOptions
@@ -34,7 +36,7 @@ proc `nullSelectionBehavior=`*(
 
 # Constructor for BooleanArray from Array[bool]
 proc newBooleanArray*(arr: Array[bool]): BooleanArray =
-  result.handle = cast[ptr GArrowBooleanArray](g_object_ref(arr.toPtr))
+  result.handle = cast[ptr GArrowBooleanArray](g_object_ref_sink(arr.toPtr))
 
 # Constructor for BooleanArray from sequence
 proc newBooleanArray*(values: sink seq[bool]): BooleanArray =
@@ -42,7 +44,7 @@ proc newBooleanArray*(values: sink seq[bool]): BooleanArray =
   if len(values) != 0:
     builder.appendValues(values)
   let arr = builder.finish()
-  result.handle = cast[ptr GArrowBooleanArray](g_object_ref(arr.toPtr))
+  result.handle = cast[ptr GArrowBooleanArray](g_object_ref_sink(arr.toPtr))
 
 # Constructor for BooleanArray from sequence with null mask
 proc newBooleanArray*(values: sink seq[bool], mask: openArray[bool]): BooleanArray =
@@ -53,7 +55,7 @@ proc newBooleanArray*(values: sink seq[bool], mask: openArray[bool]): BooleanArr
     else:
       builder.append(values[i])
   let arr = builder.finish()
-  result.handle = cast[ptr GArrowBooleanArray](g_object_ref(arr.toPtr))
+  result.handle = cast[ptr GArrowBooleanArray](g_object_ref_sink(arr.toPtr))
 
 # Constructor for BooleanArray with Options
 proc newBooleanArray*(values: sink seq[Option[bool]]): BooleanArray =
@@ -64,7 +66,7 @@ proc newBooleanArray*(values: sink seq[Option[bool]]): BooleanArray =
     else:
       builder.appendNull()
   let arr = builder.finish()
-  result.handle = cast[ptr GArrowBooleanArray](g_object_ref(arr.toPtr))
+  result.handle = cast[ptr GArrowBooleanArray](g_object_ref_sink(arr.toPtr))
 
 func len*(arr: BooleanArray): int {.inline.} =
   if not isNil(arr.handle):
@@ -102,7 +104,7 @@ func `@`*(arr: BooleanArray): seq[bool] {.inline.} =
 
 proc `$`*(arr: BooleanArray): string =
   let cStr = verify garrow_array_to_string(cast[ptr GArrowArray](arr.handle))
-  result = $newGString(cStr)
+  result = $newGString(cStr, owned = true)
 
 # Filter implementations
 proc filter*(

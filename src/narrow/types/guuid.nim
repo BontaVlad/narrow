@@ -27,4 +27,4 @@ proc `$`*(u: UUIDType): string =
   let namePtr = garrow_data_type_get_name(gadType.handle)
   if isNil(namePtr):
     return "uuid"
-  result = $newGString(namePtr)
+  result = $newGString(namePtr, owned = true)

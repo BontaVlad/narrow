@@ -76,7 +76,7 @@ proc nNulls*[T](arr: ListArray[T]): int64 =
 
 proc `$`*[T](arr: ListArray[T]): string =
   let cStr = verify garrow_array_to_string(cast[ptr GArrowArray](arr.handle))
-  result = $newGString(cStr)
+  result = $newGString(cStr, owned = true)
 
 # ListValue helper type
 type ListValue*[T] = object ## Represents a single list value (an array of T)
@@ -155,6 +155,8 @@ proc newListArrayBuilder*[T: ArrowValue](): ListArrayBuilder[T] =
   let field = newField[T]("item")
   let listType = garrow_list_data_type_new(field.toPtr)
   result.handle = verify garrow_list_array_builder_new(listType)
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc valueBuilder*[T](builder: ListArrayBuilder[T]): ArrayBuilder[T] =
   let childHandle = garrow_list_array_builder_get_value_builder(builder.handle)
@@ -207,9 +209,13 @@ proc `=copy`*(dest: var MapDataType, src: MapDataType) =
 
 proc newMapDataType*(keyType: GADType, itemType: GADType): MapDataType =
   result.handle = garrow_map_data_type_new(keyType.toPtr, itemType.toPtr)
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc newMapDataType*(handle: ptr GArrowMapDataType): MapDataType =
   result.handle = handle
+  if not isNil(handle):
+    discard g_object_ref_sink(handle)
 
 proc keyType*(dt: MapDataType): GADType =
   let handle = garrow_map_data_type_get_key_type(dt.handle)
@@ -257,9 +263,13 @@ proc newMapArray*[K, V](
     cast[ptr GArrowArray](offsets.toPtr), keys.toPtr, items.toPtr
   )
   result = MapArray[K, V](handle: handle)
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc newMapArray*[K, V](handle: ptr GArrowMapArray): MapArray[K, V] =
   result = MapArray[K, V](handle: handle)
+  if not isNil(handle):
+    discard g_object_ref_sink(handle)
 
 proc len*[K, V](arr: MapArray[K, V]): int =
   garrow_array_get_length(cast[ptr GArrowArray](arr.handle))
@@ -334,7 +344,7 @@ proc `@`*[K, V](arr: MapArray[K, V]): seq[MapEntry[K, V]] {.inline.} =
 
 proc `$`*[K, V](arr: MapArray[K, V]): string =
   let cStr = verify garrow_array_to_string(cast[ptr GArrowArray](arr.handle))
-  result = $newGString(cStr)
+  result = $newGString(cStr, owned = true)
 
 # ============================================================================
 # MapArrayBuilder
@@ -368,6 +378,8 @@ proc newMapArrayBuilder*[K: ArrowValue, V: ArrowValue](): MapArrayBuilder[K, V] 
   let itemType = newGType(V)
   let mapType = garrow_map_data_type_new(keyType.toPtr, itemType.toPtr)
   result.handle = verify garrow_map_array_builder_new(mapType)
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc keyBuilder*[K, V](builder: MapArrayBuilder[K, V]): ArrayBuilder[K] =
   let childHandle = garrow_map_array_builder_get_key_builder(builder.handle)
@@ -479,6 +491,8 @@ proc `=copy`*(dest: var StructBuilder, src: StructBuilder) =
 # Struct creators
 proc newStruct*(fields: GAList[ptr GArrowField]): Struct =
   result.handle = garrow_struct_data_type_new(fields.toPtr)
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc newStruct*(fields: openArray[Field]): Struct =
   var gFields = newGList[ptr GArrowField]()
@@ -489,6 +503,8 @@ proc newStruct*(fields: openArray[Field]): Struct =
 # StructArray creators
 proc newStructArray*(handle: ptr GArrowStructArray): StructArray =
   result.handle = handle
+  if not isNil(handle):
+    discard g_object_ref_sink(handle)
 
 proc newStructArray*(
     structType: Struct, fields: varargs[ptr GArrowArray]
@@ -504,6 +520,7 @@ proc newStructArray*(
   )
   if result.handle.isNil:
     raise newException(OperationError, "Failed to create StructArray")
+  discard g_object_ref_sink(result.handle)
 
 # StructBuilder creators
 proc newStructBuilder*(structType: Struct): StructBuilder =
@@ -511,6 +528,8 @@ proc newStructBuilder*(structType: Struct): StructBuilder =
   if handle.isNil:
     raise newException(OperationError, "Failed to create StructArrayBuilder")
   result.handle = handle
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc fieldBuilder*[T](sb: StructBuilder, idx: int): ArrayBuilder[T] =
   if idx < 0:
@@ -694,4 +713,4 @@ proc `$`*(s: Struct): string =
 
 proc `$`*(sa: StructArray): string =
   let cStr = verify garrow_array_to_string(cast[ptr GArrowArray](sa.toPtr))
-  result = $newGString(cStr)
+  result = $newGString(cStr, owned = true)

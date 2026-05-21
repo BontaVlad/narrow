@@ -133,13 +133,16 @@ suite "GArrow types - Memory Stress Tests":
       let myStr = garrow_data_type_get_name(tp.handle)
       let gStr = newGString(cstring(myStr))
       check $gStr == "int32"
+      g_free(myStr)
 
   test "Interleaved GADType and GString allocations":
     for i in 0..100:
       let gType = newGType(bool)
-      let gStr = newGString(garrow_data_type_get_name(gType.handle))
+      let namePtr = garrow_data_type_get_name(gType.handle)
+      let gStr = newGString(namePtr)
       check $gStr == "bool"
       check $gType == "bool"
+      g_free(namePtr)
 
   test "Stress test with all types":
     for i in 0..100:

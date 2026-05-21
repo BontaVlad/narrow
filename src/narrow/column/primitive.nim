@@ -69,7 +69,7 @@ proc toUntyped*[T: ArrowValue](arr: Array[T]): Array =
 # ============================================================================
 
 proc newArrayBuilder*[T](builderPtr: ptr GArrowArrayBuilder): ArrayBuilder[T] =
-  let handle = cast[ptr GArrowArrayBuilder](g_object_ref(builderPtr))
+  let handle = cast[ptr GArrowArrayBuilder](g_object_ref_sink(builderPtr))
   result = ArrayBuilder[T](handle: handle)
 
 proc newArrayBuilder*[T](): ArrayBuilder[T] =
@@ -107,6 +107,7 @@ proc newArrayBuilder*[T](): ArrayBuilder[T] =
     raise newException(OperationError, "Error creating the builder")
 
   result = ArrayBuilder[T](handle: cast[ptr GArrowArrayBuilder](handle))
+  discard g_object_ref_sink(result.handle)
 
 proc append*[T](builder: ArrayBuilder[T], val: sink T) =
   when T is bool:
@@ -641,14 +642,14 @@ proc `@`*[T](arr: Array[T]): seq[T] =
 
 proc `$`*(arr: Array): string =
   let cStr = verify garrow_array_to_string(arr.handle)
-  result = $newGString(cStr)
+  result = $newGString(cStr, owned = true)
 
 # ============================================================================
 # ChunkedArray Types
 # ============================================================================
 
 type ChunkedArray*[T = void] = object
-  handle: ptr GArrowChunkedArray
+  handle*: ptr GArrowChunkedArray
 
 proc toPtr*[T](c: ChunkedArray[T] | ChunkedArray): ptr GArrowChunkedArray {.inline.} =
   c.handle
@@ -681,18 +682,26 @@ proc newChunkedArray*[T](chunks: openArray[Array[T]]): ChunkedArray[T] =
   else:
     handle = verify garrow_chunked_array_new(cList.list)
   result = ChunkedArray[T](handle: handle)
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc newChunkedArray*[T](): ChunkedArray[T] {.inline.} =
   let dataType = newGType(T)
   let handle = verify garrow_chunked_array_new_empty(dataType.toPtr)
   result = ChunkedArray[T](handle: handle)
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc newChunkedArray*[T](cAbiArrayStream: pointer): ChunkedArray[T] =
   let handle = verify garrow_chunked_array_import(cAbiArrayStream)
   result = ChunkedArray[T](handle: handle)
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc newChunkedArray*[T](rawPtr: ptr GArrowChunkedArray): ChunkedArray[T] =
   result = ChunkedArray[T](handle: rawPtr)
+  if not isNil(rawPtr):
+    discard g_object_ref_sink(rawPtr)
 
 proc toTyped*[T: ArrowValue](ca: ChunkedArray): ChunkedArray[T] =
   if not isNil(ca.handle):
@@ -742,7 +751,7 @@ proc slice*(chunkedArray: ChunkedArray, slice: HSlice[int, int]): ChunkedArray =
 
 proc `$`*(chunkedArray: ChunkedArray): string =
   let cStr = verify garrow_chunked_array_to_string(chunkedArray.toPtr)
-  result = $newGString(cStr)
+  result = $newGString(cStr, owned = true)
 
 proc combine*[T](chunkedArray: ChunkedArray[T]): Array[T] =
   let handle = verify garrow_chunked_array_combine(chunkedArray.toPtr)

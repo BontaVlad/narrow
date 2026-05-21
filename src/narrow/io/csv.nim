@@ -45,6 +45,7 @@ proc newCsvReadOptions*(
   if handle.isNil:
     raise newException(IOError, "Failed to create CsvReadOptions")
   result.handle = handle
+  discard g_object_ref_sink(result.handle)
 
   # Set optional properties
   if allowNewlinesInValues.isSome:
@@ -367,8 +368,7 @@ proc formatRow(columns: openArray[string], options: WriteOptions): string =
   columns.mapIt(it.escapeField(options.delimiter)).join($options.delimiter) & options.eol
 
 # Helper to format a cell value without closures to avoid ARC issues
-template formatCell[T](tbl: typed, colIdx, rowIdx: int): string =
-  let col = tbl[colIdx, T]
+template formatCell(col: typed, rowIdx: int): string =
   if col.isValid(rowIdx):
     $col[rowIdx]
   else:
@@ -391,37 +391,63 @@ proc writeCsv*[T: Writable](writable: T, options: WriteOptions, output: OutputSt
       batchLen = batchEnd - offset
       tbl = writable.slice(offset, batchLen)
 
-    # Iterating over the batch rows
+    # Extract each column once per batch, then iterate rows.
+    # This avoids calling tbl[colIdx, T] inside the per-cell loop,
+    # which created a new ChunkedArray with GObject refcount churn
+    # on every single cell access.
+    var colStrings = newSeq[seq[string]](nCols)
+    for c in 0 ..< nCols:
+      let colMeta = columns[c]
+      colStrings[c] = newSeq[string](batchLen.int)
+      case colMeta.dataType.nimTypeName
+      of "int", "int64":
+        let col = tbl[c, int64]
+        for r in 0 ..< batchLen.int:
+          colStrings[c][r] = formatCell(col, r)
+      of "int32":
+        let col = tbl[c, int32]
+        for r in 0 ..< batchLen.int:
+          colStrings[c][r] = formatCell(col, r)
+      of "int16":
+        let col = tbl[c, int16]
+        for r in 0 ..< batchLen.int:
+          colStrings[c][r] = formatCell(col, r)
+      of "int8":
+        let col = tbl[c, int8]
+        for r in 0 ..< batchLen.int:
+          colStrings[c][r] = formatCell(col, r)
+      of "uint64":
+        let col = tbl[c, uint64]
+        for r in 0 ..< batchLen.int:
+          colStrings[c][r] = formatCell(col, r)
+      of "uint32":
+        let col = tbl[c, uint32]
+        for r in 0 ..< batchLen.int:
+          colStrings[c][r] = formatCell(col, r)
+      of "float64", "float":
+        let col = tbl[c, float64]
+        for r in 0 ..< batchLen.int:
+          colStrings[c][r] = formatCell(col, r)
+      of "float32":
+        let col = tbl[c, float32]
+        for r in 0 ..< batchLen.int:
+          colStrings[c][r] = formatCell(col, r)
+      of "bool":
+        let col = tbl[c, bool]
+        for r in 0 ..< batchLen.int:
+          colStrings[c][r] = formatCell(col, r)
+      of "string", "utf8":
+        let col = tbl[c, string]
+        for r in 0 ..< batchLen.int:
+          colStrings[c][r] = formatCell(col, r)
+      else:
+        for r in 0 ..< batchLen.int:
+          colStrings[c][r] = ""
+
     var rowBuffer = newSeq[string](nCols)
     for r in 0 ..< batchLen.int:
       for c in 0 ..< nCols:
-        let colMeta = columns[c]
-        let rowIdx = r
-        # Direct formatting without closures to avoid ARC issues
-        rowBuffer[c] =
-          case colMeta.dataType.nimTypeName
-          of "int", "int64":
-            formatCell[int64](tbl, c, rowIdx)
-          of "int32":
-            formatCell[int32](tbl, c, rowIdx)
-          of "int16":
-            formatCell[int16](tbl, c, rowIdx)
-          of "int8":
-            formatCell[int8](tbl, c, rowIdx)
-          of "uint64":
-            formatCell[uint64](tbl, c, rowIdx)
-          of "uint32":
-            formatCell[uint32](tbl, c, rowIdx)
-          of "float64", "float":
-            formatCell[float64](tbl, c, rowIdx)
-          of "float32":
-            formatCell[float32](tbl, c, rowIdx)
-          of "bool":
-            formatCell[bool](tbl, c, rowIdx)
-          of "string", "utf8":
-            formatCell[string](tbl, c, rowIdx)
-          else:
-            ""
+        rowBuffer[c] = colStrings[c][r]
       output.write(rowBuffer.formatRow(options))
 
 proc writeCsv*[T: Writable](

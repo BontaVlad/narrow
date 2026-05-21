@@ -174,23 +174,29 @@ proc newIpcWriteOptions*(): IpcWriteOptions =
   if handle.isNil:
     raise newException(IOError, "Failed to create IpcWriteOptions")
   result.handle = handle
+  discard g_object_ref_sink(result.handle)
 
 proc newIpcReadOptions*(): IpcReadOptions =
   let handle = garrow_read_options_new()
   if handle.isNil:
     raise newException(IOError, "Failed to create IpcReadOptions")
   result.handle = handle
+  discard g_object_ref_sink(result.handle)
 
 proc newMemoryMappedInputStream*(path: string): SeekableInputStream =
   ## Create a memory-mapped input stream for reading files.
   ## Returns a SeekableInputStream since GArrowMemoryMappedInputStream inherits from it.
   let mmapHandle = verify garrow_memory_mapped_input_stream_new(path.cstring)
   result.handle = cast[ptr GArrowSeekableInputStream](mmapHandle)
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc newIpcStreamReader*(stream: InputStream): RecordBatchReader =
   ## Create a streaming IPC reader from an input stream
   let handle = verify garrow_record_batch_stream_reader_new(stream.handle)
   result.handle = cast[ptr GArrowRecordBatchReader](handle)
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
   result.streamHandle = stream.handle # Store stream to keep it alive
   discard g_object_ref(result.streamHandle) # Increment ref count
 
@@ -207,6 +213,8 @@ proc newIpcFileReader*(stream: SeekableInputStream): IpcFileReader =
   ## Create a file IPC reader from a seekable input stream
   let handle = verify garrow_record_batch_file_reader_new(stream.handle)
   result.handle = handle
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
   result.stream = stream # Store stream to keep it alive
 
 proc newIpcFileReader*(fs: FileSystem, path: string): IpcFileReader =
@@ -243,6 +251,8 @@ proc newIpcStreamWriter*(stream: OutputStream, schema: Schema): IpcStreamWriter 
   let handle =
     verify garrow_record_batch_stream_writer_new(stream.handle, schema.handle)
   result.handle = handle
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc newIpcStreamWriter*(
     fs: FileSystem, path: string, schema: Schema
@@ -293,6 +303,8 @@ proc newIpcFileWriter*(stream: OutputStream, schema: Schema): IpcFileWriter =
   ## Create a file IPC writer
   let handle = verify garrow_record_batch_file_writer_new(stream.handle, schema.handle)
   result.handle = handle
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc newIpcFileWriter*(fs: FileSystem, path: string, schema: Schema): IpcFileWriter =
   ## Create a file IPC writer to a filesystem path

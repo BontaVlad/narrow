@@ -55,7 +55,6 @@ suite "Reading and Writing Data":
     let
       schema = newSchema([newField[int64]("nums"),])
       uri = fixture / "arraydata.arrow"
-      fs = newFileSystem(uri)
       arr = newArray(toSeq(0 .. 99))
       batch = newRecordBatch(schema, arr)
 

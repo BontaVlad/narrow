@@ -225,7 +225,7 @@ proc newArrowTable*(handle: ptr GArrowTable): ArrowTable =
 proc `$`*(tbl: ArrowTable): string =
   ## Returns a formatted string representation of the table content.
   let cstr = verify garrow_table_to_string(tbl.handle)
-  result = $newGString(cstr)
+  result = $newGString(cstr, owned = true)
 
 proc isValid*(tbl: ArrowTable): bool {.inline.} =
   ## Returns `true` if the table handle is non-nil.
@@ -348,6 +348,8 @@ proc newRecordBatchReader*(table: ArrowTable): RecordBatchReader =
   ## Creates a record batch reader from an `ArrowTable`.
   result.handle =
     cast[ptr GArrowRecordBatchReader](garrow_table_batch_reader_new(table.toPtr))
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc getColumnData*[T](tbl: ArrowTable, idx: int): ChunkedArray[T] =
   ## Returns the data of the `idx`-th column as a `ChunkedArray[T]`.

@@ -42,26 +42,38 @@ func toExecutor*(pool: ThreadPool): ptr GArrowExecutor {.inline.} =
 proc newExecuteContext*(executor: ptr GArrowExecutor): ExecuteContext =
   ## Creates a new execution context using the default executor.
   result.handle = garrow_execute_context_new(executor)
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc newExecutePlan*(ctx: ExecuteContext): ExecutePlan =
   ## Creates a new execution plan.
   result.handle = verify garrow_execute_plan_new(ctx.toPtr)
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc newSourceNodeOptions*(table: ArrowTable): SourceNodeOptions =
   ## Creates source node options from a table.
   result.handle = garrow_source_node_options_new_table(table.toPtr)
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc newSourceNodeOptions*(batch: RecordBatch): SourceNodeOptions =
   ## Creates source node options from a record batch.
   result.handle = garrow_source_node_options_new_record_batch(batch.toPtr)
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc newFilterNodeOptions*(expr: Expression): FilterNodeOptions =
   ## Creates filter node options from an expression.
   result.handle = garrow_filter_node_options_new(expr.toPtr)
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc newSinkNodeOptions*(): SinkNodeOptions =
   ## Creates new sink node options for capturing output.
   result.handle = garrow_sink_node_options_new()
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc newThreadPool*(n_threads: int = countProcessors()): ThreadPool =
   result.handle = verify garrow_thread_pool_new(n_threads = n_threads.guint)

@@ -105,7 +105,7 @@ var
 
 initLock(gTrackerLock)
 
-func captureStack(): string =
+proc captureStack(): string =
   ## Lightweight stack capture – lists Nim source locations.
   result = ""
   for entry in getStackTraceEntries():
@@ -274,7 +274,7 @@ proc dumpObject*(obj: pointer) =
   let rc = getRefCount(obj)
   let tn = typeName(obj)
   let gtype = getGType(obj)
-  echo &"""
+  echo &"""\n
 ┌─ GObject Dump ──────────────────────────────────
 │  address   : {cast[uint](obj):#018x}
 │  type name : {tn}

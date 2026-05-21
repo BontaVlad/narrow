@@ -100,7 +100,7 @@ macro newRecordBatch*(schema: Schema, arrays: varargs[typed]): RecordBatch =
 
 proc `$`*(rb: RecordBatch): string =
   let cstr = verify garrow_record_batch_to_string(rb.handle)
-  result = $newGString(cstr)
+  result = $newGString(cstr, owned = true)
 
 proc validate*(rb: RecordBatch): bool =
   var err: ptr GError
@@ -169,6 +169,8 @@ proc schema*(builder: RecordBatchBuilder): Schema =
 proc newRecordBatchBuilder*(schema: Schema): RecordBatchBuilder =
   let handle = verify garrow_record_batch_builder_new(schema.toPtr)
   result = RecordBatchBuilder(handle: handle)
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc newRecordBatchBuilder*(schema: Schema, capacity: int): RecordBatchBuilder =
   result = newRecordBatchBuilder(schema)
@@ -186,6 +188,8 @@ proc columnBuilder*[T](
 proc flush*(builder: RecordBatchBuilder): RecordBatch =
   let handle = verify garrow_record_batch_builder_flush(builder.toPtr)
   result = RecordBatch(handle: handle)
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc newRecordBatchIterator*(recordBatches: seq[RecordBatch]): RecordBatchIterator =
   var glist = newGList[ptr GArrowRecordBatch]()
@@ -194,6 +198,8 @@ proc newRecordBatchIterator*(recordBatches: seq[RecordBatch]): RecordBatchIterat
 
   let handle = garrow_record_batch_iterator_new(glist.toPtr)
   result = RecordBatchIterator(handle: handle)
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc next*(it: RecordBatchIterator): Option[RecordBatch] =
   var err: ptr GError

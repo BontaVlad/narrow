@@ -107,6 +107,7 @@ suite "Array cast":
       newArray(@[false, true, false]),
     ]
     let cArray = newChunkedArray(chunks)
+    # let foo = castChunks(cArray, newGType(string))
     let casted = toTyped[string](castChunks(cArray, newGType(string)))
     check casted.nChunks == 3
     check casted.getChunk(0)[1] == "false"

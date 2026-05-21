@@ -119,7 +119,8 @@ proc listFunctions*(): seq[Function] =
     result.add(Function(handle: f))
 
 proc `$`*(fn: Function): string {.inline.} =
-  $newGString(garrow_function_to_string(fn.handle))
+  let cstr = garrow_function_to_string(fn.handle)
+  result = $newGString(cstr, owned = true)
 
 proc `==`*(a, b: Function): bool =
   garrow_function_equal(a.handle, b.handle).bool
@@ -136,11 +137,13 @@ proc doc*(fn: Function): FunctionDoc =
 
 proc summary*(doc: FunctionDoc): string =
   ## Returns a one-line summary of the function
-  result = $newGString(garrow_function_doc_get_summary(doc.handle))
+  let cstr = garrow_function_doc_get_summary(doc.handle)
+  result = $newGString(cstr, owned = true)
 
 proc description*(doc: FunctionDoc): string =
   ## Returns a detailed description of the function
-  result = $newGString(garrow_function_doc_get_description(doc.handle))
+  let cstr = garrow_function_doc_get_description(doc.handle)
+  result = $newGString(cstr, owned = true)
 
 proc defaultOptions*(fn: Function): FunctionOptions =
   ## Returns the default options for this function

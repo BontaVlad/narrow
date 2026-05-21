@@ -39,4 +39,4 @@ proc `$`*(f: FixedSizeListType): string =
   let namePtr = garrow_data_type_get_name(gadType.handle)
   if isNil(namePtr):
     return "fixed_size_list<unknown>"
-  result = $newGString(namePtr)
+  result = $newGString(namePtr, owned = true)

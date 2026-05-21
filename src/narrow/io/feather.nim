@@ -86,6 +86,8 @@ proc newFeatherReader*(stream: SeekableInputStream): FeatherReader =
   ## Create a Feather file reader from a seekable input stream
   let handle = verify garrow_feather_file_reader_new(stream.handle)
   result.handle = handle
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
   result.stream = stream
 
 proc newFeatherReader*(fs: FileSystem, path: string): FeatherReader =
@@ -164,6 +166,7 @@ proc newFeatherWriteProperties*(): FeatherWriteProperties =
   if handle.isNil:
     raise newException(IOError, "Failed to create FeatherWriteProperties")
   result.handle = handle
+  discard g_object_ref_sink(result.handle)
 
 # ============================================================================
 # High-level Convenience API

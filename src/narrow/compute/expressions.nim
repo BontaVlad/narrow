@@ -111,6 +111,15 @@ proc `=destroy`*(sc: ScalarObj) =
 proc `=destroy`*(expr: ExpressionObj) =
   if not isNil(expr.handle):
     g_object_unref(expr.handle)
+  case expr.kind
+  of ekLiteral:
+    discard
+    # `=destroy`(expr.datum)
+  of ekField:
+    `=destroy`(expr.fieldName)
+  of ekCall:
+    `=destroy`(expr.functionName)
+    `=destroy`(expr.args)
 
 proc newScalar*(handle: ptr GArrowScalar, kind: ScalarKind): Scalar =
   result = Scalar(handle: handle, kind: kind)
@@ -135,7 +144,8 @@ func toPtr*(expr: Expression): ptr GArrowExpression {.inline.} =
 proc `$`*(expr: Expression): string =
   if expr.isNil or expr.handle == nil:
     return "Expression(nil)"
-  result = $newGString(garrow_expression_to_string(expr.handle))
+  let cstr = garrow_expression_to_string(expr.handle)
+  result = $newGString(cstr, owned = true)
 
 func `==`*(a, b: Expression): bool {.inline.} =
   if a.isNil and b.isNil:
@@ -273,90 +283,104 @@ func nodeCount*(expr: Expression): int =
 proc newScalar*(): Scalar =
   new(result)
   result.handle = cast[ptr GArrowScalar](garrow_null_scalar_new())
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
   result.kind = skNull
 
 proc newScalar*(handle: ptr GArrowScalar): Scalar =
   new(result)
   result.handle = handle
+  if not isNil(handle):
+    discard g_object_ref_sink(handle)
   result.kind = skNull
 
 proc newScalar*(v: bool): Scalar =
   new(result)
   result.handle = cast[ptr GArrowScalar](garrow_boolean_scalar_new(v.gboolean))
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
   result.kind = skBool
 
 proc newScalar*(v: int8): Scalar =
   new(result)
   result.handle = cast[ptr GArrowScalar](garrow_int8_scalar_new(v.gint8))
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
   result.kind = skInt8
 
 proc newScalar*(v: int16): Scalar =
   new(result)
   result.handle = cast[ptr GArrowScalar](garrow_int16_scalar_new(v.gint16))
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
   result.kind = skInt16
 
 proc newScalar*(v: int32): Scalar =
   new(result)
   result.handle = cast[ptr GArrowScalar](garrow_int32_scalar_new(v.gint32))
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
   result.kind = skInt32
 
 proc newScalar*(v: int64): Scalar =
   new(result)
   result.handle = cast[ptr GArrowScalar](garrow_int64_scalar_new(v.gint64))
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
   result.kind = skInt64
 
 proc newScalar*(v: uint8): Scalar =
   new(result)
   result.handle = cast[ptr GArrowScalar](garrow_uint8_scalar_new(v.guint8))
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
   result.kind = skUInt8
 
 proc newScalar*(v: uint16): Scalar =
   new(result)
   result.handle = cast[ptr GArrowScalar](garrow_uint16_scalar_new(v.guint16))
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
   result.kind = skUInt16
 
 proc newScalar*(v: uint32): Scalar =
   new(result)
   result.handle = cast[ptr GArrowScalar](garrow_uint32_scalar_new(v.guint32))
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
   result.kind = skUInt32
 
 proc newScalar*(v: uint64): Scalar =
   new(result)
   result.handle = cast[ptr GArrowScalar](garrow_uint64_scalar_new(v.guint64))
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
   result.kind = skUInt64
 
 proc newScalar*(v: float32): Scalar =
   new(result)
   result.handle = cast[ptr GArrowScalar](garrow_float_scalar_new(v.gfloat))
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
   result.kind = skFloat32
 
 proc newScalar*(v: float64): Scalar =
   new(result)
   result.handle = cast[ptr GArrowScalar](garrow_double_scalar_new(v.gdouble))
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
   result.kind = skFloat64
 
-# proc newScalar*(v: string): Scalar =
-#   let buffer = garrow_buffer_new(cast[ptr guint8](v.cstring), v.len.gint64)
-#   new(result)
-#   result.handle = cast[ptr GArrowScalar](garrow_string_scalar_new(buffer))
-#   result.kind = skString
-#   g_object_unref(buffer)
 proc newScalar*(v: string): Scalar =
   new(result)
-  # garrow_buffer_new_bytes with GBytes creates a buffer that OWNS a copy
   let gbytes = g_bytes_new(cast[gconstpointer](v.cstring), v.len.gsize)
   let buffer = garrow_buffer_new_bytes(gbytes)
-  g_bytes_unref(gbytes) # buffer holds a ref to gbytes internally
+  g_bytes_unref(gbytes)
   result.handle = cast[ptr GArrowScalar](garrow_string_scalar_new(buffer))
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
   result.kind = skString
   g_object_unref(buffer)
-
-# proc newScalar*(v: seq[byte]): Scalar =
-#   let buffer = garrow_buffer_new(cast[ptr guint8](v[0].unsafeAddr), v.len.gint64)
-#   new(result)
-#   result.handle = cast[ptr GArrowScalar](garrow_binary_scalar_new(buffer))
-#   result.kind = skBinary
-#   g_object_unref(buffer)
 
 proc newScalar*(v: seq[byte]): Scalar =
   new(result)
@@ -364,23 +388,31 @@ proc newScalar*(v: seq[byte]): Scalar =
   let buffer = garrow_buffer_new_bytes(gbytes)
   g_bytes_unref(gbytes)
   result.handle = cast[ptr GArrowScalar](garrow_binary_scalar_new(buffer))
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
   result.kind = skBinary
   g_object_unref(buffer)
 
 proc newScalar*(v: Date32): Scalar =
   new(result)
   result.handle = cast[ptr GArrowScalar](garrow_date32_scalar_new(v.int32.gint32))
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
   result.kind = skDate32
 
 proc newScalar*(v: Date64): Scalar =
   new(result)
   result.handle = cast[ptr GArrowScalar](garrow_date64_scalar_new(v.int64.gint64))
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
   result.kind = skDate64
 
 proc newScalar*(v: MonthInterval): Scalar =
   new(result)
   result.handle =
     cast[ptr GArrowScalar](garrow_month_interval_scalar_new(v.int32.gint32))
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
   result.kind = skMonthInterval
 
 # ============================================================================
@@ -389,6 +421,8 @@ proc newScalar*(v: MonthInterval): Scalar =
 
 proc newDatum*(sc: Scalar): Datum =
   result.handle = cast[ptr GArrowDatum](garrow_scalar_datum_new(sc.toPtr))
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc newDatum*[T: ArrowPrimitive](value: T): Datum =
   let scalar =
@@ -438,23 +472,36 @@ proc newDatum*[T: ArrowPrimitive](value: T): Datum =
     else:
       nil
   result.handle = cast[ptr GArrowDatum](garrow_scalar_datum_new(scalar))
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
   if not scalar.isNil:
     g_object_unref(scalar)
 
-proc newDatum*[T](arr: sink Array[T]): Datum =
-  result.handle = cast[ptr GArrowDatum](garrow_array_datum_new(move(arr).toPtr))
+proc newDatum*[T](arr: Array[T]): Datum =
+  result.handle = cast[ptr GArrowDatum](garrow_array_datum_new(arr.toPtr))
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
-proc newDatum*[T](ca: sink ChunkedArray[T]): Datum =
-  result.handle = cast[ptr GArrowDatum](garrow_chunked_array_datum_new(move(ca).toPtr))
+proc newDatum*[T](ca: ChunkedArray[T]): Datum =
+  result.handle = cast[ptr GArrowDatum](garrow_chunked_array_datum_new(ca.toPtr))
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
-proc newDatum*(tb: sink ArrowTable): Datum =
-  result.handle = cast[ptr GArrowDatum](garrow_table_datum_new(move(tb).toPtr))
+proc newDatum*(tb: ArrowTable): Datum =
+  result.handle = cast[ptr GArrowDatum](garrow_table_datum_new(tb.toPtr))
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
-proc newDatum*(rb: sink RecordBatch): Datum =
-  result.handle = cast[ptr GArrowDatum](garrow_record_batch_datum_new(move(rb).toPtr))
+proc newDatum*(rb: RecordBatch): Datum =
+  result.handle = cast[ptr GArrowDatum](garrow_record_batch_datum_new(rb.toPtr))
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc newDatum*(handle: ptr GArrowDatum): Datum =
+  ## Wraps a GArrowDatum pointer. Sinks any floating reference.
   result.handle = handle
+  if not isNil(handle):
+    discard g_object_ref_sink(handle)
 
 # ============================================================================
 # Datum Runtime Type Checks
@@ -476,7 +523,8 @@ func `==`*(a, b: Datum): bool {.inline.} =
   garrow_datum_equal(a.toPtr, b.toPtr) != 0
 
 proc `$`*(dt: Datum): string =
-  result = $newGString(garrow_datum_to_string(dt.handle))
+  let cstr = garrow_datum_to_string(dt.handle)
+  result = $newGString(cstr, owned = true)
 
 # ============================================================================
 # GObject Type Detection
@@ -543,6 +591,8 @@ proc toScalar*(dt: Datum): Scalar =
   g_object_get(dt.handle, "value", addr scalarPtr, nil)
   new(result)
   result.handle = scalarPtr
+  if not isNil(scalarPtr):
+    discard g_object_ref_sink(scalarPtr)
   result.kind = detectScalarKind(scalarPtr)
 
 # ============================================================================
@@ -570,6 +620,8 @@ proc toArray*(dt: Datum): Array[void] =
     raise newException(ValueError, "Datum is not an array")
   var arrPtr: ptr GArrowArray
   g_object_get(dt.handle, "value", addr arrPtr, nil)
+  if not isNil(arrPtr):
+    discard g_object_ref_sink(arrPtr)
   result = newArray[void](arrPtr)
 
 proc toChunkedArray*(dt: Datum): ChunkedArray[void] =
@@ -577,6 +629,8 @@ proc toChunkedArray*(dt: Datum): ChunkedArray[void] =
     raise newException(ValueError, "Datum is not a chunked array")
   var caPtr: ptr GArrowChunkedArray
   g_object_get(dt.handle, "value", addr caPtr, nil)
+  if not isNil(caPtr):
+    discard g_object_ref_sink(caPtr)
   result = newChunkedArray[void](caPtr)
 
 # ============================================================================
@@ -602,7 +656,8 @@ func `==`*(a, b: Scalar): bool {.inline.} =
 proc `$`*(sc: Scalar): string =
   if sc.isNil or sc.handle.isNil:
     return "Scalar(nil)"
-  result = $newGString(garrow_scalar_to_string(sc.handle))
+  let cstr = garrow_scalar_to_string(sc.handle)
+  result = $newGString(cstr, owned = true)
 
 # ============================================================================
 # Scalar Value Extractors
@@ -840,6 +895,8 @@ proc newLiteralExpression*(dt: Datum): Expression =
     datum: dt,
     handle: cast[ptr GArrowExpression](garrow_literal_expression_new(dt.toPtr)),
   )
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc newLiteralExpression*[T: DatumCompatible](value: T): Expression =
   ## Creates a literal expression from a primitive value.
@@ -866,6 +923,8 @@ proc newFieldExpression*(name: sink string): Expression =
     handle: cast[ptr GArrowExpression](verify garrow_field_expression_new(cname)),
     fieldName: move(name),
   )
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 # ============================================================================
 # Expression Constructors — Call Nodes
@@ -901,6 +960,8 @@ proc newCallExpression*(
     functionName: move(function),
     args: move(childExprs),
   )
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc newCallExpressionWithOptions*(
     function: sink string, options: MatchSubstringOptions, args: openArray[Expression]
@@ -922,6 +983,8 @@ proc newCallExpressionWithOptions*(
     functionName: move(function),
     args: move(childExprs),
   )
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 # ============================================================================
 # Convenience — Comparisons
