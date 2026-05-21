@@ -1,33 +1,8 @@
-import ../core/ffi
+import ../core/[ffi, utils]
 
-type MatchSubstringOptions* = object
-  handle*: ptr GArrowMatchSubstringOptions
-
-# ARC hooks
-proc `=destroy`*(options: MatchSubstringOptions) =
-  if options.handle != nil:
-    g_object_unref(options.handle)
-
-proc `=wasMoved`*(options: var MatchSubstringOptions) =
-  options.handle = nil
-
-proc `=dup`*(options: MatchSubstringOptions): MatchSubstringOptions =
-  result.handle = options.handle
-  if options.handle != nil:
-    discard g_object_ref(options.handle)
-
-proc `=copy`*(dest: var MatchSubstringOptions, src: MatchSubstringOptions) =
-  if dest.handle != src.handle:
-    if dest.handle != nil:
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if src.handle != nil:
-      discard g_object_ref(dest.handle)
-
-proc toPtr*(
-    options: MatchSubstringOptions
-): ptr GArrowMatchSubstringOptions {.inline.} =
-  options.handle
+arcGObject:
+  type MatchSubstringOptions* = object
+    handle*: ptr GArrowMatchSubstringOptions
 
 proc newMatchSubstringOptions*(
     pattern: string, ignoreCase: bool = false

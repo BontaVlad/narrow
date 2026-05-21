@@ -414,7 +414,7 @@ proc newTimestampArrayBuilder*(
 
   g_object_unref(tsType) # release reference as builder owns it
 
-  if g_object_is_floating(handle) != 0:
+  if not isNil(handle):
     discard g_object_ref_sink(handle)
   TimestampArrayBuilder(handle: handle, unit: unit, tz: tz)
 
@@ -423,7 +423,7 @@ proc newDate32ArrayBuilder*(): Date32ArrayBuilder =
   let handle = garrow_date32_array_builder_new()
   if handle.isNil:
     raise newException(OperationError, "Failed to create Date32ArrayBuilder")
-  if g_object_is_floating(handle) != 0:
+  if not isNil(handle):
     discard g_object_ref_sink(handle)
   Date32ArrayBuilder(handle: handle)
 
@@ -580,7 +580,7 @@ proc newTime32ArrayBuilder*(
 
   g_object_unref(tsType)
 
-  if g_object_is_floating(handle) != 0:
+  if not isNil(handle):
     discard g_object_ref_sink(handle)
   Time32ArrayBuilder(handle: handle, unit: unit)
 
@@ -630,7 +630,7 @@ proc newTime64ArrayBuilder*(
 
   g_object_unref(tsType)
 
-  if g_object_is_floating(handle) != 0:
+  if not isNil(handle):
     discard g_object_ref_sink(handle)
   Time64ArrayBuilder(handle: handle, unit: unit)
 

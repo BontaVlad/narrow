@@ -168,8 +168,7 @@ template with*(resource, name, body: untyped): untyped =
 proc newLocalFileSystemOptions*(): LocalFileSystemOptions =
   var handle = garrow_local_file_system_options_new()
 
-  # Sink floating reference if present
-  if g_object_is_floating(handle) != 0:
+  if not isNil(handle):
     discard g_object_ref_sink(handle)
 
   result.handle = handle
@@ -181,8 +180,7 @@ proc newLocalFileSystemOptions*(): LocalFileSystemOptions =
 proc newFileInfo*(): FileInfo =
   var handle = garrow_file_info_new()
 
-  # Sink floating reference if present
-  if g_object_is_floating(handle) != 0:
+  if not isNil(handle):
     discard g_object_ref_sink(handle)
 
   result.handle = handle
@@ -289,7 +287,7 @@ proc newFileSelector*(
     nil,
   )
 
-  if g_object_is_floating(handle) != 0:
+  if not isNil(handle):
     discard g_object_ref_sink(handle)
 
   result.handle = cast[ptr GArrowFileSelector](handle)
@@ -639,9 +637,6 @@ proc newFileSystem*(uri: string): FileSystem =
   ## The URI scheme determines the filesystem type:
   ## - `file://` or no scheme: Local filesystem
   ## - `s3://`: Amazon S3 (requires S3 initialization)
-  ## - `gs://`: Google Cloud Storage
-  ## - `abfs://` or `az://`: Azure Blob Storage
-  ## - `hdfs://`: Hadoop Distributed File System
   ##
   ## Example:
   ## ```nim
@@ -656,11 +651,6 @@ proc newFileSystem*(uri: string): FileSystem =
     else:
       "file://" & uri
   let handle = verify garrow_file_system_create(uriString.cstring)
-
-  # Sink floating reference if present
-  if g_object_is_floating(handle) != 0:
-    discard g_object_ref_sink(handle)
-
   result.handle = handle
 
 proc newFileSystem*(uri: Uri): FileSystem =
@@ -674,11 +664,6 @@ proc newFileSystem*(uri: Uri): FileSystem =
   let uriString = $uri
   new(result)
   let handle = verify garrow_file_system_create(uriString.cstring)
-
-  # Sink floating reference if present
-  if g_object_is_floating(handle) != 0:
-    discard g_object_ref_sink(handle)
-
   result.handle = handle
 
 proc typeName*(fs: FileSystem): string =
@@ -712,7 +697,10 @@ proc getFileInfos*(fs: FileSystem, paths: openArray[string]): seq[FileInfo] =
   let gList = newGlist[ptr GArrowFileInfo](glistPtr)
   result = newSeqOfCap[FileInfo](gList.len)
   for p in gList:
-    result.add(FileInfo(handle: cast[ptr GArrowFileInfo](p)))
+    let handle = cast[ptr GArrowFileInfo](p)
+    if not isNil(handle):
+      discard g_object_ref(handle)
+    result.add(FileInfo(handle: handle))
 
 proc getFileInfos*(fs: FileSystem, selector: FileSelector): seq[FileInfo] =
   ## Get information about files matching a selector
@@ -728,7 +716,10 @@ proc getFileInfos*(fs: FileSystem, selector: FileSelector): seq[FileInfo] =
   let gList = newGlist[ptr GArrowFileInfo](glistPtr)
   result = newSeqOfCap[FileInfo](gList.len)
   for p in gList:
-    result.add(FileInfo(handle: cast[ptr GArrowFileInfo](p)))
+    let handle = cast[ptr GArrowFileInfo](p)
+    if not isNil(handle):
+      discard g_object_ref(handle)
+    result.add(FileInfo(handle: handle))
 
 proc createDir*(fs: FileSystem, path: string, recursive = true) =
   ## Create a directory
@@ -857,11 +848,6 @@ proc newLocalFileSystem*(options: LocalFileSystemOptions): LocalFileSystem =
   ## Create a local filesystem with custom options
   new(result)
   let handle = garrow_local_file_system_new(options.handle)
-
-  # Sink floating reference if present
-  if g_object_is_floating(handle) != 0:
-    discard g_object_ref_sink(handle)
-
   result.handle = cast[ptr GArrowFileSystem](handle)
 
 proc newLocalFileSystem*(): LocalFileSystem =

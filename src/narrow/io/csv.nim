@@ -103,8 +103,6 @@ proc newCsvReadOptions*(
 
 proc `=destroy`*(o: CsvReadOptions) =
   if o.handle != nil:
-    if o.schema.isSome:
-      g_object_unref(o.schema.get().toPtr)
     g_object_unref(o.handle)
 
 proc `=wasMoved`*(o: var CsvReadOptions) =
@@ -120,8 +118,6 @@ proc `=dup`*(o: CsvReadOptions): CsvReadOptions =
 proc `=copy`*(dest: var CsvReadOptions, src: CsvReadOptions) =
   if dest.handle != src.handle:
     if dest.handle != nil:
-      if dest.schema.isSome:
-        g_object_unref(dest.schema.get().toPtr)
       g_object_unref(dest.handle)
     dest.handle = src.handle
     dest.schema = src.schema

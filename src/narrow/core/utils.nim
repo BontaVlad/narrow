@@ -56,16 +56,35 @@ func freshGenericParams(gp: NimNode): NimNode =
     if identDefs.kind != nnkIdentDefs:
       continue
     let nameCount = identDefs.len - 2
+    let rawConstraint = identDefs[nameCount]
+    let rawTypeAnn = identDefs[nameCount + 1]
+    let constraint =
+      if rawConstraint.kind == nnkEmpty:
+        newEmptyNode()
+      elif rawConstraint.kind == nnkIdent:
+        ident(rawConstraint.strVal)
+      else:
+        copyNimTree(rawConstraint)
+    let typeAnn =
+      if rawTypeAnn.kind == nnkEmpty:
+        newEmptyNode()
+      else:
+        copyNimTree(rawTypeAnn)
+    var freshNames: seq[NimNode] = @[]
     for i in 0 ..< nameCount:
       let n = identDefs[i]
       if n.kind == nnkIdent:
-        result.add(newIdentDefs(ident(n.strVal), newEmptyNode()))
+        freshNames.add(ident(n.strVal))
       elif n.kind == nnkPostfix and n[1].kind == nnkIdent:
-        result.add(
-          newIdentDefs(
-            newNimNode(nnkPostfix).add(ident"*", ident(n[1].strVal)), newEmptyNode()
-          )
+        freshNames.add(
+          newNimNode(nnkPostfix).add(ident"*", ident(n[1].strVal))
         )
+    var freshIdentDefs = newNimNode(nnkIdentDefs)
+    for name in freshNames:
+      freshIdentDefs.add(name)
+    freshIdentDefs.add(constraint)
+    freshIdentDefs.add(typeAnn)
+    result.add(freshIdentDefs)
 
 func makeParamType(typeName: NimNode, genericParams: NimNode): NimNode =
   ## Build TypeName[T, U] from the base type name and generic params.

@@ -1,101 +1,17 @@
-import ../core/[ffi, error]
+import ../core/[ffi, error, utils]
 import ../types/[gtypes, glist]
 import ./expressions
 
-type
-  Function* = object
-    handle: ptr GArrowFunction
+arcGObject:
+  type
+    Function* = object
+      handle: ptr GArrowFunction
 
-  FunctionOptions* = object
-    handle*: ptr GArrowFunctionOptions
+    FunctionOptions* = object
+      handle*: ptr GArrowFunctionOptions
 
-  FunctionDoc* = object
-    handle: ptr GArrowFunctionDoc
-
-# ============================================================================
-# ARC Hooks - Function
-# ============================================================================
-
-proc `=destroy`*(fn: Function) =
-  if not isNil(fn.handle):
-    g_object_unref(fn.handle)
-
-proc `=wasMoved`*(fn: var Function) =
-  fn.handle = nil
-
-proc `=dup`*(fn: Function): Function =
-  result.handle = fn.handle
-  if not isNil(fn.handle):
-    discard g_object_ref(fn.handle)
-
-proc `=copy`*(dest: var Function, src: Function) =
-  if dest.handle != src.handle:
-    if not isNil(dest.handle):
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if not isNil(src.handle):
-      discard g_object_ref(dest.handle)
-
-# ============================================================================
-# ARC Hooks - FunctionOptions
-# ============================================================================
-
-proc `=destroy`*(options: FunctionOptions) =
-  if not isNil(options.handle):
-    g_object_unref(options.handle)
-
-proc `=wasMoved`*(options: var FunctionOptions) =
-  options.handle = nil
-
-proc `=dup`*(options: FunctionOptions): FunctionOptions =
-  result.handle = options.handle
-  if not isNil(options.handle):
-    discard g_object_ref(options.handle)
-
-proc `=copy`*(dest: var FunctionOptions, src: FunctionOptions) =
-  if dest.handle != src.handle:
-    if not isNil(dest.handle):
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if not isNil(src.handle):
-      discard g_object_ref(dest.handle)
-
-# ============================================================================
-# ARC Hooks - FunctionDoc
-# ============================================================================
-
-proc `=destroy`*(doc: FunctionDoc) =
-  if not isNil(doc.handle):
-    g_object_unref(doc.handle)
-
-proc `=wasMoved`*(doc: var FunctionDoc) =
-  doc.handle = nil
-
-proc `=dup`*(doc: FunctionDoc): FunctionDoc =
-  result.handle = doc.handle
-  if not isNil(doc.handle):
-    discard g_object_ref(doc.handle)
-
-proc `=copy`*(dest: var FunctionDoc, src: FunctionDoc) =
-  if dest.handle != src.handle:
-    if not isNil(dest.handle):
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if not isNil(src.handle):
-      discard g_object_ref(dest.handle)
-
-# ============================================================================
-# Pointer Converters
-# ============================================================================
-
-proc toPtr*(fn: Function): ptr GArrowFunction {.inline.} =
-  fn.handle
-
-proc toPtr*(options: FunctionOptions): ptr GArrowFunctionOptions {.inline.} =
-  options.handle
-
-proc toPtr*(doc: FunctionDoc): ptr GArrowFunctionDoc {.inline.} =
-  doc.handle
+    FunctionDoc* = object
+      handle: ptr GArrowFunctionDoc
 
 # ============================================================================
 # Function Discovery

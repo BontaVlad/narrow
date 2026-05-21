@@ -214,8 +214,6 @@ proc newMapDataType*(keyType: GADType, itemType: GADType): MapDataType =
 
 proc newMapDataType*(handle: ptr GArrowMapDataType): MapDataType =
   result.handle = handle
-  if not isNil(handle):
-    discard g_object_ref_sink(handle)
 
 proc keyType*(dt: MapDataType): GADType =
   let handle = garrow_map_data_type_get_key_type(dt.handle)
@@ -268,8 +266,6 @@ proc newMapArray*[K, V](
 
 proc newMapArray*[K, V](handle: ptr GArrowMapArray): MapArray[K, V] =
   result = MapArray[K, V](handle: handle)
-  if not isNil(handle):
-    discard g_object_ref_sink(handle)
 
 proc len*[K, V](arr: MapArray[K, V]): int =
   garrow_array_get_length(cast[ptr GArrowArray](arr.handle))
@@ -503,8 +499,6 @@ proc newStruct*(fields: openArray[Field]): Struct =
 # StructArray creators
 proc newStructArray*(handle: ptr GArrowStructArray): StructArray =
   result.handle = handle
-  if not isNil(handle):
-    discard g_object_ref_sink(handle)
 
 proc newStructArray*(
     structType: Struct, fields: varargs[ptr GArrowArray]

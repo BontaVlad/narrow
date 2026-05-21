@@ -69,6 +69,8 @@ proc schema*(reader: RecordBatchReader): Schema =
 proc newRecordBatch*(arr: pointer, schema: Schema): RecordBatch =
   let handle = verify garrow_record_batch_import(arr, schema.handle)
   result.handle = handle
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc newRecordBatch*(handle: ptr GArrowRecordBatch): RecordBatch =
   result.handle = handle

@@ -6,6 +6,7 @@ import ../tabular/table
 import ../tabular/batch
 import ../core/ffi
 import ../core/error
+import ../core/utils
 import ./match_substring_options
 import ../compute/statistics
 
@@ -53,9 +54,6 @@ type
     brIndeterminate ## Can't determine — must read the data
 
 type
-  Datum* = object
-    handle: ptr GArrowDatum
-
   ScalarObj = object
     handle*: ptr GArrowScalar
     kind*: ScalarKind
@@ -65,6 +63,11 @@ type
   DatumCompatible* = ArrowPrimitive | Array | ChunkedArray | ArrowTable | RecordBatch
 
   FilterClause* = tuple[field: string, op: string, value: string]
+
+arcGObject:
+  type
+    Datum* = object
+      handle: ptr GArrowDatum
 
 type
   ExpressionObj = object
@@ -79,26 +82,6 @@ type
       args*: seq[Expression]
 
   Expression* = ref ExpressionObj
-
-proc `=destroy`*(dt: Datum) =
-  if not isNil(dt.handle):
-    g_object_unref(dt.handle)
-
-proc `=wasMoved`*(dt: var Datum) =
-  dt.handle = nil
-
-proc `=dup`*(dt: Datum): Datum =
-  result.handle = dt.handle
-  if not isNil(dt.handle):
-    discard g_object_ref(dt.handle)
-
-proc `=copy`*(dest: var Datum, src: Datum) =
-  if dest.handle != src.handle:
-    if not isNil(dest.handle):
-      g_object_unref(dest.handle)
-    dest.handle = src.handle
-    if not isNil(dest.handle):
-      discard g_object_ref(dest.handle)
 
 # ============================================================================
 # ARC Hooks — Scalar (ref type, only need destroy for the object)
@@ -127,9 +110,6 @@ proc newScalar*(handle: ptr GArrowScalar, kind: ScalarKind): Scalar =
 # ============================================================================
 # Pointer Converters
 # ============================================================================
-
-func toPtr*(dt: Datum): ptr GArrowDatum {.inline.} =
-  dt.handle
 
 func toPtr*(sc: Scalar): ptr GArrowScalar {.inline.} =
   if sc.isNil: nil else: sc.handle
@@ -290,8 +270,6 @@ proc newScalar*(): Scalar =
 proc newScalar*(handle: ptr GArrowScalar): Scalar =
   new(result)
   result.handle = handle
-  if not isNil(handle):
-    discard g_object_ref_sink(handle)
   result.kind = skNull
 
 proc newScalar*(v: bool): Scalar =
@@ -498,7 +476,7 @@ proc newDatum*(rb: RecordBatch): Datum =
     discard g_object_ref_sink(result.handle)
 
 proc newDatum*(handle: ptr GArrowDatum): Datum =
-  ## Wraps a GArrowDatum pointer. Sinks any floating reference.
+  ## Wraps a GArrowDatum pointer.
   result.handle = handle
   if not isNil(handle):
     discard g_object_ref_sink(handle)
@@ -592,7 +570,7 @@ proc toScalar*(dt: Datum): Scalar =
   new(result)
   result.handle = scalarPtr
   if not isNil(scalarPtr):
-    discard g_object_ref_sink(scalarPtr)
+    discard g_object_ref(scalarPtr)
   result.kind = detectScalarKind(scalarPtr)
 
 # ============================================================================
@@ -621,7 +599,7 @@ proc toArray*(dt: Datum): Array[void] =
   var arrPtr: ptr GArrowArray
   g_object_get(dt.handle, "value", addr arrPtr, nil)
   if not isNil(arrPtr):
-    discard g_object_ref_sink(arrPtr)
+    discard g_object_ref(arrPtr)
   result = newArray[void](arrPtr)
 
 proc toChunkedArray*(dt: Datum): ChunkedArray[void] =
@@ -630,7 +608,7 @@ proc toChunkedArray*(dt: Datum): ChunkedArray[void] =
   var caPtr: ptr GArrowChunkedArray
   g_object_get(dt.handle, "value", addr caPtr, nil)
   if not isNil(caPtr):
-    discard g_object_ref_sink(caPtr)
+    discard g_object_ref(caPtr)
   result = newChunkedArray[void](caPtr)
 
 # ============================================================================

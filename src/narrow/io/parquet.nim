@@ -34,9 +34,13 @@ type Writable* =
 
 proc newFileReader*(sis: SeekableInputStream): FileReader =
   result.handle = verify gparquet_arrow_file_reader_new_arrow(sis.toPtr)
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc newFileReader*(uri: string): FileReader =
   result.handle = verify gparquet_arrow_file_reader_new_path(uri)
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc schema*(pfr: FileReader): Schema =
   let handle = verify gparquet_arrow_file_reader_get_schema(pfr.toPtr)
@@ -89,16 +93,22 @@ proc nColumns*(pfr: FileReader): int =
 proc metadata*(reader: FileReader): FileMetadata =
   let handle = gparquet_arrow_file_reader_get_metadata(reader.toPtr)
   result.handle = handle
+  if not isNil(handle):
+    discard g_object_ref(handle)
 
 proc newFileWriter*(uri: string, schema: Schema, wp: WriterProperties): FileWriter =
   result.handle =
     verify gparquet_arrow_file_writer_new_path(schema.toPtr, uri.cstring, wp.toPtr)
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc newFileWriter*(
     snk: OutputStream, schema: Schema, wp: WriterProperties
 ): FileWriter =
   result.handle =
     verify gparquet_arrow_file_writer_new_arrow(schema.toPtr, snk.toPtr, wp.toPtr)
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 proc close*(fw: FileWriter) =
   verify gparquet_arrow_file_writer_close(fw.toPtr)
@@ -112,6 +122,8 @@ proc schema*(fw: FileWriter): Schema =
 
 proc newWriterProperties*(): WriterProperties =
   result.handle = gparquet_writer_properties_new()
+  if not isNil(result.handle):
+    discard g_object_ref_sink(result.handle)
 
 func dictionaryPageSizeLimit*(wp: WriterProperties): int64 {.inline.} =
   gparquet_writer_properties_get_dictionary_page_size_limit(wp.handle)

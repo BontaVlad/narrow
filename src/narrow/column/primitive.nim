@@ -408,6 +408,7 @@ proc appendValues*[T](builder: ArrayBuilder[T], values: Array[T]) =
       nil,
       0,
     )
+    g_free(data)
   else:
     for val in values:
       builder.append(val)
@@ -442,6 +443,8 @@ proc newArray*[T](gptr: pointer): Array[T] =
 
 proc newArray*[T](handle: ptr GArrowArray): Array[T] =
   result = Array[T](handle: handle)
+  if not isNil(handle):
+    discard g_object_ref(handle)
 
 proc toTyped*[T: ArrowValue](arr: Array): Array[T] =
   ## Convert an untyped (or differently typed) Array to a typed Array.
@@ -521,7 +524,7 @@ proc `[]`*[T](arr: Array[T], i: int): T =
   elif T is string:
     let cstr =
       garrow_string_array_get_string(cast[ptr GArrowStringArray](arr.handle), i)
-    return $newGstring(cstr)
+    return $newGString(cstr, owned = true)
   else:
     {.error: "Unsupported array type for indexing".}
 
@@ -579,6 +582,7 @@ proc toSeq*[T](arr: Array[T]): seq[T] =
     let bools = cast[ptr UncheckedArray[gboolean]](data)
     for i in 0 ..< arr.len:
       result[i] = bools[i] != 0
+    g_free(data)
   elif T is int32:
     var length: gint64
     let data =

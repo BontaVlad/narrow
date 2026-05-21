@@ -1,83 +1,74 @@
-import ../core/[ffi]
+import ../core/[ffi, utils]
 
-type
-  Statistics* = object
-    handle*: ptr GParquetStatistics
+arcGObject:
+  type
+    Statistics* = object
+      handle*: ptr GParquetStatistics
 
-  BooleanStatistics* = object
-    handle*: ptr GParquetBooleanStatistics
+    BooleanStatistics* = object
+      handle*: ptr GParquetBooleanStatistics
 
-  Int32Statistics* = object
-    handle*: ptr GParquetInt32Statistics
+    Int32Statistics* = object
+      handle*: ptr GParquetInt32Statistics
 
-  Int64Statistics* = object
-    handle*: ptr GParquetInt64Statistics
+    Int64Statistics* = object
+      handle*: ptr GParquetInt64Statistics
 
-  FloatStatistics* = object
-    handle*: ptr GParquetFloatStatistics
+    FloatStatistics* = object
+      handle*: ptr GParquetFloatStatistics
 
-  DoubleStatistics* = object
-    handle*: ptr GParquetDoubleStatistics
+    DoubleStatistics* = object
+      handle*: ptr GParquetDoubleStatistics
 
-  ByteArrayStatistics* = object
-    handle*: ptr GParquetByteArrayStatistics
+    ByteArrayStatistics* = object
+      handle*: ptr GParquetByteArrayStatistics
 
-  FixedLengthByteArrayStatistics* = object
-    handle*: ptr GParquetFixedLengthByteArrayStatistics
-
-proc toPtr*(s: Statistics): ptr GParquetStatistics =
-  s.handle
-
-proc toPtr*(s: BooleanStatistics): ptr GParquetBooleanStatistics =
-  s.handle
-
-proc toPtr*(s: Int32Statistics): ptr GParquetInt32Statistics =
-  s.handle
-
-proc toPtr*(s: Int64Statistics): ptr GParquetInt64Statistics =
-  s.handle
-
-proc toPtr*(s: FloatStatistics): ptr GParquetFloatStatistics =
-  s.handle
-
-proc toPtr*(s: DoubleStatistics): ptr GParquetDoubleStatistics =
-  s.handle
-
-proc toPtr*(s: ByteArrayStatistics): ptr GParquetByteArrayStatistics =
-  s.handle
-
-proc toPtr*(
-    s: FixedLengthByteArrayStatistics
-): ptr GParquetFixedLengthByteArrayStatistics =
-  s.handle
+    FixedLengthByteArrayStatistics* = object
+      handle*: ptr GParquetFixedLengthByteArrayStatistics
 
 proc newStatistics*(handle: ptr GParquetStatistics): Statistics =
   result.handle = handle
+  if not isNil(handle):
+    discard g_object_ref(handle)
 
 proc newBooleanStatistics*(handle: ptr GParquetBooleanStatistics): BooleanStatistics =
   result.handle = handle
+  if not isNil(handle):
+    discard g_object_ref(handle)
 
 proc newInt32Statistics*(handle: ptr GParquetInt32Statistics): Int32Statistics =
   result.handle = handle
+  if not isNil(handle):
+    discard g_object_ref(handle)
 
 proc newInt64Statistics*(handle: ptr GParquetInt64Statistics): Int64Statistics =
   result.handle = handle
+  if not isNil(handle):
+    discard g_object_ref(handle)
 
 proc newFloatStatistics*(handle: ptr GParquetFloatStatistics): FloatStatistics =
   result.handle = handle
+  if not isNil(handle):
+    discard g_object_ref(handle)
 
 proc newDoubleStatistics*(handle: ptr GParquetDoubleStatistics): DoubleStatistics =
   result.handle = handle
+  if not isNil(handle):
+    discard g_object_ref(handle)
 
 proc newByteArrayStatistics*(
     handle: ptr GParquetByteArrayStatistics
 ): ByteArrayStatistics =
   result.handle = handle
+  if not isNil(handle):
+    discard g_object_ref(handle)
 
 proc newFixedLengthByteArrayStatistics*(
     handle: ptr GParquetFixedLengthByteArrayStatistics
 ): FixedLengthByteArrayStatistics =
   result.handle = handle
+  if not isNil(handle):
+    discard g_object_ref(handle)
 
 proc `==`*(a, b: Statistics): bool =
   gparquet_statistics_equal(a.toPtr, b.toPtr) == 1

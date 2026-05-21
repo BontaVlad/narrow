@@ -19,7 +19,7 @@ proc newField*[T](name: string): Field =
   let gType = newGType(T)
   let handle = garrow_field_new(name.cstring, gType.toPtr)
 
-  if g_object_is_floating(handle) != 0:
+  if not isNil(handle):
     discard g_object_ref_sink(handle)
 
   result.handle = handle
@@ -27,15 +27,14 @@ proc newField*[T](name: string): Field =
 proc newField*(handle: ptr GArrowField): Field =
   result.handle = handle
   if not isNil(handle):
-    discard g_object_ref_sink(handle)
+    discard g_object_ref(handle)
 
 proc newField*(name: string, dataType: GADType): Field =
   let handle = garrow_field_new(name.cstring, dataType.handle)
   if handle.isNil:
     raise newException(OperationError, "Failed to create field")
   result.handle = handle
-  if g_object_is_floating(handle) != 0:
-    discard g_object_ref_sink(handle)
+  discard g_object_ref_sink(handle)
 
 proc name*(field: Field): string =
   let cstr = garrow_field_get_name(field.handle)
@@ -75,8 +74,6 @@ proc newSchema*(gptr: pointer): Schema =
 
 proc newSchema*(handle: ptr GArrowSchema): Schema =
   result.handle = handle
-  if not isNil(handle):
-    discard g_object_ref_sink(handle)
 
 proc `$`*(schema: Schema): string {.inline.} =
   let cstr = garrow_schema_to_string(schema.handle)
