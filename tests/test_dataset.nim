@@ -44,7 +44,7 @@ suite "Dataset":
     let actives2 = newArray(@[false, true, true, false])
     
     let table2 = newArrowTable(schema, ids2, names2, actives2)
-    let uri2 = fixture / "two.paruqet"
+    let uri2 = fixture / "two.parquet"
 
     writeTable(table2, uri2)
 
@@ -75,7 +75,7 @@ suite "Dataset":
     let actives2 = newArray(@[false, true, true, false])
     
     let table2 = newArrowTable(schema, ids2, names2, actives2)
-    let uri2 = fixture / "two.paruqet"
+    let uri2 = fixture / "two.parquet"
 
     writeTable(table2, uri2)
 

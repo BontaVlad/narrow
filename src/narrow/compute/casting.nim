@@ -24,7 +24,6 @@ proc newCastOptions*(): CastOptions =
   if isNil(handle):
     raise newException(IOError, "Failed to create CastOptions")
   result.handle = handle
-  discard g_object_ref_sink(result.handle)
 
 # ============================================================================
 # Conversion to FunctionOptions (for compute kernel use)
@@ -34,8 +33,8 @@ proc toFunctionOptions*(options: CastOptions): FunctionOptions =
   ## Cast CastOptions to the base FunctionOptions type for use with
   ## the compute function registry (e.g., ``call("cast", ...)``).
   result.handle = cast[ptr GArrowFunctionOptions](options.handle)
-  if not isNil(options.handle):
-    discard g_object_ref_sink(options.handle)
+  if not isNil(result.handle):
+    discard g_object_ref(result.handle)
 
 # ============================================================================
 # Properties
@@ -117,16 +116,6 @@ proc castTo*[T: ArrowValue](
 proc castChunks*(
     chunkedArray: ChunkedArray, gtype: GADType, options: CastOptions = newCastOptions()
 ): ChunkedArray[void] =
-    # var opts = options
-    # opts.toDataType = gtype
-    # let arg = newDatum(chunkedArray)
-
-    # let foo = g_object_ref(chunkedArray.toPtr)
-    # result = newChunkedArray[void](chunkedArray.toPtr)
-    # return newChunkedArray[void](castTo(chunkedArray[0], gtype, options))
-    # if chunkedArray.nChunks == 0:
-    #   return chunkedArray
-
     var opts = options
     opts.toDataType = gtype
     let arg = newDatum(chunkedArray)

@@ -28,47 +28,31 @@ arcGObject:
 
 proc newStatistics*(handle: ptr GParquetStatistics): Statistics =
   result.handle = handle
-  if not isNil(handle):
-    discard g_object_ref(handle)
 
 proc newBooleanStatistics*(handle: ptr GParquetBooleanStatistics): BooleanStatistics =
   result.handle = handle
-  if not isNil(handle):
-    discard g_object_ref(handle)
 
 proc newInt32Statistics*(handle: ptr GParquetInt32Statistics): Int32Statistics =
   result.handle = handle
-  if not isNil(handle):
-    discard g_object_ref(handle)
 
 proc newInt64Statistics*(handle: ptr GParquetInt64Statistics): Int64Statistics =
   result.handle = handle
-  if not isNil(handle):
-    discard g_object_ref(handle)
 
 proc newFloatStatistics*(handle: ptr GParquetFloatStatistics): FloatStatistics =
   result.handle = handle
-  if not isNil(handle):
-    discard g_object_ref(handle)
 
 proc newDoubleStatistics*(handle: ptr GParquetDoubleStatistics): DoubleStatistics =
   result.handle = handle
-  if not isNil(handle):
-    discard g_object_ref(handle)
 
 proc newByteArrayStatistics*(
     handle: ptr GParquetByteArrayStatistics
 ): ByteArrayStatistics =
   result.handle = handle
-  if not isNil(handle):
-    discard g_object_ref(handle)
 
 proc newFixedLengthByteArrayStatistics*(
     handle: ptr GParquetFixedLengthByteArrayStatistics
 ): FixedLengthByteArrayStatistics =
   result.handle = handle
-  if not isNil(handle):
-    discard g_object_ref(handle)
 
 proc `==`*(a, b: Statistics): bool =
   gparquet_statistics_equal(a.toPtr, b.toPtr) == 1

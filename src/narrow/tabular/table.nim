@@ -348,8 +348,6 @@ proc newRecordBatchReader*(table: ArrowTable): RecordBatchReader =
   ## Creates a record batch reader from an `ArrowTable`.
   result.handle =
     cast[ptr GArrowRecordBatchReader](garrow_table_batch_reader_new(table.toPtr))
-  if not isNil(result.handle):
-    discard g_object_ref_sink(result.handle)
 
 proc getColumnData*[T](tbl: ArrowTable, idx: int): ChunkedArray[T] =
   ## Returns the data of the `idx`-th column as a `ChunkedArray[T]`.

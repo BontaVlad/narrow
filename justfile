@@ -367,7 +367,7 @@ _run-tests parallel cores mm mode leaks:
 
     if [[ "{{leaks}}" == "true" ]]; then
         ASAN_OPTIONS="detect_leaks=1"
-        LSAN_OPTIONS="suppressions=lsan.supp:print_suppressions=1"
+        LSAN_OPTIONS="suppressions=lsan.supp:print_suppressions=0"
     else
         ASAN_OPTIONS="detect_leaks=0"
         LSAN_OPTIONS=""

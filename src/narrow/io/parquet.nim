@@ -21,11 +21,50 @@ arcGObject:
     ColumnChunkMetadata* = object
       handle*: ptr GParquetColumnChunkMetadata
 
-    RowGroupMetadata* = object
-      handle*: ptr GParquetRowGroupMetadata
-
     FileMetadata* = object
       handle*: ptr GParquetFileMetadata
+
+# RowGroupMetadata manually managed to work around Arrow GLib bug:
+# dispose is never assigned (only finalize), so owner FileMetadata
+# is never unreffed and raw C++ pointer is never freed.
+type
+  RowGroupMetadata* = object
+    handle*: ptr GParquetRowGroupMetadata
+
+proc getRowGroupPrivateOwner*(handle: ptr GParquetRowGroupMetadata): ptr GParquetFileMetadata =
+  # G_DEFINE_TYPE_WITH_PRIVATE puts private data at offset -16 from object pointer
+  let priv = cast[pointer](cast[uint](handle) - 16)
+  # Private struct layout: metadata (ptr), owner (ptr)
+  # Owner is at offset sizeof(pointer) = 8 on 64-bit
+  result = cast[ptr ptr GParquetFileMetadata](cast[uint](priv) + 8)[]
+
+proc `=destroy`*(rgm: RowGroupMetadata) =
+  g_object_unref(rgm.handle)
+  # if not isNil(rgm.handle):
+  #   # Workaround: manually unref the owner that Arrow GLib leaks
+  #   let owner = getRowGroupPrivateOwner(rgm.handle)
+  #   if not isNil(owner):
+  #     g_object_unref(owner)
+  #   g_object_unref(rgm.handle)
+
+proc `=wasMoved`*(rgm: var RowGroupMetadata) =
+  rgm.handle = nil
+
+proc `=dup`*(rgm: RowGroupMetadata): RowGroupMetadata {.nodestroy.} =
+  result.handle = rgm.handle
+  if not isNil(rgm.handle):
+    discard g_object_ref(rgm.handle)
+
+proc `=copy`*(dest: var RowGroupMetadata, src: RowGroupMetadata) =
+  if dest.handle != src.handle:
+    if not isNil(dest.handle):
+      g_object_unref(dest.handle)
+    dest.handle = src.handle
+    if not isNil(dest.handle):
+      discard g_object_ref(dest.handle)
+
+proc toPtr*(rgm: RowGroupMetadata): ptr GParquetRowGroupMetadata {.inline.} =
+  rgm.handle
 
 type Writable* =
   concept w
@@ -34,13 +73,9 @@ type Writable* =
 
 proc newFileReader*(sis: SeekableInputStream): FileReader =
   result.handle = verify gparquet_arrow_file_reader_new_arrow(sis.toPtr)
-  if not isNil(result.handle):
-    discard g_object_ref_sink(result.handle)
 
 proc newFileReader*(uri: string): FileReader =
   result.handle = verify gparquet_arrow_file_reader_new_path(uri)
-  if not isNil(result.handle):
-    discard g_object_ref_sink(result.handle)
 
 proc schema*(pfr: FileReader): Schema =
   let handle = verify gparquet_arrow_file_reader_get_schema(pfr.toPtr)
@@ -93,22 +128,18 @@ proc nColumns*(pfr: FileReader): int =
 proc metadata*(reader: FileReader): FileMetadata =
   let handle = gparquet_arrow_file_reader_get_metadata(reader.toPtr)
   result.handle = handle
-  if not isNil(handle):
-    discard g_object_ref(handle)
+  # if not isNil(handle):
+  #   discard g_object_ref(handle)
 
 proc newFileWriter*(uri: string, schema: Schema, wp: WriterProperties): FileWriter =
   result.handle =
     verify gparquet_arrow_file_writer_new_path(schema.toPtr, uri.cstring, wp.toPtr)
-  if not isNil(result.handle):
-    discard g_object_ref_sink(result.handle)
 
 proc newFileWriter*(
     snk: OutputStream, schema: Schema, wp: WriterProperties
 ): FileWriter =
   result.handle =
     verify gparquet_arrow_file_writer_new_arrow(schema.toPtr, snk.toPtr, wp.toPtr)
-  if not isNil(result.handle):
-    discard g_object_ref_sink(result.handle)
 
 proc close*(fw: FileWriter) =
   verify gparquet_arrow_file_writer_close(fw.toPtr)
@@ -122,8 +153,6 @@ proc schema*(fw: FileWriter): Schema =
 
 proc newWriterProperties*(): WriterProperties =
   result.handle = gparquet_writer_properties_new()
-  if not isNil(result.handle):
-    discard g_object_ref_sink(result.handle)
 
 func dictionaryPageSizeLimit*(wp: WriterProperties): int64 {.inline.} =
   gparquet_writer_properties_get_dictionary_page_size_limit(wp.handle)

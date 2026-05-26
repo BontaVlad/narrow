@@ -9,8 +9,6 @@ proc newMatchSubstringOptions*(
 ): MatchSubstringOptions =
   ## Creates match substring options with the given pattern
   result.handle = garrow_match_substring_options_new()
-  if not isNil(result.handle):
-    discard g_object_ref_sink(result.handle)
   g_object_set(result.handle, "pattern", pattern.cstring, nil)
   g_object_set(result.handle, "ignore-case", ignoreCase.gboolean, nil)
 

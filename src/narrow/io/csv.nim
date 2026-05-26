@@ -45,7 +45,6 @@ proc newCsvReadOptions*(
   if handle.isNil:
     raise newException(IOError, "Failed to create CsvReadOptions")
   result.handle = handle
-  discard g_object_ref_sink(result.handle)
 
   # Set optional properties
   if allowNewlinesInValues.isSome:

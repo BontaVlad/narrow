@@ -5,18 +5,65 @@ leak:garrow_csv_read_options_init
 leak:garrow_field_new
 leak:gparquet_file_metadata_get_row_group
 leak:gparquet_row_group_metadata_get_column_chunk
+leak:gadataset_scanner_to_record_batch_reader
+leak:gadataset_dataset_to_record_batch_reader
+leak:g_object_unref
+
+# === Arrow C++ compute init (one-time global registry) ===
+leak:arrow::compute::Initialize
+
+# === Arrow C++ Acero engine internals (upstream) ===
+leak:arrow::acero::
+
+# === Arrow GLib Acero wrappers (upstream leak via extra internal refs) ===
+leak:garrow_execute_context_new
+leak:garrow_execute_plan_new
+leak:garrow_execute_node_get_output_schema
+leak:garrow_source_node_options_new_table
+leak:garrow_sink_node_options_get_reader
+leak:garrow_record_batch_reader_read_all
+leak:garrow_thread_pool_new
+leak:arrow::internal::ThreadPool::Make
+
+# === Narrow Acero module wrappers (Nim objects for Acero pipeline) ===
+leak:acero::
+
+# === Objects held alive by Acero internal references ===
+leak:garrow_array_builder_finish
+leak:garrow_schema_new
+
+# === Arrow array cast (upstream GObject wrapper leak) ===
+leak:garrow_array_cast
+
+# === Arrow compute function execution (upstream Datum/Scalar leaks) ===
+# garrow_function_execute returns Datum results whose internal
+# GObject wrappers are not freed when the Datum is destroyed.
+# Also Scalar and FunctionOptions wrappers that are not freed.
+leak:garrow_array_datum_new
+leak:garrow_datum_new_raw
+leak:garrow_scalar_datum_new
+leak:garrow_int32_scalar_new
+leak:garrow_double_scalar_new
+leak:arrow::compute::Function::Execute
+leak:garrow_function_execute
 
 # === System / threading ===
 leak:execute_native_thread_routine
 leak:std::_Hashtable
 
-# # === Nim runtime (one-time global state) ===
+# === Arrow C++ upstream leaks ===
+leak:arrow::AllocateResizableBuffer
+leak:arrow::ArrayData::Make
+leak:arrow::ArrayBuilder::Finish
+leak:arrow::MakeArray
+leak:arrow::ChunkedArray
+leak:arrow::ChunkResolver
+leak:arrow::Schema::Schema
+leak:arrow::Field
+
+# === Nim runtime (one-time global state, not freed at exit by ORC) ===
 leak:allocImpl
 leak:reallocImpl
-leak:initRand
-leak:rawNewString
-leak:rawNewStringNoInit
-leak:setLengthStr
 
 # === Test infrastructure ===
 leak:testfixture.nim

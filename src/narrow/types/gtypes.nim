@@ -346,11 +346,11 @@ proc newGType*(T: typedesc[ArrowPrimitive]): GADType =
     raise newException(
       TypeError, "newGType: unsupported type for automatic Arrow GType construction."
     )
-  if not isNil(result.handle):
-    discard g_object_ref_sink(result.handle)
 
 proc newGType*(pt: ptr GArrowDataType): GADType =
   if pt.isNil:
     raise newException(OperationError, "Failed to create GADType, got nil")
-  let handle = cast[ptr GArrowDataType](g_object_ref_sink(pt))
+  let handle = cast[ptr GArrowDataType](pt)
+  if not isNil(handle):
+    discard g_object_ref(handle)
   result = GADType(handle: handle)

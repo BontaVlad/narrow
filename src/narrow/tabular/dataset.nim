@@ -240,7 +240,7 @@ proc beginScan*(ds: Dataset): ScannerBuilder =
 
 proc typeName*(ds: Dataset): string =
   ## Returns the type name of the dataset (e.g., "filesystem", "in-memory")
-  result = $gadataset_dataset_get_type_name(ds.toPtr)
+  result = $newGString(gadataset_dataset_get_type_name(ds.toPtr), owned = true)
 
 proc newFileFormat*(format: FileFormatTp): FileFormat =
   case format
@@ -251,39 +251,30 @@ proc newFileFormat*(format: FileFormatTp): FileFormat =
   of Parquet:
     result.handle = cast[ptr GADatasetFileFormat](gadataset_parquet_file_format_new())
   result.kind = format
-  if not isNil(result.handle):
-    discard g_object_ref_sink(result.handle)
 
 proc newPartitioningFactoryOptions*(): PartitioningFactoryOptions =
   ## Creates default options for discovering partitioning from paths
   result.handle = gadataset_partitioning_factory_options_new()
-  if not isNil(result.handle):
-    discard g_object_ref_sink(result.handle)
 
 proc getTypeName*(partitioning: Partitioning): string =
   ## Returns the type name of the partitioning (e.g., "directory", "hive")
   if partitioning.handle == nil:
     return ""
-  result = $gadataset_partitioning_get_type_name(partitioning.toPtr)
+  result = $newGString(
+    gadataset_partitioning_get_type_name(partitioning.toPtr), owned = true)
 
 proc newDefaultPartitioning*(): Partitioning =
   ## Creates a default partitioning scheme (no partitioning)
   result.handle = gadataset_partitioning_create_default()
-  if not isNil(result.handle):
-    discard g_object_ref_sink(result.handle)
 
 proc newDirectoryPartitioning*(schema: Schema): DirectoryPartitioning =
   # TODO: impplement dictionaries for partitioning
   result.handle = cast[ptr GADatasetPartitioning](verify gadataset_directory_partitioning_new(
     schema.toPtr, nil, nil
   ))
-  if not isNil(result.handle):
-    discard g_object_ref_sink(result.handle)
 
 proc newHivePartitioningOptions*(): HivePartitioningOptions =
   result.handle = gadataset_hive_partitioning_options_new()
-  if not isNil(result.handle):
-    discard g_object_ref_sink(result.handle)
 
 proc newHivePartitioning*(schema: Schema): HivePartitioning =
   # TODO: impplement dictionaries for partitioning
@@ -291,14 +282,10 @@ proc newHivePartitioning*(schema: Schema): HivePartitioning =
   result.handle = cast[ptr GADatasetPartitioning](verify gadataset_hive_partitioning_new(
     schema.toPtr, nil, opts.toPtr
   ))
-  if not isNil(result.handle):
-    discard g_object_ref_sink(result.handle)
 
 proc newKeyValuePartitioningOptions*(): KeyValuePartitioningOptions =
   ## Creates default options for key-value partitioning
   result.handle = gadataset_key_value_partitioning_options_new()
-  if not isNil(result.handle):
-    discard g_object_ref_sink(result.handle)
 
 proc newDirectoryPartitioning*(
     schema: Schema, options: KeyValuePartitioningOptions
@@ -308,8 +295,6 @@ proc newDirectoryPartitioning*(
   result.handle = cast[ptr GADatasetPartitioning](verify gadataset_directory_partitioning_new(
     schema.toPtr, nil, options.toPtr
   ))
-  if not isNil(result.handle):
-    discard g_object_ref_sink(result.handle)
 
 proc newHivePartitioning*(
     schema: Schema, options: HivePartitioningOptions
@@ -319,8 +304,6 @@ proc newHivePartitioning*(
   result.handle = cast[ptr GADatasetPartitioning](verify gadataset_hive_partitioning_new(
     schema.toPtr, nil, options.toPtr
   ))
-  if not isNil(result.handle):
-    discard g_object_ref_sink(result.handle)
 
 proc segmentEncoding*(opts: KeyValuePartitioningOptions): SegmentEncoding =
   ## Gets the segment encoding for path component decoding
@@ -400,8 +383,6 @@ proc `segmentEncoding=`*(
 proc newFinishOptions*(): FinishOptions =
   ## Creates default finish options for dataset factories
   result.handle = gadataset_finish_options_new()
-  if not isNil(result.handle):
-    discard g_object_ref_sink(result.handle)
 
 proc newInMemoryFragment*(
     schema: Schema, recordBatches: openArray[RecordBatch]
@@ -419,8 +400,6 @@ proc newInMemoryFragment*(
   if handle == nil:
     raise newException(OperationError, "Failed to create InMemoryFragment")
   result.handle = cast[ptr GADatasetFragment](handle)
-  if not isNil(result.handle):
-    discard g_object_ref_sink(result.handle)
 
 proc newFileSystemDatasetFactory*(format: FileFormat): FileSystemDatasetFactory =
   ## Creates a new factory for building FileSystemDataset from files
@@ -428,8 +407,6 @@ proc newFileSystemDatasetFactory*(format: FileFormat): FileSystemDatasetFactory 
   if handle == nil:
     raise newException(OperationError, "Failed to create FileSystemDatasetFactory")
   result.handle = cast[ptr GADatasetDatasetFactory](handle)
-  if not isNil(result.handle):
-    discard g_object_ref_sink(result.handle)
 
 proc setFileSystem*(
     factory: var FileSystemDatasetFactory, fs: FileSystem
@@ -529,7 +506,8 @@ proc format*(ds: Dataset): FileFormat =
   var formatPtr: ptr GADatasetFileFormat
   g_object_get(ds.toPtr, "format", addr formatPtr, nil)
   if formatPtr != nil:
-    let typeName = $gadataset_file_format_get_type_name(formatPtr)
+    let typeName = $newGString(
+      gadataset_file_format_get_type_name(formatPtr), owned = true)
     let kind =
       case typeName
       of "GArrowCSVFileFormat": CSV
@@ -549,7 +527,6 @@ proc partitioning*(ds: Dataset): Partitioning =
   g_object_get(ds.toPtr, "partitioning", addr partPtr, nil)
   if partPtr != nil:
     result.handle = partPtr
-    discard g_object_ref_sink(result.handle)
 
 proc newDataset*(path: string, formatType: FileFormatTp = Parquet): Dataset =
   let fmt = newFileFormat(formatType)
@@ -567,8 +544,6 @@ proc newScannerBuilder*(ds: Dataset): ScannerBuilder =
   ## of Parquet files) with optional push-down filtering. For single-file
   ## reads, prefer `readTable` instead.
   result.handle = verify gadataset_scanner_builder_new(ds.toPtr)
-  if not isNil(result.handle):
-    discard g_object_ref_sink(result.handle)
 
 proc newScannerBuilder*(reader: RecordBatchReader): ScannerBuilder =
   ## Creates a `ScannerBuilder` from a `RecordBatchReader`.
@@ -576,8 +551,6 @@ proc newScannerBuilder*(reader: RecordBatchReader): ScannerBuilder =
   ## This is useful when you already have a reader and want to use the
   ## Dataset write path (e.g., `writeDatasetFromScanner`).
   result.handle = gadataset_scanner_builder_new_record_batch_reader(reader.toPtr)
-  if not isNil(result.handle):
-    discard g_object_ref_sink(result.handle)
 
 proc `filter=`*(sb: var ScannerBuilder, filter: Expression) =
   ## Sets a push-down filter expression on the builder.
@@ -784,8 +757,6 @@ proc writeDataset*(
   var writeOpts = FileSystemDatasetWriteOptions(
     handle: gadataset_file_system_dataset_write_options_new()
   )
-  if not isNil(writeOpts.handle):
-    discard g_object_ref_sink(writeOpts.handle)
   writeOpts.baseDir = path
   writeOpts.fileSystem = fs
   writeOpts.fileWriteOptions =

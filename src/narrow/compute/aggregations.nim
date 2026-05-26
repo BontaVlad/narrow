@@ -22,7 +22,6 @@ proc newCountOptions*(mode: CountMode = All): CountOptions =
   result.handle = garrow_count_options_new()
   if result.handle.isNil:
     raise newException(IOError, "Failed to create CountOptions")
-  discard g_object_ref_sink(result.handle)
   g_object_set(result.handle, "mode", mode.cint, nil)
 
 proc mode*(options: CountOptions): CountMode {.inline.} =

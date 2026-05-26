@@ -10,7 +10,6 @@ proc newLargeListType*(valueField: Field): LargeListType =
   result.handle = garrow_large_list_data_type_new(valueField.toPtr)
   if result.handle.isNil:
     raise newException(OperationError, "Failed to create LargeListType")
-  discard g_object_ref_sink(result.handle)
 
 proc valueField*(l: LargeListType): Field =
   let handle = garrow_large_list_data_type_get_field(l.handle)
@@ -21,8 +20,9 @@ proc valueField*(l: LargeListType): Field =
 proc toGADType*(l: LargeListType): GADType =
   if l.handle.isNil:
     raise newException(OperationError, "Cannot convert nil LargeListType to GADType")
-  discard g_object_ref_sink(l.handle)
   result = GADType(handle: cast[ptr GArrowDataType](l.handle))
+  if not isNil(result.handle):
+    discard g_object_ref(result.handle)
 
 proc `$`*(l: LargeListType): string =
   if l.handle.isNil:

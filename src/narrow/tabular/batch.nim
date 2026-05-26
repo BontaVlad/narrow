@@ -69,8 +69,6 @@ proc schema*(reader: RecordBatchReader): Schema =
 proc newRecordBatch*(arr: pointer, schema: Schema): RecordBatch =
   let handle = verify garrow_record_batch_import(arr, schema.handle)
   result.handle = handle
-  if not isNil(result.handle):
-    discard g_object_ref_sink(result.handle)
 
 proc newRecordBatch*(handle: ptr GArrowRecordBatch): RecordBatch =
   result.handle = handle
@@ -170,9 +168,7 @@ proc schema*(builder: RecordBatchBuilder): Schema =
 
 proc newRecordBatchBuilder*(schema: Schema): RecordBatchBuilder =
   let handle = verify garrow_record_batch_builder_new(schema.toPtr)
-  result = RecordBatchBuilder(handle: handle)
-  if not isNil(result.handle):
-    discard g_object_ref_sink(result.handle)
+  result.handle = handle
 
 proc newRecordBatchBuilder*(schema: Schema, capacity: int): RecordBatchBuilder =
   result = newRecordBatchBuilder(schema)
@@ -185,13 +181,14 @@ proc columnBuilder*[T](
     builder: RecordBatchBuilder, idx: int
 ): ArrayBuilder[T] {.inline.} =
   let cBuilder = garrow_record_batch_builder_get_column_builder(builder.toPtr, idx.gint)
+  # get_column_builder returns transfer-none (cached internal reference),
+  # so we must ref before wrapping in an owning ArrayBuilder
+  discard g_object_ref(cBuilder)
   result = newArrayBuilder[T](cBuilder)
 
 proc flush*(builder: RecordBatchBuilder): RecordBatch =
   let handle = verify garrow_record_batch_builder_flush(builder.toPtr)
-  result = RecordBatch(handle: handle)
-  if not isNil(result.handle):
-    discard g_object_ref_sink(result.handle)
+  result.handle = handle
 
 proc newRecordBatchIterator*(recordBatches: seq[RecordBatch]): RecordBatchIterator =
   var glist = newGList[ptr GArrowRecordBatch]()
@@ -199,9 +196,7 @@ proc newRecordBatchIterator*(recordBatches: seq[RecordBatch]): RecordBatchIterat
     glist.append(rb.toPtr)
 
   let handle = garrow_record_batch_iterator_new(glist.toPtr)
-  result = RecordBatchIterator(handle: handle)
-  if not isNil(result.handle):
-    discard g_object_ref_sink(result.handle)
+  result.handle = handle
 
 proc next*(it: RecordBatchIterator): Option[RecordBatch] =
   var err: ptr GError

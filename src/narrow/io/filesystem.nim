@@ -168,9 +168,6 @@ template with*(resource, name, body: untyped): untyped =
 proc newLocalFileSystemOptions*(): LocalFileSystemOptions =
   var handle = garrow_local_file_system_options_new()
 
-  if not isNil(handle):
-    discard g_object_ref_sink(handle)
-
   result.handle = handle
 
 # =============================================================================
@@ -179,9 +176,6 @@ proc newLocalFileSystemOptions*(): LocalFileSystemOptions =
 
 proc newFileInfo*(): FileInfo =
   var handle = garrow_file_info_new()
-
-  if not isNil(handle):
-    discard g_object_ref_sink(handle)
 
   result.handle = handle
 
@@ -286,9 +280,6 @@ proc newFileSelector*(
     maxRecursion,
     nil,
   )
-
-  if not isNil(handle):
-    discard g_object_ref_sink(handle)
 
   result.handle = cast[ptr GArrowFileSelector](handle)
 
@@ -553,6 +544,9 @@ proc `=copy`*(dest: var OutputStream, src: OutputStream) =
     if src.handle != nil:
       discard g_object_ref(dest.handle)
 
+proc `=wasMoved`*(stream: var OutputStream) =
+  stream.handle = nil
+
 proc isValid*(stream: OutputStream): bool {.inline.} =
   stream.handle != nil
 
@@ -698,27 +692,19 @@ proc getFileInfos*(fs: FileSystem, paths: openArray[string]): seq[FileInfo] =
   result = newSeqOfCap[FileInfo](gList.len)
   for p in gList:
     let handle = cast[ptr GArrowFileInfo](p)
-    if not isNil(handle):
-      discard g_object_ref(handle)
+    # if not isNil(handle):
+    #   discard g_object_ref(handle)
     result.add(FileInfo(handle: handle))
+  g_list_free_full(glistPtr, cast[GDestroyNotify](g_object_unref))
 
 proc getFileInfos*(fs: FileSystem, selector: FileSelector): seq[FileInfo] =
   ## Get information about files matching a selector
-  ##
-  ## Example:
-  ## ```nim
-  ## let selector = newFileSelector("/data", recursive = true)
-  ## for info in fs.getFileInfos(selector):
-  ##   echo info.path
-  ## ```
-  let glistPtr =
-    verify garrow_file_system_get_file_infos_selector(fs.handle, selector.handle)
+  let glistPtr = verify garrow_file_system_get_file_infos_selector(fs.handle, selector.handle)
   let gList = newGlist[ptr GArrowFileInfo](glistPtr)
   result = newSeqOfCap[FileInfo](gList.len)
+
   for p in gList:
     let handle = cast[ptr GArrowFileInfo](p)
-    if not isNil(handle):
-      discard g_object_ref(handle)
     result.add(FileInfo(handle: handle))
 
 proc createDir*(fs: FileSystem, path: string, recursive = true) =

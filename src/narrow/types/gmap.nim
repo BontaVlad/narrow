@@ -9,7 +9,6 @@ proc newMapType*(keyType, itemType: GADType): MapType =
   result.handle = garrow_map_data_type_new(keyType.handle, itemType.handle)
   if result.handle.isNil:
     raise newException(OperationError, "Failed to create MapType")
-  discard g_object_ref_sink(result.handle)
 
 proc keyType*(m: MapType): GADType =
   let handle = garrow_map_data_type_get_key_type(m.handle)
@@ -26,8 +25,9 @@ proc itemType*(m: MapType): GADType =
 proc toGADType*(m: MapType): GADType =
   if m.handle.isNil:
     raise newException(OperationError, "Cannot convert nil MapType to GADType")
-  discard g_object_ref_sink(m.handle)
   result = GADType(handle: cast[ptr GArrowDataType](m.handle))
+  if not isNil(result.handle):
+    discard g_object_ref(result.handle)
 
 proc `$`*(m: MapType): string =
   if m.handle.isNil:

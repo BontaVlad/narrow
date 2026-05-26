@@ -7,9 +7,15 @@ type GAList*[T] = object
 proc toPtr*(g: GAList): ptr GList =
   g.list
 
+
+proc unrefGObject(data: pointer) {.cdecl.} =
+  if data != nil:
+    g_object_unref(data)
+
 proc `=destroy`*[T](wrapper: GAList[T]) =
   if wrapper.owned and wrapper.list != nil:
     g_list_free(wrapper.list)
+    # g_list_free_full(wrapper.list, unrefGObject)
 
 proc `=wasMoved`*[T](wrapper: var GAList[T]) =
   wrapper.list = nil

@@ -414,8 +414,6 @@ proc newTimestampArrayBuilder*(
 
   g_object_unref(tsType) # release reference as builder owns it
 
-  if not isNil(handle):
-    discard g_object_ref_sink(handle)
   TimestampArrayBuilder(handle: handle, unit: unit, tz: tz)
 
 # Date32Array creators
@@ -423,8 +421,6 @@ proc newDate32ArrayBuilder*(): Date32ArrayBuilder =
   let handle = garrow_date32_array_builder_new()
   if handle.isNil:
     raise newException(OperationError, "Failed to create Date32ArrayBuilder")
-  if not isNil(handle):
-    discard g_object_ref_sink(handle)
   Date32ArrayBuilder(handle: handle)
 
 # TimestampArray operations
@@ -580,8 +576,6 @@ proc newTime32ArrayBuilder*(
 
   g_object_unref(tsType)
 
-  if not isNil(handle):
-    discard g_object_ref_sink(handle)
   Time32ArrayBuilder(handle: handle, unit: unit)
 
 proc append*(t32ab: Time32ArrayBuilder, val: int32) =
@@ -630,8 +624,6 @@ proc newTime64ArrayBuilder*(
 
   g_object_unref(tsType)
 
-  if not isNil(handle):
-    discard g_object_ref_sink(handle)
   Time64ArrayBuilder(handle: handle, unit: unit)
 
 proc append*(t64ab: Time64ArrayBuilder, val: int64) =

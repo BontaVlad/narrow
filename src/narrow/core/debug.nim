@@ -317,14 +317,14 @@ template assertRefCount*(obj: pointer, expected: uint32) =
       &"expected {expected}, got {got}"
 
 template snapshotScope*(label: string, body: untyped) =
-  ## Print any refcount changes that occur inside `body`.
-  let snapBefore = takeSnapshot()
+  let snapLabel {.inject.} = label
+  let snapBefore {.inject.} = takeSnapshot()
   body
   let snapAfter = takeSnapshot()
   let snapDiffs = diffSnapshots(snapBefore, snapAfter)
   if snapDiffs.len > 0:
-    echo &"[Snapshot '{label}'] changes:"
+    echo &"[Snapshot '{snapLabel}'] changes:"
     for d in snapDiffs:
       echo "  ", d
   else:
-    echo &"[Snapshot '{label}'] no changes"
+    echo &"[Snapshot '{snapLabel}'] no changes"
