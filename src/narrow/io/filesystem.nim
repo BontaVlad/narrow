@@ -65,6 +65,36 @@ type
 type StreamError* = object of CatchableError
 
 # =============================================================================
+# S3 Filesystem
+# =============================================================================
+
+arcGObject:
+  type
+    S3GlobalOptions* = object
+      handle*: ptr GArrowS3GlobalOptions
+
+proc newS3GlobalOptions*(): S3GlobalOptions =
+  result.handle = garrow_s3_global_options_new()
+  if result.handle.isNil:
+    raise newException(OperationError, "Failed to create S3 global options")
+
+func isS3Enabled*(): bool =
+  garrow_s3_is_enabled() != 0
+
+proc initializeS3*() =
+  if not isS3Enabled().bool:
+    let opts = newS3GlobalOptions()
+    verify garrow_s3_initialize(opts.handle)
+
+proc initializeS3*(options: S3GlobalOptions) =
+  if not isS3Enabled().bool:
+    verify garrow_s3_initialize(options.handle)
+
+proc finalizeS3*() =
+  if isS3Enabled().bool:
+    verify garrow_s3_finalize()
+
+# =============================================================================
 # Uri Implementation
 # =============================================================================
 

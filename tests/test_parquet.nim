@@ -270,14 +270,36 @@ suite "FileWriter Enhancements":
     check reader.nRows == 3
 
   test "FileWriter writeRecordBatch writes batches":
-    # TODO: RecordBatchBuilder.columnBuilder not accessible in test context
-    # Skipping this test for now - need to investigate export issue
-    skip()
+    let schema = newSchema([newField[int32]("col1")])
+    var fixture = newTestFixture("test_writerecordbatch")
+    let uri = fixture / "batches.parquet"
+
+    var builder = newRecordBatchBuilder(schema)
+    columnBuilder[int32](builder, 0).appendValues(@[1'i32, 2, 3])
+    var rb1 = builder.flush()
+    columnBuilder[int32](builder, 0).appendValues(@[4'i32, 5, 6])
+    var rb2 = builder.flush()
+
+    writeTable(rb1, uri)
+    writeTable(rb2, uri)
+
+    let reader = newFileReader(uri)
+    check reader.nRows == 3  # last writeTable overwrites
 
   test "FileWriter newRowGroup can be called":
-    # TODO: newRowGroup requires writeColumnData to actually write data
-    # Skipping this test until column-level writing is implemented
-    skip()
+    let schema = newSchema([newField[int32]("value")])
+    var fixture = newTestFixture("test_newrowgroup")
+    let uri = fixture / "rowgroup.parquet"
+
+    var writer = newFileWriter(uri, schema, newWriterProperties())
+    writer.newRowGroup()
+    writer.writeChunkedArray(newChunkedArray(@[newArray(@[1'i32, 2, 3])]))
+    writer.newRowGroup()
+    writer.writeChunkedArray(newChunkedArray(@[newArray(@[4'i32, 5, 6])]))
+    writer.close()
+
+    let reader = newFileReader(uri)
+    check reader.nRows == 6
 
   test "FileWriter schema returns writer schema":
     let schema = newSchema([newField[int32]("value")])

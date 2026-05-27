@@ -1,6 +1,7 @@
 import std/options
 import unittest2
-import ../src/narrow/[core/ffi, compute/filters, column/primitive, column/primitive]
+import ../src/narrow/[core/ffi, compute/filters, column/primitive, column/primitive,
+    column/metadata, tabular/table]
 
 suite "Filters - Creation":
 
@@ -164,6 +165,14 @@ suite "Array - Filter":
 suite "Table - Filter":
 
   test "Filter Table with BooleanArray":
-    # This test would require creating a table first
-    # Skipping for now as it requires more setup
-    skip()
+    let schema = newSchema([newField[int32]("id"),
+                            newField[string]("name")])
+    let table = newArrowTable(schema,
+      newArray(@[1'i32, 2, 3, 4, 5]),
+      newArray(@["a", "b", "c", "d", "e"]))
+
+    let mask = newBooleanArray(@[true, false, true, false, true])
+    let filtered = filter(table, mask)
+
+    check filtered.nRows == 3
+    check filtered.nColumns == 2

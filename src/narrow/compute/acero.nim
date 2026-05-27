@@ -161,6 +161,11 @@ arcGObject:
     HashJoinNodeOptions* = object
       handle*: ptr GArrowHashJoinNodeOptions
 
+arcGObject:
+  type
+    ProjectNodeOptions* = object
+      handle*: ptr GArrowProjectNodeOptions
+
 proc newAggregation*(function, input, output: string): Aggregation =
   ## Creates an aggregation descriptor for use with Acero aggregate nodes.
   ##
@@ -418,6 +423,70 @@ proc joinTables*(
   plan.validate()
 
   let outputSchema = joinNode.outputSchema
+  let reader = sinkOpts.getReader(outputSchema)
+
+  plan.start()
+  result = reader.readAll()
+  plan.wait()
+
+# ============================================================================
+# Project Node
+# ============================================================================
+
+proc newProjectNodeOptions*(
+    expressions: openArray[Expression], names: openArray[string] = []
+): ProjectNodeOptions =
+  var exprList = newGList[ptr GArrowExpression]()
+  for e in expressions:
+    exprList.append(e.toPtr)
+
+  var namePtrs: seq[cstring]
+  for n in names:
+    namePtrs.add(n.cstring)
+
+  let namesPtr =
+    if namePtrs.len == 0:
+      nil
+    else:
+      addr namePtrs[0]
+
+  result.handle = garrow_project_node_options_new(
+    exprList.toPtr, namesPtr, namePtrs.len.gsize
+  )
+  if result.handle.isNil:
+    raise newException(OperationError, "Failed to create project node options")
+
+proc buildProjectNode*(
+    plan: ExecutePlan, input: ExecuteNode, options: ProjectNodeOptions
+): ExecuteNode =
+  let handle = verify garrow_execute_plan_build_project_node(
+    plan.toPtr, input.toPtr, options.toPtr
+  )
+  result = ExecuteNode(handle: handle)
+
+proc projectTable*(
+    table: ArrowTable, expressions: openArray[Expression],
+    names: openArray[string] = []
+): ArrowTable =
+  ensureComputeInitialized()
+
+  let pool = newThreadPool()
+  let executor = pool.toExecutor
+  let ctx = newExecuteContext(executor)
+  let plan = newExecutePlan(ctx)
+
+  let sourceOpts = newSourceNodeOptions(table)
+  let sourceNode = plan.buildSourceNode(sourceOpts)
+
+  let projOpts = newProjectNodeOptions(expressions, names)
+  let projNode = plan.buildProjectNode(sourceNode, projOpts)
+
+  let sinkOpts = newSinkNodeOptions()
+  discard plan.buildSinkNode(projNode, sinkOpts)
+
+  plan.validate()
+
+  let outputSchema = projNode.outputSchema
   let reader = sinkOpts.getReader(outputSchema)
 
   plan.start()

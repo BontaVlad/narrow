@@ -147,6 +147,11 @@ proc close*(fw: FileWriter) =
 proc newRowGroup*(fw: FileWriter) =
   verify gparquet_arrow_file_writer_new_row_group(fw.toPtr)
 
+proc writeChunkedArray*(fw: FileWriter, chunkedArray: ChunkedArray) =
+  verify gparquet_arrow_file_writer_write_chunked_array(
+    fw.toPtr, chunkedArray.handle
+  )
+
 proc schema*(fw: FileWriter): Schema =
   let handle = gparquet_arrow_file_writer_get_schema(fw.toPtr)
   result = newSchema(handle)

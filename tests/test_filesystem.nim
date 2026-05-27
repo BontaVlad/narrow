@@ -840,3 +840,11 @@ suite "FileSelector":
     var selector3 = newFileSelector(fixture.basePath)
     selector3 = selector1  # Test sink
     check selector3.baseDir == fixture.basePath
+
+suite "S3 Global Options":
+  test "newS3GlobalOptions":
+    let opts = newS3GlobalOptions()
+    check not isNil(opts.handle)
+
+  test "isS3Enabled does not crash":
+    discard isS3Enabled()
