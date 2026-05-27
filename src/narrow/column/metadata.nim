@@ -1,4 +1,4 @@
-import std/[strformat, sets, options]
+import std/[strformat, sets, options, tables]
 import ../core/[ffi, error, utils]
 import ../types/[gtypes, glist]
 import ./primitive
@@ -129,3 +129,60 @@ iterator items*(schema: Schema): Field =
 
 proc `==`*(a, b: Schema): bool {.inline.} =
   garrow_schema_equal(a.handle, b.handle).bool
+
+# ============================================================================
+# Schema Metadata
+# ============================================================================
+
+func hasMetadata*(schema: Schema): bool =
+  garrow_schema_has_metadata(schema.handle).bool
+
+proc getMetadata*(schema: Schema): Table[string, string] =
+  let ht = garrow_schema_get_metadata(schema.handle)
+  if ht == nil:
+    return initTable[string, string]()
+  result = initTable[string, string]()
+  var iter: GHashTableIter
+  g_hash_table_iter_init(addr iter, ht)
+  var key, value: gpointer
+  while g_hash_table_iter_next(addr iter, addr key, addr value).bool:
+    result[$cast[cstring](key)] = $cast[cstring](value)
+
+proc getMetadataValue*(schema: Schema, key: string): Option[string] =
+  let ht = garrow_schema_get_metadata(schema.handle)
+  if ht == nil:
+    return none(string)
+  let val = g_hash_table_lookup(ht, cast[gconstpointer](key.cstring))
+  if val == nil:
+    result = none(string)
+  else:
+    result = some($cast[cstring](val))
+
+proc withMetadata*(schema: Schema,
+                    kv: openArray[(string, string)]): Schema =
+  var ht = g_hash_table_new(
+    cast[GHashFunc](g_str_hash), cast[GEqualFunc](g_str_equal))
+  for (k, v) in kv:
+    discard g_hash_table_insert(ht, cast[gpointer](k.cstring),
+                                cast[gpointer](v.cstring))
+  let newSchema = garrow_schema_with_metadata(schema.handle, ht)
+  g_hash_table_destroy(ht)
+  result.handle = newSchema
+
+proc toString*(schema: Schema, showMetadata: bool): string =
+  let cstr = garrow_schema_to_string_metadata(
+    schema.handle, showMetadata.gboolean)
+  result = $cstr
+
+# ============================================================================
+# Schema Field Editing
+# ============================================================================
+
+proc addField*(schema: Schema, i: int, field: Field): Schema =
+  let handle = verify garrow_schema_add_field(
+    schema.handle, i.guint, field.handle)
+  result.handle = handle
+
+proc removeField*(schema: Schema, i: int): Schema =
+  let handle = verify garrow_schema_remove_field(schema.handle, i.guint)
+  result.handle = handle

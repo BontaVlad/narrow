@@ -1,4 +1,4 @@
-import std/[options, strutils]
+import std/[options, strutils, tables]
 import unittest2
 import ../src/narrow/[core/ffi, column/metadata, types/gtypes]
 
@@ -292,3 +292,90 @@ suite "Field - Edge Cases":
     check retrievedField.name == "preserved"
     check $retrievedField.dataType == "int32"
     check retrievedField == originalField
+
+suite "Schema - Metadata":
+  test "hasMetadata is false for fresh schema":
+    let schema = newSchema([newField[int32]("a")])
+    check not schema.hasMetadata
+
+  test "withMetadata adds key-value pairs":
+    let schema = newSchema([newField[int32]("a")])
+    let annotated = schema.withMetadata(
+      [("key1", "value1"), ("key2", "value2")])
+    check annotated.hasMetadata
+    check not schema.hasMetadata  # original unchanged
+
+  test "getMetadata round-trip":
+    let schema = newSchema([newField[int32]("a")])
+    let kv = [("pandas", "{}"), ("r_dataframe", "named")]
+    let annotated = schema.withMetadata(kv)
+    let meta = annotated.getMetadata
+    check meta.len == 2
+    check meta["pandas"] == "{}"
+    check meta["r_dataframe"] == "named"
+
+  test "getMetadataValue for existing and missing keys":
+    let schema = newSchema([newField[int32]("a")])
+    let annotated = schema.withMetadata([("env", "prod")])
+    check annotated.getMetadataValue("env") == some("prod")
+    check annotated.getMetadataValue("missing") == none(string)
+
+  test "toString with showMetadata":
+    let schema = newSchema([newField[int32]("a")])
+    let annotated = schema.withMetadata([("version", "1.0")])
+    let s = toString(annotated, true)
+    check "version" in s
+    check "1.0" in s
+
+  test "empty metadata table":
+    let schema = newSchema([newField[int32]("a")])
+    let annotated = schema.withMetadata([])
+    check not annotated.hasMetadata  # Arrow treats empty as no metadata
+
+  test "single key metadata":
+    let schema = newSchema([newField[int32]("a")])
+    let annotated = schema.withMetadata([("one", "1")])
+    check annotated.getMetadata["one"] == "1"
+
+  test "overwrite metadata produces new schema":
+    let schema = newSchema([newField[int32]("a")])
+    let v1 = schema.withMetadata([("k", "v1")])
+    let v2 = v1.withMetadata([("k", "v2")])
+    check v1.getMetadata["k"] == "v1"
+    check v2.getMetadata["k"] == "v2"
+
+suite "Schema - Field Editing":
+  test "addField appends at end":
+    let schema = newSchema([newField[int32]("a")])
+    let newField1 = newField[string]("b")
+    let extended = schema.addField(1, newField1)
+    check schema.nFields == 1  # original unchanged
+    check extended.nFields == 2
+    check extended[1].name == "b"
+
+  test "addField inserts at index":
+    let schema = newSchema([newField[int32]("a"),
+                            newField[int32]("c")])
+    let newField1 = newField[string]("b")
+    let inserted = schema.addField(1, newField1)
+    check inserted.nFields == 3
+    check inserted[0].name == "a"
+    check inserted[1].name == "b"
+    check inserted[2].name == "c"
+
+  test "removeField drops by index":
+    let schema = newSchema([newField[int32]("a"),
+                            newField[string]("b"),
+                            newField[int32]("c")])
+    let removed = schema.removeField(1)
+    check schema.nFields == 3  # original unchanged
+    check removed.nFields == 2
+    check removed[0].name == "a"
+    check removed[1].name == "c"
+
+  test "removeField last field":
+    let schema = newSchema([newField[int32]("a"),
+                            newField[string]("b")])
+    let removed = schema.removeField(1)
+    check removed.nFields == 1
+    check removed[0].name == "a"

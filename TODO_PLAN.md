@@ -4,7 +4,7 @@
 > Priority: **real user gaps → important missing → polish → nice-to-have**.
 > ~339 of ~1,649 C symbols wrapped. ~710 substantive functions remain unwrapped (rest are `get_type` boilerplate).
 >
-> **Last reviewed:** 2026-05-27 (2.2, 2.3, 2.4, 3.1, 3.4 done)
+> **Last reviewed:** 2026-05-27 (2.2, 2.3, 2.4, 3.1, 3.2, 3.4 done)
 
 ---
 
@@ -123,12 +123,13 @@ Low effort, medium impact. They fix rough edges, skipped tests, and incomplete i
 - **[x] Parquet newRowGroup**: `test_parquet.nim:277` — wrapped `writeChunkedArray` in parquet.nim, unskipped test.
 - **Effort**: Trivial | **Files**: `tests/test_filters.nim`, `tests/test_parquet.nim`, `src/narrow/io/parquet.nim`
 
-### 3.2 Schema Metadata (Key-Value)
+### 3.2 Schema Metadata (Key-Value) ✅ DONE (2026-05-27)
 
-- [ ] Wrap `garrow_schema_get_metadata`, `garrow_schema_has_metadata`, `garrow_schema_to_string_metadata`, `garrow_schema_with_metadata`, `garrow_schema_add_field`, `garrow_schema_remove_field` — ~6 FFI functions.
-- [ ] Users cannot attach or read custom key-value metadata on schemas.
-- [ ] Test: add metadata to schema, read it back, schema equality with metadata.
-- **Effort**: Low (~1 hr) | **Files**: `src/narrow/column/metadata.nim`, `tests/test_gschema.nim`
+- **[x]** `hasMetadata`, `getMetadata` (returns `Table[string, string]`), `getMetadataValue(key)` (returns `Option[string]`), `withMetadata(openArray[(string, string)])`, `toString(schema, showMetadata)`.
+- **[x]** `addField(i, field)`, `removeField(i)` — return new schemas (immutable).
+- **[x]** Test: 12 tests in `tests/test_gschema.nim` (8 metadata + 4 field editing).
+- **Effort**: Low | **Files**: `src/narrow/column/metadata.nim` (+57 lines), `tests/test_gschema.nim` (+79 lines)
+- **Note**: Empty metadata array → `hasMetadata = false` (Arrow convention). `g_str_hash`/`g_str_equal` for GHashTable string keys. GHashTable is created/destroyed in `withMetadata`; `getMetadata` reads from borrowed hash table.
 
 ### 3.3 RecordBatch Sort / Take / Filter
 
@@ -275,7 +276,7 @@ Week 3: Decimal types + Half-float + Compressed streams (tier 2, #1-3)
          → Decimal ✅, Compressed ✅, Half-float ✅
 
 Week 4: S3 filesystem + Acero Project node + Schema metadata (tier 2 #4, tier 3 #2, #4)
-        → S3 ✅, Project node ✅, Schema metadata remaining.
+        → S3 ✅, Project node ✅, Schema metadata ✅
 
 Week 5+: Fix skipped tests, RecordBatch sort/take/filter, array statistics,
          GAList, dead module cleanup (tier 3, #1, #3, #5, #6, #7, #9)
@@ -310,7 +311,7 @@ On-demand: Tier 4 items (dictionary, REE, union, tensor, view types, compute opt
 | 2.3 | Half-Float Arrays ✅ | Low | Medium | 2 |
 | 2.4 | S3 Filesystem ✅ | Medium | Medium | 2 |
 | 3.1 | Fix Skipped Tests ✅ | Trivial | Low-Med | 3 |
-| 3.2 | Schema Metadata | Low | Medium | 3 |
+| 3.2 | Schema Metadata ✅ | Low | Medium | 3 |
 | 3.3 | RecordBatch Sort/Take/Filter | Low | Medium | 3 |
 | 3.4 | Acero Project Node ✅ | Low | Medium | 3 |
 | 3.5 | Parquet Column Writes | Low | Medium | 3 |
