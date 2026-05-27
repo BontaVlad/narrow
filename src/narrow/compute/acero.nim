@@ -6,6 +6,20 @@ import ../tabular/[table, batch]
 import ../compute/expressions
 
 # ============================================================================
+# Join Type Enum
+# ============================================================================
+
+type JoinType* = enum ## Hash join type. Maps to `GArrowJoinType`.
+  jtLeftSemi = 0
+  jtRightSemi = 1
+  jtLeftAnti = 2
+  jtRightAnti = 3
+  jtInner = 4
+  jtLeftOuter = 5
+  jtRightOuter = 6
+  jtFullOuter = 7
+
+# ============================================================================
 # Type Definitions
 # ============================================================================
 
@@ -142,6 +156,11 @@ arcGObject:
     AggregateNodeOptions* = object
       handle*: ptr GArrowAggregateNodeOptions
 
+arcGObject:
+  type
+    HashJoinNodeOptions* = object
+      handle*: ptr GArrowHashJoinNodeOptions
+
 proc newAggregation*(function, input, output: string): Aggregation =
   ## Creates an aggregation descriptor for use with Acero aggregate nodes.
   ##
@@ -181,6 +200,60 @@ proc buildAggregateNode*(
   ## Adds an aggregate node after `input`.
   let handle = verify garrow_execute_plan_build_aggregate_node(
     plan.toPtr, input.toPtr, options.toPtr
+  )
+  result = ExecuteNode(handle: handle)
+
+proc newHashJoinNodeOptions*(
+    joinType: JoinType, leftKeys, rightKeys: openArray[string]
+): HashJoinNodeOptions =
+  ## Creates options for an Acero hash join node.
+  ##
+  ## Parameters:
+  ##   joinType:  Type of join (jtInner, jtLeftOuter, jtRightOuter, etc.)
+  ##   leftKeys:  Column names from the left table to join on
+  ##   rightKeys: Column names from the right table to join on
+  var lp: seq[cstring]
+  for k in leftKeys:
+    lp.add(k.cstring)
+  var rp: seq[cstring]
+  for k in rightKeys:
+    rp.add(k.cstring)
+
+  let lptr = if lp.len == 0: nil else: addr lp[0]
+  let rptr = if rp.len == 0: nil else: addr rp[0]
+
+  result.handle = verify garrow_hash_join_node_options_new(
+    joinType.GArrowJoinType, lptr, lp.len.gsize, rptr, rp.len.gsize
+  )
+
+proc setLeftOutputs*(opts: HashJoinNodeOptions, outputs: openArray[string]) =
+  ## Restrict which columns from the left table appear in the join result.
+  ## If not called, all left columns are included.
+  var ptrs: seq[cstring]
+  for o in outputs:
+    ptrs.add(o.cstring)
+  let p = if ptrs.len == 0: nil else: addr ptrs[0]
+  verify garrow_hash_join_node_options_set_left_outputs(
+    opts.toPtr, p, ptrs.len.gsize
+  )
+
+proc setRightOutputs*(opts: HashJoinNodeOptions, outputs: openArray[string]) =
+  ## Restrict which columns from the right table appear in the join result.
+  ## If not called, all right columns are included (key columns deduplicated).
+  var ptrs: seq[cstring]
+  for o in outputs:
+    ptrs.add(o.cstring)
+  let p = if ptrs.len == 0: nil else: addr ptrs[0]
+  verify garrow_hash_join_node_options_set_right_outputs(
+    opts.toPtr, p, ptrs.len.gsize
+  )
+
+proc buildHashJoinNode*(
+    plan: ExecutePlan, left, right: ExecuteNode, options: HashJoinNodeOptions
+): ExecuteNode =
+  ## Adds a hash join node with `left` and `right` as inputs.
+  let handle = verify garrow_execute_plan_build_hash_join_node(
+    plan.toPtr, left.toPtr, right.toPtr, options.toPtr
   )
   result = ExecuteNode(handle: handle)
 
@@ -300,6 +373,51 @@ proc filterTable*(table: ArrowTable, filter: Expression): ArrowTable =
   plan.validate()
 
   let outputSchema = filterNode.outputSchema
+  let reader = sinkOpts.getReader(outputSchema)
+
+  plan.start()
+  result = reader.readAll()
+  plan.wait()
+
+proc joinTables*(
+    left, right: ArrowTable,
+    joinType: JoinType,
+    leftKeys, rightKeys: openArray[string],
+): ArrowTable =
+  ## Join two tables on common key columns using Acero's hash join engine.
+  ##
+  ## By default, all columns from both tables appear in the result (right-side
+  ## key columns are deduplicated). Use `setLeftOutputs` / `setRightOutputs`
+  ## on a HashJoinNodeOptions to restrict output columns.
+  ##
+  ## Example:
+  ##   .. code-block:: nim
+  ##     let result = joinTables(
+  ##       leftTable, rightTable,
+  ##       jtInner, ["id"], ["id"]
+  ##     )
+  ensureComputeInitialized()
+
+  let pool = newThreadPool()
+  let executor = pool.toExecutor
+  let ctx = newExecuteContext(executor)
+  let plan = newExecutePlan(ctx)
+
+  let leftSourceOpts = newSourceNodeOptions(left)
+  let leftNode = plan.buildSourceNode(leftSourceOpts)
+
+  let rightSourceOpts = newSourceNodeOptions(right)
+  let rightNode = plan.buildSourceNode(rightSourceOpts)
+
+  let joinOpts = newHashJoinNodeOptions(joinType, leftKeys, rightKeys)
+  let joinNode = plan.buildHashJoinNode(leftNode, rightNode, joinOpts)
+
+  let sinkOpts = newSinkNodeOptions()
+  discard plan.buildSinkNode(joinNode, sinkOpts)
+
+  plan.validate()
+
+  let outputSchema = joinNode.outputSchema
   let reader = sinkOpts.getReader(outputSchema)
 
   plan.start()

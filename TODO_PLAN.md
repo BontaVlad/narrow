@@ -33,13 +33,15 @@
 
 These are **substantial missing features** that block real analytics workflows. FFI exists, Nim wrappers don't.
 
-### 1.1 Hash Join
+### 1.1 Hash Join ✅ DONE (2026-05-27)
 
-- [ ] Wrap `garrow_hash_join_node_options_new`, `garrow_hash_join_node_options_set_left_outputs`, `garrow_hash_join_node_options_set_right_outputs`, `garrow_execute_plan_build_hash_join_node` (~7 FFI functions).
-- [ ] Add `HashJoinNodeOptions` type, `buildHashJoinNode`, and high-level `joinTables()` convenience.
-- [ ] Test: inner/left/right join on two tables by key column.
+- **[x]** Wrap `garrow_hash_join_node_options_new`, `garrow_hash_join_node_options_set_left_outputs`, `garrow_hash_join_node_options_set_right_outputs`, `garrow_execute_plan_build_hash_join_node`.
+- **[x]** Add `HashJoinNodeOptions` type, `buildHashJoinNode`, and high-level `joinTables()` convenience with `JoinType` enum.
+- **[x]** Test: 9 tests in `tests/test_acero_join.nim` covering inner/outer/full/semi/anti joins, multi-key, and empty results.
 - **Effort**: Medium (~3 days) | **Impact**: Critical — joins are fundamental analytics primitive.
-- **Files**: `src/narrow/compute/acero.nim`, `tests/test_acero_join.nim`
+- **Files**: `src/narrow/compute/acero.nim` (+95 lines), `tests/test_acero_join.nim` (new, 202 lines)
+
+Note: Arrow GLib 24.0.0 does not deduplicate key columns by default — both left and right key columns appear in results. Use `setLeftOutputs`/`setRightOutputs` for column projection.
 
 ### 1.2 Binary Array Wrappers ✅ DONE (2026-05-27)
 
