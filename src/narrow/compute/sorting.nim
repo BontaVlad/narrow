@@ -1,7 +1,7 @@
 import ../core/[ffi, error, utils]
 import ../types/[gtypes, glist]
 import ../column/primitive
-import ../tabular/table
+import ../tabular/[table, batch]
 
 # ============================================================================
 # Type Definitions
@@ -99,12 +99,33 @@ proc take*(table: ArrowTable, indices: Array[uint64]): ArrowTable =
 
 proc sortBy*(table: ArrowTable, keys: openArray[(string, SortOrder)]): ArrowTable =
   ## Sort a table by the given column names and orders.
-  ##
-  ## Example:
-  ##   .. code-block:: nim
-  ##     let sorted = sortBy(table, @[("age", Ascending)])
   var sortKeys = newSeq[SortKey](keys.len)
   for i, (name, order) in keys:
     sortKeys[i] = newSortKey(name, order)
   let indices = sortIndices(table, sortKeys)
   result = take(table, indices)
+
+# ============================================================================
+# RecordBatch sort / take
+# ============================================================================
+
+proc sortIndices*(rb: RecordBatch, keys: openArray[SortKey]): Array[uint64] =
+  ensureComputeInitialized()
+  let options = newSortOptions(keys)
+  let handle = verify garrow_record_batch_sort_indices(rb.toPtr, options.toPtr)
+  result = newArray[uint64](cast[ptr GArrowArray](handle))
+
+proc take*(rb: RecordBatch, indices: Array[uint64]): RecordBatch =
+  ensureComputeInitialized()
+  let options = newTakeOptions()
+  let handle = verify garrow_record_batch_take(
+    rb.toPtr, indices.toPtr, options.toPtr)
+  result = newRecordBatch(handle)
+
+proc sortBy*(rb: RecordBatch,
+              keys: openArray[(string, SortOrder)]): RecordBatch =
+  var sortKeys = newSeq[SortKey](keys.len)
+  for i, (name, order) in keys:
+    sortKeys[i] = newSortKey(name, order)
+  let indices = sortIndices(rb, sortKeys)
+  result = take(rb, indices)

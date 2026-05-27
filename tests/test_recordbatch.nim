@@ -1,6 +1,7 @@
 import std/options
 import unittest2
-import ../src/narrow/[core/ffi, column/primitive, column/metadata, tabular/batch, types/gtypes]
+import ../src/narrow/[core/ffi, column/primitive, column/metadata, tabular/batch,
+    types/gtypes, compute/sorting, compute/filters]
 
 suite "RecordBatch - Construction":
   
@@ -285,3 +286,75 @@ suite "RecordBatchIterator - Construction and Iteration":
     let list = it.toList()
     
     check list.len == 3
+
+suite "RecordBatch - Sort / Take":
+  test "sortIndices returns correct order":
+    let schema = newSchema([newField[int32]("v")])
+    let rb = newRecordBatch(schema, newArray(@[3'i32, 1, 2]))
+    let idx = sortIndices(rb, @[newSortKey("v", Ascending)])
+    check idx.len == 3
+    check idx.toSeq == @[1'u64, 2, 0]
+
+  test "take reorders rows":
+    let schema = newSchema([newField[int32]("v"),
+                            newField[string]("name")])
+    let rb = newRecordBatch(schema,
+      newArray(@[3'i32, 1, 2]),
+      newArray(@["c", "a", "b"]))
+    let idx = newArray(@[1'u64, 2, 0])
+    let taken = take(rb, idx)
+    check taken.nRows == 3
+    check taken[0, int32].toSeq == @[1'i32, 2, 3]
+    check taken[1, string].toSeq == @["a", "b", "c"]
+
+  test "sortBy sorts record batch":
+    let schema = newSchema([newField[int32]("age"),
+                            newField[string]("name")])
+    let rb = newRecordBatch(schema,
+      newArray(@[30'i32, 10, 20]),
+      newArray(@["c", "a", "b"]))
+    let sorted = sortBy(rb, @[("age", Ascending)])
+    check sorted[0, int32].toSeq == @[10'i32, 20, 30]
+    check sorted[1, string].toSeq == @["a", "b", "c"]
+
+  test "sortBy descending":
+    let schema = newSchema([newField[int32]("v")])
+    let rb = newRecordBatch(schema, newArray(@[1'i32, 3, 2]))
+    let sorted = sortBy(rb, @[("v", Descending)])
+    check sorted[0, int32].toSeq == @[3'i32, 2, 1]
+
+  test "multi-key sort":
+    let schema = newSchema([newField[string]("region"),
+                            newField[int32]("score")])
+    let rb = newRecordBatch(schema,
+      newArray(@["US", "UK", "US", "UK"]),
+      newArray(@[100'i32, 200, 50, 150]))
+    let sorted = sortBy(rb, @[("region", Ascending), ("score", Ascending)])
+    check sorted[0, string].toSeq == @["UK", "UK", "US", "US"]
+    check sorted[1, int32].toSeq == @[150'i32, 200, 50, 100]
+
+  test "empty record batch sort":
+    let schema = newSchema([newField[int32]("v")])
+    let empty: seq[int32] = @[]
+    let rb = newRecordBatch(schema, newArray(empty))
+    let sorted = sortBy(rb, @[("v", Ascending)])
+    check sorted.nRows == 0
+
+suite "RecordBatch - Filter":
+  test "filter record batch with boolean array":
+    let schema = newSchema([newField[int32]("id"),
+                            newField[string]("name")])
+    let rb = newRecordBatch(schema,
+      newArray(@[1'i32, 2, 3, 4, 5]),
+      newArray(@["a", "b", "c", "d", "e"]))
+    let mask = newBooleanArray(@[true, false, true, false, true])
+    let filtered = filter(rb, mask)
+    check filtered.nRows == 3
+    check filtered[0, int32].toSeq == @[1'i32, 3, 5]
+
+  test "filter returns empty when no match":
+    let schema = newSchema([newField[int32]("v")])
+    let rb = newRecordBatch(schema, newArray(@[1'i32, 2, 3]))
+    let mask = newBooleanArray(@[false, false, false])
+    let filtered = filter(rb, mask)
+    check filtered.nRows == 0

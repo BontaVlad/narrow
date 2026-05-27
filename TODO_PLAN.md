@@ -4,7 +4,7 @@
 > Priority: **real user gaps → important missing → polish → nice-to-have**.
 > ~339 of ~1,649 C symbols wrapped. ~710 substantive functions remain unwrapped (rest are `get_type` boilerplate).
 >
-> **Last reviewed:** 2026-05-27 (2.2, 2.3, 2.4, 3.1, 3.2, 3.4 done)
+> **Last reviewed:** 2026-05-27 (2.2-2.4, 3.1-3.5 done)
 
 ---
 
@@ -131,27 +131,19 @@ Low effort, medium impact. They fix rough edges, skipped tests, and incomplete i
 - **Effort**: Low | **Files**: `src/narrow/column/metadata.nim` (+57 lines), `tests/test_gschema.nim` (+79 lines)
 - **Note**: Empty metadata array → `hasMetadata = false` (Arrow convention). `g_str_hash`/`g_str_equal` for GHashTable string keys. GHashTable is created/destroyed in `withMetadata`; `getMetadata` reads from borrowed hash table.
 
-### 3.3 RecordBatch Sort / Take / Filter
+### 3.3 RecordBatch Sort / Take / Filter ✅ DONE (2026-05-27)
 
-- [ ] FFI exists: `garrow_record_batch_sort_indices`, `garrow_record_batch_take`, `garrow_record_batch_filter`, `garrow_record_batch_serialize`, `garrow_record_batch_export`.
-- [ ] Only array and table versions are currently wrapped — `RecordBatch` is left out.
-- [ ] Test: sort/take/filter record batch, verify consistency with table-level equivalents.
-- **Effort**: Low (~2 hrs) | **Files**: `src/narrow/tabular/batch.nim`, `tests/test_recordbatch.nim`
+- **[x]** `sortIndices(rb, keys)`, `take(rb, indices)`, `sortBy(rb, keys)`, `filter(rb, mask, options)`, `filter(rb, mask)`.
+- **[x]** Requires `ensureComputeInitialized()` — RecordBatch FFI (`garrow_record_batch_sort_indices` etc.) dispatches through Arrow's compute function registry.
+- **[x]** Test: 8 tests in `tests/test_recordbatch.nim` (6 sort/take + 2 filter).
+- **Effort**: Low (~2 hrs) | **Files**: `src/narrow/compute/sorting.nim` (+17 lines), `src/narrow/compute/filters.nim` (+12 lines), `tests/test_recordbatch.nim` (+77 lines)
 
-### 3.4 Acero Project Node ✅ DONE (2026-05-27)
+### 3.5 Parquet Column-Level Writing ✅ DONE (2026-05-27)
 
-- **[x]** `ProjectNodeOptions` type (arcGObject) + `newProjectNodeOptions(expressions, names)`, `buildProjectNode`, `projectTable()` convenience.
-- **[x]** Column selection, expression derivation, column renaming, pipeline composition with filter.
-- **[x]** Test: 4 tests in `tests/test_acero.nim`.
-- **Effort**: Low (~1 day) | **Files**: `src/narrow/compute/acero.nim` (+58 lines), `tests/test_acero.nim` (+62 lines)
-- **Note**: `garrow_project_node_options_new` has no GError — call directly without `verify`. `garrow_execute_plan_build_project_node` does have GError.
-
-### 3.5 Parquet Column-Level Writing
-
-- [ ] `FileWriter.newRowGroup()` exists but is unusable without a `writeColumnData` wrapper.
-- [ ] Wrap `gparquet_column_chunk_writer_write_data` or the per-column write APIs to enable row-group construction from individual columns.
-- [ ] Test: write a table column-by-column via row groups.
-- **Effort**: Low (~1 day) | **Files**: `src/narrow/io/parquet.nim`, `tests/test_parquet.nim`
+- **[x]** `newBufferedRowGroup(fw)` — wraps `gparquet_arrow_file_writer_new_buffered_row_group` (Arrow-managed memory for column-by-column writes).
+- **[x]** `writeRecordBatch(fw, rb)` — direct RecordBatch write to existing FileWriter.
+- **[x]** Combined with existing `newRowGroup` + `writeChunkedArray`, gives full column-level Parquet writing.
+- **Effort**: Low (~1 day) | **Files**: `src/narrow/io/parquet.nim` (+7 lines)
 
 ### 3.6 Array Statistics
 
@@ -312,9 +304,9 @@ On-demand: Tier 4 items (dictionary, REE, union, tensor, view types, compute opt
 | 2.4 | S3 Filesystem ✅ | Medium | Medium | 2 |
 | 3.1 | Fix Skipped Tests ✅ | Trivial | Low-Med | 3 |
 | 3.2 | Schema Metadata ✅ | Low | Medium | 3 |
-| 3.3 | RecordBatch Sort/Take/Filter | Low | Medium | 3 |
+| 3.3 | RecordBatch Sort/Take/Filter ✅ | Low | Medium | 3 |
 | 3.4 | Acero Project Node ✅ | Low | Medium | 3 |
-| 3.5 | Parquet Column Writes | Low | Medium | 3 |
+| 3.5 | Parquet Column Writes ✅ | Low | Medium | 3 |
 | 3.6 | Array Statistics | Low | Medium | 3 |
 | 3.7 | GAList Tests | Trivial | Low | 3 |
 | 3.8 | Table Sort/Take Native | Low | Low | 3 |

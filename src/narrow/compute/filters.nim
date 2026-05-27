@@ -3,7 +3,7 @@ import ../core/[ffi, error, utils]
 import ../types/gtypes
 import ../column/primitive
 import ../compute/expressions
-import ../tabular/table
+import ../tabular/[table, batch]
 
 arcGObject:
   type
@@ -169,3 +169,15 @@ proc filter*[T](arr: Array[T], filter: BooleanArray, options: FilterOptions): Ar
 proc filter*[T](arr: Array[T], filter: BooleanArray): Array[T] =
   let options = newFilterOptions()
   result = arr.filter(filter, options)
+
+# RecordBatch filter support
+proc filter*(rb: RecordBatch, mask: BooleanArray,
+             options: FilterOptions): RecordBatch =
+  ensureComputeInitialized()
+  let handle = verify garrow_record_batch_filter(
+    rb.toPtr, mask.handle, options.handle)
+  result = newRecordBatch(handle)
+
+proc filter*(rb: RecordBatch, mask: BooleanArray): RecordBatch =
+  let options = newFilterOptions()
+  result = rb.filter(mask, options)
