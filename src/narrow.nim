@@ -5,7 +5,7 @@
 import narrow/core/[ffi, error]
 import
   narrow/types/[
-    gtypes, gtemporal, glisttype, glargelisttype, gfixedsizelisttype,
+    gtypes, gtemporal, gdecimal, glisttype, glargelisttype, gfixedsizelisttype,
     gfixedshapetensortype, guuid, gmap, glist,
   ]
 import narrow/column/[primitive, nested, metadata, buffer]
@@ -16,7 +16,7 @@ import
 import narrow/io/[parquet, csv, filesystem, json, ipc, feather]
 
 export
-  ffi, error, gtypes, gtemporal, glisttype, glargelisttype, gfixedsizelisttype,
+  ffi, error, gtypes, gtemporal, gdecimal, glisttype, glargelisttype, gfixedsizelisttype,
   gfixedshapetensortype, guuid, gmap, glist, primitive, nested, metadata, buffer, table,
   batch, filters, expressions, acero, parquet, csv, filesystem, json, ipc, feather,
   dataset, functions, statistics, sorting, casting, aggregations

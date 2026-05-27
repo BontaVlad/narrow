@@ -68,15 +68,15 @@ Note: LargeBinary/LargeString/LargeList remain unwrapped (~43 FFI functions). Th
 
 These have fully available FFI and follow existing patterns. Each is 1–2 days.
 
-### 2.1 Decimal128 / Decimal256 Arrays
+### 2.1 Decimal128 / Decimal256 Arrays ✅ DONE (2026-05-27)
 
-- [ ] Wrap decimal128 and decimal256 array builders, arrays, data types, scalars — ~136 FFI functions across 4 widths.
-- [ ] Follow the existing primitive array wrapper pattern in `column/primitive.nim`.
-- [ ] Generic `DecimalArray[W]` type parameterized by width (or separate `Decimal128Array`/`Decimal256Array`).
-- [ ] Arithmetic: `+`, `-`, `*`, `/`, `rescale`, `abs`, `negate`.
-- [ ] Test: create decimal array, arithmetic, null handling, scale/precision.
-- **Effort**: Low (~1–2 days) | **Impact**: Medium — financial / precision-critical use cases.
-- **Files**: `src/narrow/types/gdecimal.nim` (new), `tests/test_decimal.nim`
+- **[x]** Wrap Decimal128 and Decimal256 value types, data types, arrays, array builders — ~156 FFI functions.
+- **[x]** `Decimal128` and `Decimal256` value types with string/int64 constructors, `$`, `toBytes`, `toInt` (Decimal128 only), comparisons (`==`, `<`, `<=`, `>`, `>=`), arithmetic (`+`, `-`, `*`, `/`, `abs`, `negate`), `rescale`.
+- **[x]** `Decimal128Array` / `Decimal256Array` + builders with precision/scale metadata, `append` (string/int64/Decimal128), `appendNull`, `finish`, `[]`, `len`, `isNull`, `formatValue`.
+- **[x]** Test: 37 tests in `tests/test_gdecimal.nim` covering all value type ops, array building, nulls, indexing, formatValue, rescale.
+- **Effort**: Low (~1 day) | **Impact**: Medium — financial / precision-critical use cases.
+- **Files**: `src/narrow/types/gdecimal.nim` (new, 328 lines), `tests/test_gdecimal.nim` (new, 238 lines)
+- **Note**: `$` on standalone Decimal128/256 returns raw integer without scale (Arrow design). Use `arr.formatValue(i)` for scale-formatted output. Decimal256 is missing `minus`, `toInt` from the C FFI.
 
 ### 2.2 Compressed Input/Output Streams
 
