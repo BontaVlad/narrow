@@ -213,7 +213,7 @@ jobs:
 
     - name: Test (Linux with sanitizers)
       if: runner.os == 'Linux'
-      run: LSAN_OPTIONS="suppressions=lsan.supp:print_suppressions=0" nimble test -d:useSanitizers
+      run: LSAN_OPTIONS="suppressions=lsan.supp:print_suppressions=0" just test-debug
 
     - name: Test (macOS)
       if: runner.os == 'macOS'
