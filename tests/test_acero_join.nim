@@ -19,10 +19,10 @@ suite "Acero - Hash Join":
     let left = newArrowTable(leftSchema, leftIds, leftNames)
     let right = newArrowTable(rightSchema, rightIds, rightScores)
 
-    let result = joinTables(left, right, jtInner, ["id"], ["id"])
+    let joined = joinTables(left, right, jtInner, ["id"], ["id"])
 
-    check result.nRows == 2   # ids 2, 3
-    check result.nColumns == 4  # id, name, id, score
+    check joined.nRows == 2   # ids 2, 3
+    check joined.nColumns == 4  # id, name, id, score
 
   test "inner join single string key":
     let leftSchema = newSchema([
@@ -41,10 +41,10 @@ suite "Acero - Hash Join":
     let left = newArrowTable(leftSchema, leftCodes, leftValues)
     let right = newArrowTable(rightSchema, rightCodes, rightLabels)
 
-    let result = joinTables(left, right, jtInner, ["code"], ["code"])
+    let joined = joinTables(left, right, jtInner, ["code"], ["code"])
 
-    check result.nRows == 2   # codes bb, cc
-    check result.nColumns == 4  # code, value, code, label
+    check joined.nRows == 2   # codes bb, cc
+    check joined.nColumns == 4  # code, value, code, label
 
   test "left outer join preserves all left rows":
     let leftSchema = newSchema([
@@ -63,10 +63,10 @@ suite "Acero - Hash Join":
     let left = newArrowTable(leftSchema, leftIds, leftNames)
     let right = newArrowTable(rightSchema, rightIds, rightScores)
 
-    let result = joinTables(left, right, jtLeftOuter, ["id"], ["id"])
+    let joined = joinTables(left, right, jtLeftOuter, ["id"], ["id"])
 
-    check result.nRows == 4   # all 4 left rows
-    check result.nColumns == 4  # id, name, id, score
+    check joined.nRows == 4   # all 4 left rows
+    check joined.nColumns == 4  # id, name, id, score
 
   test "right outer join preserves all right rows":
     let leftSchema = newSchema([
@@ -85,10 +85,10 @@ suite "Acero - Hash Join":
     let left = newArrowTable(leftSchema, leftIds, leftNames)
     let right = newArrowTable(rightSchema, rightIds, rightScores)
 
-    let result = joinTables(left, right, jtRightOuter, ["id"], ["id"])
+    let joined = joinTables(left, right, jtRightOuter, ["id"], ["id"])
 
-    check result.nRows == 4   # all 4 right rows
-    check result.nColumns == 4  # id, name, id, score
+    check joined.nRows == 4   # all 4 right rows
+    check joined.nColumns == 4  # id, name, id, score
 
   test "full outer join":
     let leftSchema = newSchema([
@@ -107,10 +107,10 @@ suite "Acero - Hash Join":
     let left = newArrowTable(leftSchema, leftIds, leftNames)
     let right = newArrowTable(rightSchema, rightIds, rightScores)
 
-    let result = joinTables(left, right, jtFullOuter, ["id"], ["id"])
+    let joined = joinTables(left, right, jtFullOuter, ["id"], ["id"])
 
-    check result.nRows == 4   # 1, 2, 3, 4 join key values
-    check result.nColumns == 4  # id, name, id, score
+    check joined.nRows == 4   # 1, 2, 3, 4 join key values
+    check joined.nColumns == 4  # id, name, id, score
 
   test "multi-key join":
     let leftSchema = newSchema([
@@ -133,11 +133,11 @@ suite "Acero - Hash Join":
     let left = newArrowTable(leftSchema, leftRegions, leftYears, leftProducts)
     let right = newArrowTable(rightSchema, rightRegions, rightYears, rightRevenues)
 
-    let result = joinTables(left, right, jtInner, ["region", "year"],
+    let joined = joinTables(left, right, jtInner, ["region", "year"],
                             ["region", "year"])
 
-    check result.nRows == 3   # US/2020 appears twice on right
-    check result.nColumns == 6  # region, year, product, region, year, revenue
+    check joined.nRows == 3   # US/2020 appears twice on right
+    check joined.nColumns == 6  # region, year, product, region, year, revenue
 
   test "inner join with no matching keys returns empty table":
     let leftSchema = newSchema([
@@ -156,10 +156,10 @@ suite "Acero - Hash Join":
     let left = newArrowTable(leftSchema, leftIds, leftData)
     let right = newArrowTable(rightSchema, rightIds, rightInfo)
 
-    let result = joinTables(left, right, jtInner, ["id"], ["id"])
+    let joined = joinTables(left, right, jtInner, ["id"], ["id"])
 
-    check result.nRows == 0
-    check result.nColumns == 4  # id, data, id, info
+    check joined.nRows == 0
+    check joined.nColumns == 4  # id, data, id, info
 
   test "left semi join":
     let leftSchema = newSchema([
@@ -176,10 +176,10 @@ suite "Acero - Hash Join":
     let left = newArrowTable(leftSchema, leftIds, leftNames)
     let right = newArrowTable(rightSchema, rightIds)
 
-    let result = joinTables(left, right, jtLeftSemi, ["id"], ["id"])
+    let joined = joinTables(left, right, jtLeftSemi, ["id"], ["id"])
 
-    check result.nRows == 2   # only rows with id 2, 4
-    check result.nColumns == 2  # only left columns (name, id)
+    check joined.nRows == 2   # only rows with id 2, 4
+    check joined.nColumns == 2  # only left columns (name, id)
 
   test "left anti join":
     let leftSchema = newSchema([
@@ -196,7 +196,7 @@ suite "Acero - Hash Join":
     let left = newArrowTable(leftSchema, leftIds, leftNames)
     let right = newArrowTable(rightSchema, rightIds)
 
-    let result = joinTables(left, right, jtLeftAnti, ["id"], ["id"])
+    let joined = joinTables(left, right, jtLeftAnti, ["id"], ["id"])
 
-    check result.nRows == 3   # ids 1, 3, 5 (in left but not in right)
-    check result.nColumns == 2  # only left columns
+    check joined.nRows == 3   # ids 1, 3, 5 (in left but not in right)
+    check joined.nColumns == 2  # only left columns
