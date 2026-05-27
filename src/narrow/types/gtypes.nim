@@ -15,6 +15,8 @@ type
   Date64* = distinct int64 ## Milliseconds since epoch
   MonthInterval* = distinct int32 ## Number of months
 
+  HalfFloat* = distinct uint16 ## IEEE 754 half-precision (16-bit) float
+
   ArrowPrimitive* =
     void | bool | int8 | uint8 | int16 | uint16 | int32 | uint32 | int | int64 | uint64 |
     float32 | float64 | string | seq[byte] | cstring | Date32 | Date64 | MonthInterval
@@ -59,6 +61,10 @@ type
   ArrowValue* = ArrowPrimitive | ArrowComplex
 
   TypeError* = object of CatchableError
+
+func `==`*(a, b: HalfFloat): bool {.borrow.}
+func `<`*(a, b: HalfFloat): bool {.borrow.}
+func `<=`*(a, b: HalfFloat): bool {.borrow.}
 
 # Runtime type category sets (mirroring Python's pyarrow.type
 const
@@ -354,3 +360,7 @@ proc newGType*(pt: ptr GArrowDataType): GADType =
   if not isNil(handle):
     discard g_object_ref(handle)
   result = GADType(handle: handle)
+
+proc newHalfFloatGType*(): GADType =
+  let handle = garrow_half_float_data_type_new()
+  result.handle = cast[ptr GArrowDataType](handle)

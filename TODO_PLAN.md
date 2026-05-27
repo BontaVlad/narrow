@@ -4,7 +4,7 @@
 > Priority: **real user gaps → important missing → polish → nice-to-have**.
 > ~339 of ~1,649 C symbols wrapped. ~710 substantive functions remain unwrapped (rest are `get_type` boilerplate).
 >
-> **Last reviewed:** 2026-05-27
+> **Last reviewed:** 2026-05-27 (2.2, 2.3 done)
 
 ---
 
@@ -78,20 +78,28 @@ These have fully available FFI and follow existing patterns. Each is 1–2 days.
 - **Files**: `src/narrow/types/gdecimal.nim` (new, 328 lines), `tests/test_gdecimal.nim` (new, 238 lines)
 - **Note**: `$` on standalone Decimal128/256 returns raw integer without scale (Arrow design). Use `arr.formatValue(i)` for scale-formatted output. Decimal256 is missing `minus`, `toInt` from the C FFI.
 
-### 2.2 Compressed Input/Output Streams
+### 2.2 Compressed Input/Output Streams ✅ DONE (2026-05-27)
 
-- [ ] Wrap `garrow_codec_new`, `garrow_codec_get_name`, `garrow_codec_get_compression_type`, `garrow_compressed_input_stream_new`, `garrow_compressed_output_stream_new` — ~7 FFI functions.
-- [ ] Users can already write compressed Parquet via `WriterProperties`, but cannot decompress raw `.gz`/`.bz2`/`.lz4`/`.zst` CSV or other formats.
-- [ ] Test: write and read compressed CSV round-trip.
+- **[x]** `Codec` type (arcGObject) + `newCodec`, `name`, `compressionType`, `level`, `codecFromExtension` mapping.
+- **[x]** `newCompressedInputStream`/`newCompressedOutputStream` return regular `InputStream`/`OutputStream` (cast-based, no new stream types). All existing stream methods work for free.
+- **[x]** FileSystem convenience procs: `openCompressedInputStream`/`OutputStream` with auto-detection from file extension (`.gz`→gzip, `.zst`→zstd, `.bz2`→bz2) or explicit `Codec` parameter.
+- **[x]** Test: 18 tests in `tests/test_compressed.nim` covering codec creation, extension inference, gzip/zstd/bz2 round-trips, snappy/lz4 streaming limitation, empty data, large data, multi-write.
 - **Effort**: Low (~1 day) | **Impact**: Medium — cookbook has "Reading/Writing Compressed Data" recipes.
-- **Files**: `src/narrow/io/compressed.nim` (new), `tests/test_compressed.nim`
+- **Files**: `src/narrow/io/compressed.nim` (new, 61 lines), `tests/test_compressed.nim` (new, 186 lines)
+- **Note**: Only gzip, zstd, bz2 support streaming compression. Snappy, lz4, brotli, lzo — codec creation works but `garrow_compressed_output_stream_new` returns "NotImplemented".
 
-### 2.3 Half-Float Array Support
+### 2.3 Half-Float Array Support ✅ DONE (2026-05-27)
 
-- [ ] Wrap `garrow_half_float_array_builder_*`, `garrow_half_float_array_*`, `garrow_half_float_data_type_new`, `garrow_half_float_scalar_*` — ~13 FFI functions.
-- [ ] Test: create half-float array, value extraction, null handling.
-- **Effort**: Low (~1 day) | **Impact**: Medium — ML model weights, GPU interop.
-- **Files**: `src/narrow/column/primitive.nim` (extend), `tests/test_garray.nim` (extend)
+- **[x]** `HalfFloat = distinct uint16` value type with borrowed `==`, `<`, `<=` comparisons.
+- **[x]** `HGFloatArray` and `HGFloatArrayBuilder` types (`arcGObject`) + `HGFloatScalar`.
+- **[x]** Builder: `newHalfFloatArrayBuilder`, `append(HalfFloat)`, `appendNull` (via generic `garrow_array_builder_append_null`), `appendValues`, `finish`.
+- **[x]** Array: `newHalfFloatArray(seq)`/`(seq, mask)`, `[]`/`len`/`isNull`/`toSeq`/`@`/`items`/`$`.
+- **[x]** Scalar: `newHalfFloatScalar(HalfFloat)`, `getValue`.
+- **[x]** Data type: `newHalfFloatGType()` returns `GADType`.
+- **[x]** Test: 19 tests in `tests/test_half_float.nim`.
+- **Effort**: Low (~1 day) | **Impact**: Medium — ML model weights, GPU interop, memory-constrained edge devices.
+- **Files**: `src/narrow/types/gtypes.nim` (+7 lines), `src/narrow/column/primitive.nim` (+105 lines), `tests/test_half_float.nim` (new, 134 lines)
+- **Note**: No native Nim float16. Values are raw IEEE 754 half-precision bit patterns stored as `uint16`. Conversion to/from float32 requires external library or manual bit manipulation. `garrow_half_float_array_builder_append_null` does not exist — use generic `garrow_array_builder_append_null` with cast.
 
 ### 2.4 S3 Filesystem
 
@@ -265,7 +273,7 @@ Week 2: Hash Join (tier 1, #1)
         → THE biggest missing feature. Unlocks combined-dataset workflows.
 
 Week 3: Decimal types + Half-float + Compressed streams (tier 2, #1-3)
-        → Financial + ML + compressed data use cases.
+         → Decimal ✅, Compressed ✅, Half-float ✅
 
 Week 4: S3 filesystem + Acero Project node + Schema metadata (tier 2 #4, tier 3 #2, #4)
         → Cloud access, plan projection, schema enrichment.
@@ -299,8 +307,8 @@ On-demand: Tier 4 items (dictionary, REE, union, tensor, view types, compute opt
 | 1.2 | Binary Array | Medium | High | 1 |
 | 1.3 | Duration/Interval Arrays | Medium | High | 1 |
 | 2.1 | Decimal Arrays | Low | Medium | 2 |
-| 2.2 | Compressed Streams | Low | Medium | 2 |
-| 2.3 | Half-Float Arrays | Low | Medium | 2 |
+| 2.2 | Compressed Streams ✅ | Low | Medium | 2 |
+| 2.3 | Half-Float Arrays ✅ | Low | Medium | 2 |
 | 2.4 | S3 Filesystem | Medium | Medium | 2 |
 | 3.1 | Fix Skipped Tests | Trivial | Low-Med | 3 |
 | 3.2 | Schema Metadata | Low | Medium | 3 |

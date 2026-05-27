@@ -1,5 +1,5 @@
 import std/[options, strformat]
-import ../core/[ffi, error]
+import ../core/[ffi, error, utils]
 import ../types/[gtypes, glist]
 import ./buffer
 
@@ -840,3 +840,109 @@ iterator items*[T](chunkedArray: ChunkedArray[T]): lent T =
     for chunk in chunkedArray.chunks:
       for item in chunk:
         yield item
+
+# ============================================================================
+# Half-Float Array Types
+# ============================================================================
+
+arcGObject:
+  type
+    HGFloatArray* = object
+      handle*: ptr GArrowHalfFloatArray
+
+    HGFloatArrayBuilder* = object
+      handle*: ptr GArrowHalfFloatArrayBuilder
+
+    HGFloatScalar* = object
+      handle*: ptr GArrowHalfFloatScalar
+
+proc newHalfFloatArrayBuilder*(): HGFloatArrayBuilder =
+  result.handle = garrow_half_float_array_builder_new()
+  if isNil(result.handle):
+    raise newException(OperationError, "Error creating half-float builder")
+
+proc append*(builder: var HGFloatArrayBuilder, val: sink HalfFloat) =
+  verify garrow_half_float_array_builder_append_value(
+    builder.handle, val.uint16
+  )
+
+proc appendNull*(builder: var HGFloatArrayBuilder) =
+  verify garrow_array_builder_append_null(
+    cast[ptr GArrowArrayBuilder](builder.handle)
+  )
+
+proc appendValues*(builder: var HGFloatArrayBuilder, values: openArray[HalfFloat]) =
+  let len = values.len.gint64
+  var vals = newSeq[uint16](values.len)
+  for i, v in values:
+    vals[i] = v.uint16
+  verify garrow_half_float_array_builder_append_values(
+    builder.handle, cast[ptr guint16](addr vals[0]), len, nil, 0
+  )
+
+proc finish*(builder: HGFloatArrayBuilder): HGFloatArray =
+  let handle = verify garrow_array_builder_finish(
+    cast[ptr GArrowArrayBuilder](builder.handle))
+  result.handle = cast[ptr GArrowHalfFloatArray](handle)
+
+proc newHalfFloatArray*(values: sink seq[HalfFloat]): HGFloatArray =
+  var builder = newHalfFloatArrayBuilder()
+  if values.len > 0:
+    builder.appendValues(values)
+  result = builder.finish()
+
+proc newHalfFloatArray*(values: sink seq[HalfFloat],
+                         mask: openArray[bool]): HGFloatArray =
+  var builder = newHalfFloatArrayBuilder()
+  for i in 0 ..< values.len:
+    if i < mask.len and mask[i]:
+      builder.appendNull()
+    else:
+      builder.append(values[i])
+  result = builder.finish()
+
+func len*(arr: HGFloatArray): int =
+  garrow_array_get_length(cast[ptr GArrowArray](arr.handle)).int
+
+func isNull*(arr: HGFloatArray, i: int): bool =
+  if i < 0:
+    raise newException(IndexDefect, "Negative indexes are not supported")
+  if i >= arr.len:
+    raise newException(IndexDefect,
+      fmt"index {i} not in 0 ..< {arr.len}")
+  garrow_array_is_null(cast[ptr GArrowArray](arr.handle), i.gint64) != 0
+
+func `[]`*(arr: HGFloatArray, i: int): HalfFloat =
+  if arr.len == 0:
+    raise newException(IndexDefect, "Empty array")
+  if i < 0:
+    raise newException(IndexDefect, "Negative indexes are not supported")
+  if i >= arr.len:
+    raise newException(IndexDefect,
+      fmt"index {i} not in 0 ..< {arr.len}")
+  HalfFloat(garrow_half_float_array_get_value(arr.handle, i.gint64))
+
+proc `$`*(arr: HGFloatArray): string =
+  let cStr = verify garrow_array_to_string(cast[ptr GArrowArray](arr.handle))
+  result = $newGString(cStr, owned = true)
+
+proc toSeq*(arr: HGFloatArray): seq[HalfFloat] =
+  result = newSeq[HalfFloat](arr.len)
+  var length: gint64
+  let data = garrow_half_float_array_get_values(arr.handle, addr length)
+  let src = cast[ptr UncheckedArray[guint16]](data)
+  for i in 0 ..< arr.len:
+    result[i] = HalfFloat(src[i])
+
+proc `@`*(arr: HGFloatArray): seq[HalfFloat] =
+  arr.toSeq
+
+iterator items*(arr: HGFloatArray): HalfFloat =
+  for i in 0 ..< arr.len:
+    yield arr[i]
+
+proc newHalfFloatScalar*(value: HalfFloat): HGFloatScalar =
+  result.handle = garrow_half_float_scalar_new(value.uint16)
+
+func getValue*(scalar: HGFloatScalar): HalfFloat =
+  HalfFloat(garrow_half_float_scalar_get_value(scalar.handle))
