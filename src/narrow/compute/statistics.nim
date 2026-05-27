@@ -113,7 +113,6 @@ proc min*(s: ByteArrayStatistics): seq[byte] =
     result = newSeq[byte](Natural(size))
     if size > 0:
       copyMem(result[0].addr, data, Natural(size))
-    g_bytes_unref(bytes)
 
 proc max*(s: ByteArrayStatistics): seq[byte] =
   let bytes = gparquet_byte_array_statistics_get_max(s.toPtr)
@@ -123,7 +122,6 @@ proc max*(s: ByteArrayStatistics): seq[byte] =
     result = newSeq[byte](Natural(size))
     if size > 0:
       copyMem(result[0].addr, data, Natural(size))
-    g_bytes_unref(bytes)
 
 proc toString*(bytes: seq[byte]): string =
   ## Converts a byte sequence to a string.
@@ -139,7 +137,6 @@ proc min*(s: FixedLengthByteArrayStatistics): seq[byte] =
     result = newSeq[byte](Natural(size))
     if size > 0:
       copyMem(result[0].addr, data, Natural(size))
-    g_bytes_unref(bytes)
 
 proc max*(s: FixedLengthByteArrayStatistics): seq[byte] =
   let bytes = gparquet_fixed_length_byte_array_statistics_get_max(s.toPtr)
@@ -149,7 +146,6 @@ proc max*(s: FixedLengthByteArrayStatistics): seq[byte] =
     result = newSeq[byte](Natural(size))
     if size > 0:
       copyMem(result[0].addr, data, Natural(size))
-    g_bytes_unref(bytes)
 
 # ============================================================================
 # Type Checking Functions

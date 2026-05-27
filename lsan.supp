@@ -6,6 +6,10 @@ leak:libarrow-glib
 leak:libparquet-glib
 leak:libarrow-dataset-glib
 
+# === GLib/GObject (one-time type init, never freed by design) ===
+leak:libgobject
+leak:libglib
+
 # Function-level patterns for local runs where symbols resolve:
 leak:garrow_field_new
 leak:gparquet_file_metadata_get_row_group

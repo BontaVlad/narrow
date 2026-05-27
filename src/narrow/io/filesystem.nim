@@ -688,12 +688,12 @@ proc getFileInfos*(fs: FileSystem, paths: openArray[string]): seq[FileInfo] =
     fs.handle, addr cPaths[0], paths.len.gsize
   )
 
-  let gList = newGlist[ptr GArrowFileInfo](glistPtr)
+  let gList = newGlist[ptr GArrowFileInfo](glistPtr, owned = false)
   result = newSeqOfCap[FileInfo](gList.len)
   for p in gList:
     let handle = cast[ptr GArrowFileInfo](p)
-    # if not isNil(handle):
-    #   discard g_object_ref(handle)
+    if not isNil(handle):
+      discard g_object_ref(handle)
     result.add(FileInfo(handle: handle))
   g_list_free_full(glistPtr, cast[GDestroyNotify](g_object_unref))
 

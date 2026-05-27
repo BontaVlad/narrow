@@ -46,6 +46,7 @@ proc valueAt*[T](arr: ListArray[T], idx: int): Array[T] =
   let handle = garrow_list_array_get_value(arr.handle, idx.gint64)
   if handle.isNil:
     raise newException(OperationError, "Failed to get value at index " & $idx)
+  discard g_object_ref(handle)
   result = newArray[T](handle)
 
 proc valueLength*[T](arr: ListArray[T], idx: int): int32 =
@@ -158,6 +159,7 @@ proc newListArrayBuilder*[T: ArrowValue](): ListArrayBuilder[T] =
 
 proc valueBuilder*[T](builder: ListArrayBuilder[T]): ArrayBuilder[T] =
   let childHandle = garrow_list_array_builder_get_value_builder(builder.handle)
+  discard g_object_ref(childHandle)
   result = newArrayBuilder[T](childHandle)
 
 proc append*(builder: ListArrayBuilder) =
@@ -266,10 +268,12 @@ proc len*[K, V](arr: MapArray[K, V]): int =
 
 proc keys*[K, V](arr: MapArray[K, V]): Array[K] =
   let handle = garrow_map_array_get_keys(arr.handle)
+  discard g_object_ref(handle)
   newArray[K](handle)
 
 proc items*[K, V](arr: MapArray[K, V]): Array[V] =
   let handle = garrow_map_array_get_items(arr.handle)
+  discard g_object_ref(handle)
   newArray[V](handle)
 
 proc `[]`*[K, V](arr: MapArray[K, V], i: int): (Array[K], Array[V]) =
@@ -371,10 +375,12 @@ proc newMapArrayBuilder*[K: ArrowValue, V: ArrowValue](): MapArrayBuilder[K, V] 
 
 proc keyBuilder*[K, V](builder: MapArrayBuilder[K, V]): ArrayBuilder[K] =
   let childHandle = garrow_map_array_builder_get_key_builder(builder.handle)
+  discard g_object_ref(childHandle)
   result = newArrayBuilder[K](childHandle)
 
 proc itemBuilder*[K, V](builder: MapArrayBuilder[K, V]): ArrayBuilder[V] =
   let childHandle = garrow_map_array_builder_get_item_builder(builder.handle)
+  discard g_object_ref(childHandle)
   result = newArrayBuilder[V](childHandle)
 
 proc append*(builder: MapArrayBuilder) =
@@ -518,6 +524,7 @@ proc fieldBuilder*[T](sb: StructBuilder, idx: int): ArrayBuilder[T] =
   let handle = garrow_struct_array_builder_get_field_builder(sb.toPtr, idx.gint)
   if handle.isNil:
     raise newException(KeyError, "Field index " & $idx & " not found")
+  discard g_object_ref(handle)
   result = newArrayBuilder[T](handle)
 
 # Struct field access
@@ -526,12 +533,14 @@ proc fields*(s: Struct): seq[Field] =
   result = newSeqOfCap[Field](n)
   let gfields = newGList[ptr GArrowField](garrow_struct_data_type_get_fields(s.toPtr))
   for f in gfields:
+    discard g_object_ref(f)
     result.add(newField(f))
 
 proc `[]`*(s: Struct, name: string): Field =
   let handle = garrow_struct_data_type_get_field_by_name(s.toPtr, name.cstring)
   if handle.isNil:
     raise newException(KeyError, "Field '" & name & "' not found in struct")
+  discard g_object_ref(handle)
   newField(handle)
 
 proc `[]`*(s: Struct, idx: int): Field =
@@ -551,9 +560,7 @@ proc hasField*(s: Struct, name: string): bool =
   let fieldHandle = garrow_struct_data_type_get_field_by_name(s.toPtr, name.cstring)
   if fieldHandle.isNil:
     return false
-  else:
-    g_object_unref(fieldHandle)
-    return true
+  true
 
 proc fieldIndex*(s: Struct, name: string): int =
   let flds = s.fields
@@ -595,6 +602,7 @@ proc getField*[T](sa: StructArray, idx: int): Array[T] =
   let handle = garrow_struct_array_get_field(sa.toPtr, idx.gint)
   if handle.isNil:
     raise newException(KeyError, "Field index " & $idx & " not found")
+  discard g_object_ref(handle)
   result = newArray[T](handle)
 
 # Null handling
