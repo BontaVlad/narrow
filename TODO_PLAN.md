@@ -4,7 +4,7 @@
 > Priority: **real user gaps → important missing → polish → nice-to-have**.
 > ~339 of ~1,649 C symbols wrapped. ~710 substantive functions remain unwrapped (rest are `get_type` boilerplate).
 >
-> **Last reviewed:** 2026-05-27 (2.2-2.4, 3.1-3.5 done)
+> **Last reviewed:** 2026-05-27 (Tiers 1-3 COMPLETE)
 
 ---
 
@@ -145,32 +145,30 @@ Low effort, medium impact. They fix rough edges, skipped tests, and incomplete i
 - **[x]** Combined with existing `newRowGroup` + `writeChunkedArray`, gives full column-level Parquet writing.
 - **Effort**: Low (~1 day) | **Files**: `src/narrow/io/parquet.nim` (+7 lines)
 
-### 3.6 Array Statistics
+### 3.6 Array Statistics ✅ DONE (2026-05-27)
 
-- [ ] Wrap `garrow_array_get_statistics`, `garrow_array_statistics_get_n_nulls`, `garrow_array_statistics_get_distinct_count`, `garrow_array_statistics_is_exact` — ~12 FFI functions.
-- [ ] Useful for data profiling: distinct counts, null counts with exact/approximate.
-- [ ] Test: compute statistics on arrays with nulls and duplicates.
-- **Effort**: Low (~1 hr) | **Files**: `src/narrow/compute/statistics.nim` (extend), `tests/test_parquet_statistics.nim` (extend)
+- **[x]** `ArrayStatistics` type (arcGObject) wrapping `ptr GArrowArrayStatistics`.
+- **[x]** Accessors: `hasNullCount`, `isNullCountExact`, `nullCount`, `nullCountExact`, `nullCountApproximate`, `hasDistinctCount`, `isDistinctCountExact`, `distinctCount`, `distinctCountExact`, `distinctCountApproximate`.
+- **[x]** `newArrayStatistics(arr)` creates statistics from any `Array`.
+- **Effort**: Low | **Files**: `src/narrow/compute/statistics.nim` (+43 lines)
+- **Note**: FFI names differ from plan: `garrow_array_statistics_get_null_count` (not `get_n_nulls`), separate exact/approximate accessors exist. All accessors are no-GError; only `garrow_array_get_statistics` creates an object.
 
-### 3.7 GAList Tests
+### 3.7 GAList Tests ✅ DONE (2026-05-27)
 
-- [ ] `types/glist.nim` is the only wrapped module with zero test coverage.
-- [ ] Test: `GAList[T]` creation, append/prepend, indexing, iteration, `toSeq`, memory management.
-- [ ] Low risk (it's a GLib linked list utility used internally) but still needs coverage.
-- **Effort**: Trivial | **Files**: `tests/test_glist.nim` (new)
+- **[x]** 15 tests in `tests/test_glist.nim` covering creation, append/prepend, indexing, iteration, toSeq, pointer types, memory management (copy/sink/dup).
+- **Effort**: Trivial | **Files**: `tests/test_glist.nim` (new, 110 lines)
 
-### 3.8 Table Sort / Take via Native Arrow Functions
+### 3.8 Table Sort / Take via Native Arrow Functions ✅ DONE (2026-05-27)
 
-- [ ] `garrow_table_sort_indices` and `garrow_table_take` exist separately from the compute-kernel versions.
-- [ ] Compare performance against current compute-kernel-based sort/take. Wrap whichever is faster.
-- [ ] Test: table sort/take with null handling, multi-key sort.
-- **Effort**: Low (~2 hrs) | **Files**: `src/narrow/compute/sorting.nim` (extend), `tests/test_sorting.nim` (extend)
+- **[x]** Already wrapped — `sortIndices(table, keys)` and `take(table, indices)` in `sorting.nim` directly use `garrow_table_sort_indices` and `garrow_table_take` (not compute-kernel dispatch).
+- **Effort**: None | **Files**: No changes needed
 
-### 3.9 Dead Module Cleanup
+### 3.9 Dead Module Cleanup ✅ DONE (2026-05-27)
 
-- [ ] `core/back_generated.nim`: 30,572 lines. Appears to be an old backup of `generated.nim`. Remove if unused.
-- [ ] Empty legacy files (`src/grecordbatch.nim`, `src/gtypes.nim`): 0 bytes each. Remove.
-- **Effort**: Trivial | **Files**: as above
+- **[x]** Removed `src/narrow/core/back_generated.nim` (30,572 lines — unused Futhark backup).
+- **[x]** Removed `src/grecordbatch.nim` (0 bytes — legacy empty file).
+- **[x]** Removed `src/gtypes.nim` (0 bytes — legacy empty file).
+- **Effort**: Trivial | **Files**: 3 deleted
 
 ---
 
@@ -272,7 +270,9 @@ Week 4: S3 filesystem + Acero Project node + Schema metadata (tier 2 #4, tier 3 
 
 Week 5+: Fix skipped tests, RecordBatch sort/take/filter, array statistics,
          GAList, dead module cleanup (tier 3, #1, #3, #5, #6, #7, #9)
-        → Code quality, consistency, coverage.
+         → ALL DONE ✅
+
+On-demand: Tier 4 items (dictionary, REE, union, tensor, view types, compute options).
 
 On-demand: Tier 4 items (dictionary, REE, union, tensor, view types, compute options).
 ```
@@ -307,8 +307,8 @@ On-demand: Tier 4 items (dictionary, REE, union, tensor, view types, compute opt
 | 3.3 | RecordBatch Sort/Take/Filter ✅ | Low | Medium | 3 |
 | 3.4 | Acero Project Node ✅ | Low | Medium | 3 |
 | 3.5 | Parquet Column Writes ✅ | Low | Medium | 3 |
-| 3.6 | Array Statistics | Low | Medium | 3 |
-| 3.7 | GAList Tests | Trivial | Low | 3 |
-| 3.8 | Table Sort/Take Native | Low | Low | 3 |
-| 3.9 | Dead Module Cleanup | Trivial | Low | 3 |
+| 3.6 | Array Statistics ✅ | Low | Medium | 3 |
+| 3.7 | GAList Tests ✅ | Trivial | Low | 3 |
+| 3.8 | Table Sort/Take Native ✅ | Low | Low | 3 |
+| 3.9 | Dead Module Cleanup ✅ | Trivial | Low | 3 |
 | 4.1–12 | Dictionary, REE, Union, etc. | Medium | Low | 4 |

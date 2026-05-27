@@ -1,4 +1,5 @@
 import ../core/[ffi, utils]
+import ../column/primitive
 
 arcGObject:
   type
@@ -219,3 +220,45 @@ proc toFixedLengthByteArrayStatistics*(s: Statistics): FixedLengthByteArrayStati
   let handle = cast[ptr GParquetFixedLengthByteArrayStatistics](s.toPtr)
   discard g_object_ref(handle)
   newFixedLengthByteArrayStatistics(handle)
+
+# ============================================================================
+# Array Statistics
+# ============================================================================
+
+arcGObject:
+  type
+    ArrayStatistics* = object
+      handle*: ptr GArrowArrayStatistics
+
+proc newArrayStatistics*(arr: Array): ArrayStatistics =
+  result.handle = garrow_array_get_statistics(arr.handle)
+
+func hasNullCount*(s: ArrayStatistics): bool =
+  garrow_array_statistics_has_null_count(s.handle).bool
+
+func isNullCountExact*(s: ArrayStatistics): bool =
+  garrow_array_statistics_is_null_count_exact(s.handle).bool
+
+func nullCount*(s: ArrayStatistics): int64 =
+  garrow_array_statistics_get_null_count(s.handle)
+
+func nullCountExact*(s: ArrayStatistics): int64 =
+  garrow_array_statistics_get_null_count_exact(s.handle)
+
+func nullCountApproximate*(s: ArrayStatistics): float64 =
+  garrow_array_statistics_get_null_count_approximate(s.handle)
+
+func hasDistinctCount*(s: ArrayStatistics): bool =
+  garrow_array_statistics_has_distinct_count(s.handle).bool
+
+func isDistinctCountExact*(s: ArrayStatistics): bool =
+  garrow_array_statistics_is_distinct_count_exact(s.handle).bool
+
+func distinctCount*(s: ArrayStatistics): int64 =
+  garrow_array_statistics_get_distinct_count(s.handle)
+
+func distinctCountExact*(s: ArrayStatistics): int64 =
+  garrow_array_statistics_get_distinct_count_exact(s.handle)
+
+func distinctCountApproximate*(s: ArrayStatistics): float64 =
+  garrow_array_statistics_get_distinct_count_approximate(s.handle)
