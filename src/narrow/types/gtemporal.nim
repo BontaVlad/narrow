@@ -53,6 +53,38 @@ type
     handle: ptr GArrowTime64ArrayBuilder
     unit*: GArrowTimeUnit
 
+  DurationArray* = object
+    handle: ptr GArrowDurationArray
+    unit*: GArrowTimeUnit
+
+  DurationArrayBuilder* = object
+    handle: ptr GArrowDurationArrayBuilder
+    unit*: GArrowTimeUnit
+
+  MonthIntervalArray* = object
+    handle: ptr GArrowMonthIntervalArray
+
+  MonthIntervalArrayBuilder* = object
+    handle: ptr GArrowMonthIntervalArrayBuilder
+
+  DayMillisecondObj* = object
+    handle: ptr GArrowDayMillisecond
+
+  MonthDayNanoObj* = object
+    handle: ptr GArrowMonthDayNano
+
+  DayTimeIntervalArray* = object
+    handle: ptr GArrowDayTimeIntervalArray
+
+  DayTimeIntervalArrayBuilder* = object
+    handle: ptr GArrowDayTimeIntervalArrayBuilder
+
+  MonthDayNanoIntervalArray* = object
+    handle: ptr GArrowMonthDayNanoIntervalArray
+
+  MonthDayNanoIntervalArrayBuilder* = object
+    handle: ptr GArrowMonthDayNanoIntervalArrayBuilder
+
   TimestampArray* = object
     handle: ptr GArrowTimestampArray
     unit*: GArrowTimeUnit
@@ -92,6 +124,36 @@ func toPtr*(t64a: Time64Array): ptr GArrowTime64Array {.inline.} =
 
 func toPtr*(t64ab: Time64ArrayBuilder): ptr GArrowTime64ArrayBuilder {.inline.} =
   t64ab.handle
+
+func toPtr*(da: DurationArray): ptr GArrowDurationArray {.inline.} =
+  da.handle
+
+func toPtr*(dab: DurationArrayBuilder): ptr GArrowDurationArrayBuilder {.inline.} =
+  dab.handle
+
+func toPtr*(mia: MonthIntervalArray): ptr GArrowMonthIntervalArray {.inline.} =
+  mia.handle
+
+func toPtr*(miab: MonthIntervalArrayBuilder): ptr GArrowMonthIntervalArrayBuilder {.inline.} =
+  miab.handle
+
+func toPtr*(dmo: DayMillisecondObj): ptr GArrowDayMillisecond {.inline.} =
+  dmo.handle
+
+func toPtr*(mdno: MonthDayNanoObj): ptr GArrowMonthDayNano {.inline.} =
+  mdno.handle
+
+func toPtr*(dtia: DayTimeIntervalArray): ptr GArrowDayTimeIntervalArray {.inline.} =
+  dtia.handle
+
+func toPtr*(dtiab: DayTimeIntervalArrayBuilder): ptr GArrowDayTimeIntervalArrayBuilder {.inline.} =
+  dtiab.handle
+
+func toPtr*(mdnia: MonthDayNanoIntervalArray): ptr GArrowMonthDayNanoIntervalArray {.inline.} =
+  mdnia.handle
+
+func toPtr*(mdniab: MonthDayNanoIntervalArrayBuilder): ptr GArrowMonthDayNanoIntervalArrayBuilder {.inline.} =
+  mdniab.handle
 
 # Helper to convert Time to DateTime
 # Conversion implementations
@@ -385,6 +447,220 @@ proc `=copy`*(dest: var Time64ArrayBuilder, src: Time64ArrayBuilder) =
     if not isNil(dest.handle):
       discard g_object_ref(dest.handle)
 
+# DurationArray memory management
+proc `=destroy`*(da: DurationArray) =
+  if not isNil(da.handle):
+    g_object_unref(da.handle)
+
+proc `=wasMoved`*(da: var DurationArray) =
+  da.handle = nil
+
+proc `=dup`*(da: DurationArray): DurationArray =
+  result.handle = da.handle
+  result.unit = da.unit
+  if not isNil(da.handle):
+    discard g_object_ref(da.handle)
+
+proc `=copy`*(dest: var DurationArray, src: DurationArray) =
+  if dest.handle != src.handle:
+    if not isNil(dest.handle):
+      g_object_unref(dest.handle)
+    dest.handle = src.handle
+    dest.unit = src.unit
+    if not isNil(dest.handle):
+      discard g_object_ref(dest.handle)
+
+# DurationArrayBuilder memory management
+proc `=destroy`*(dab: DurationArrayBuilder) =
+  if not isNil(dab.handle):
+    g_object_unref(dab.handle)
+
+proc `=wasMoved`*(dab: var DurationArrayBuilder) =
+  dab.handle = nil
+
+proc `=dup`*(dab: DurationArrayBuilder): DurationArrayBuilder =
+  result.handle = dab.handle
+  result.unit = dab.unit
+  if not isNil(dab.handle):
+    discard g_object_ref(dab.handle)
+
+proc `=copy`*(dest: var DurationArrayBuilder, src: DurationArrayBuilder) =
+  if dest.handle != src.handle:
+    if not isNil(dest.handle):
+      g_object_unref(dest.handle)
+    dest.handle = src.handle
+    dest.unit = src.unit
+    if not isNil(dest.handle):
+      discard g_object_ref(dest.handle)
+
+# MonthIntervalArray memory management
+proc `=destroy`*(mia: MonthIntervalArray) =
+  if not isNil(mia.handle):
+    g_object_unref(mia.handle)
+
+proc `=wasMoved`*(mia: var MonthIntervalArray) =
+  mia.handle = nil
+
+proc `=dup`*(mia: MonthIntervalArray): MonthIntervalArray =
+  result.handle = mia.handle
+  if not isNil(mia.handle):
+    discard g_object_ref(mia.handle)
+
+proc `=copy`*(dest: var MonthIntervalArray, src: MonthIntervalArray) =
+  if dest.handle != src.handle:
+    if not isNil(dest.handle):
+      g_object_unref(dest.handle)
+    dest.handle = src.handle
+    if not isNil(dest.handle):
+      discard g_object_ref(dest.handle)
+
+# MonthIntervalArrayBuilder memory management
+proc `=destroy`*(miab: MonthIntervalArrayBuilder) =
+  if not isNil(miab.handle):
+    g_object_unref(miab.handle)
+
+proc `=wasMoved`*(miab: var MonthIntervalArrayBuilder) =
+  miab.handle = nil
+
+proc `=dup`*(miab: MonthIntervalArrayBuilder): MonthIntervalArrayBuilder =
+  result.handle = miab.handle
+  if not isNil(miab.handle):
+    discard g_object_ref(miab.handle)
+
+proc `=copy`*(dest: var MonthIntervalArrayBuilder, src: MonthIntervalArrayBuilder) =
+  if dest.handle != src.handle:
+    if not isNil(dest.handle):
+      g_object_unref(dest.handle)
+    dest.handle = src.handle
+    if not isNil(dest.handle):
+      discard g_object_ref(dest.handle)
+
+# DayMillisecondObj memory management
+proc `=destroy`*(dmo: DayMillisecondObj) =
+  if not isNil(dmo.handle):
+    g_object_unref(dmo.handle)
+
+proc `=wasMoved`*(dmo: var DayMillisecondObj) =
+  dmo.handle = nil
+
+proc `=dup`*(dmo: DayMillisecondObj): DayMillisecondObj =
+  result.handle = dmo.handle
+  if not isNil(dmo.handle):
+    discard g_object_ref(dmo.handle)
+
+proc `=copy`*(dest: var DayMillisecondObj, src: DayMillisecondObj) =
+  if dest.handle != src.handle:
+    if not isNil(dest.handle):
+      g_object_unref(dest.handle)
+    dest.handle = src.handle
+    if not isNil(dest.handle):
+      discard g_object_ref(dest.handle)
+
+# MonthDayNanoObj memory management
+proc `=destroy`*(mdno: MonthDayNanoObj) =
+  if not isNil(mdno.handle):
+    g_object_unref(mdno.handle)
+
+proc `=wasMoved`*(mdno: var MonthDayNanoObj) =
+  mdno.handle = nil
+
+proc `=dup`*(mdno: MonthDayNanoObj): MonthDayNanoObj =
+  result.handle = mdno.handle
+  if not isNil(mdno.handle):
+    discard g_object_ref(mdno.handle)
+
+proc `=copy`*(dest: var MonthDayNanoObj, src: MonthDayNanoObj) =
+  if dest.handle != src.handle:
+    if not isNil(dest.handle):
+      g_object_unref(dest.handle)
+    dest.handle = src.handle
+    if not isNil(dest.handle):
+      discard g_object_ref(dest.handle)
+
+# DayTimeIntervalArray memory management
+proc `=destroy`*(dtia: DayTimeIntervalArray) =
+  if not isNil(dtia.handle):
+    g_object_unref(dtia.handle)
+
+proc `=wasMoved`*(dtia: var DayTimeIntervalArray) =
+  dtia.handle = nil
+
+proc `=dup`*(dtia: DayTimeIntervalArray): DayTimeIntervalArray =
+  result.handle = dtia.handle
+  if not isNil(dtia.handle):
+    discard g_object_ref(dtia.handle)
+
+proc `=copy`*(dest: var DayTimeIntervalArray, src: DayTimeIntervalArray) =
+  if dest.handle != src.handle:
+    if not isNil(dest.handle):
+      g_object_unref(dest.handle)
+    dest.handle = src.handle
+    if not isNil(dest.handle):
+      discard g_object_ref(dest.handle)
+
+# DayTimeIntervalArrayBuilder memory management
+proc `=destroy`*(dtiab: DayTimeIntervalArrayBuilder) =
+  if not isNil(dtiab.handle):
+    g_object_unref(dtiab.handle)
+
+proc `=wasMoved`*(dtiab: var DayTimeIntervalArrayBuilder) =
+  dtiab.handle = nil
+
+proc `=dup`*(dtiab: DayTimeIntervalArrayBuilder): DayTimeIntervalArrayBuilder =
+  result.handle = dtiab.handle
+  if not isNil(dtiab.handle):
+    discard g_object_ref(dtiab.handle)
+
+proc `=copy`*(dest: var DayTimeIntervalArrayBuilder, src: DayTimeIntervalArrayBuilder) =
+  if dest.handle != src.handle:
+    if not isNil(dest.handle):
+      g_object_unref(dest.handle)
+    dest.handle = src.handle
+    if not isNil(dest.handle):
+      discard g_object_ref(dest.handle)
+
+# MonthDayNanoIntervalArray memory management
+proc `=destroy`*(mdnia: MonthDayNanoIntervalArray) =
+  if not isNil(mdnia.handle):
+    g_object_unref(mdnia.handle)
+
+proc `=wasMoved`*(mdnia: var MonthDayNanoIntervalArray) =
+  mdnia.handle = nil
+
+proc `=dup`*(mdnia: MonthDayNanoIntervalArray): MonthDayNanoIntervalArray =
+  result.handle = mdnia.handle
+  if not isNil(mdnia.handle):
+    discard g_object_ref(mdnia.handle)
+
+proc `=copy`*(dest: var MonthDayNanoIntervalArray, src: MonthDayNanoIntervalArray) =
+  if dest.handle != src.handle:
+    if not isNil(dest.handle):
+      g_object_unref(dest.handle)
+    dest.handle = src.handle
+    if not isNil(dest.handle):
+      discard g_object_ref(dest.handle)
+
+# MonthDayNanoIntervalArrayBuilder memory management
+proc `=destroy`*(mdniab: MonthDayNanoIntervalArrayBuilder) =
+  if not isNil(mdniab.handle):
+    g_object_unref(mdniab.handle)
+
+proc `=wasMoved`*(mdniab: var MonthDayNanoIntervalArrayBuilder) =
+  mdniab.handle = nil
+
+proc `=dup`*(mdniab: MonthDayNanoIntervalArrayBuilder): MonthDayNanoIntervalArrayBuilder =
+  result.handle = mdniab.handle
+  if not isNil(mdniab.handle):
+    discard g_object_ref(mdniab.handle)
+
+proc `=copy`*(dest: var MonthDayNanoIntervalArrayBuilder, src: MonthDayNanoIntervalArrayBuilder) =
+  if dest.handle != src.handle:
+    if not isNil(dest.handle):
+      g_object_unref(dest.handle)
+    dest.handle = src.handle
+    if not isNil(dest.handle):
+      discard g_object_ref(dest.handle)
+
 # TimestampArray creators
 proc newTimestampArray*(
     handle: ptr GArrowTimestampArray, unit: GArrowTimeUnit, tz: string
@@ -422,6 +698,42 @@ proc newDate32ArrayBuilder*(): Date32ArrayBuilder =
   if handle.isNil:
     raise newException(OperationError, "Failed to create Date32ArrayBuilder")
   Date32ArrayBuilder(handle: handle)
+
+# DurationArrayBuilder creators
+proc newDurationArrayBuilder*(
+    unit: GArrowTimeUnit = GARROW_TIME_UNIT_NANO
+): DurationArrayBuilder =
+  let dtype = garrow_duration_data_type_new(unit)
+  if dtype.isNil:
+    raise newException(OperationError, "Failed to create duration data type")
+  let handle = garrow_duration_array_builder_new(dtype)
+  g_object_unref(dtype)
+  if handle.isNil:
+    raise newException(OperationError, "Failed to create DurationArrayBuilder")
+  DurationArrayBuilder(handle: handle, unit: unit)
+
+# MonthIntervalArrayBuilder creator
+proc newMonthIntervalArrayBuilder*(): MonthIntervalArrayBuilder =
+  let handle = garrow_month_interval_array_builder_new()
+  if handle.isNil:
+    raise newException(OperationError, "Failed to create MonthIntervalArrayBuilder")
+  MonthIntervalArrayBuilder(handle: handle)
+
+# DayTimeIntervalArrayBuilder creator
+proc newDayTimeIntervalArrayBuilder*(): DayTimeIntervalArrayBuilder =
+  let handle = garrow_day_time_interval_array_builder_new()
+  if handle.isNil:
+    raise newException(OperationError,
+      "Failed to create DayTimeIntervalArrayBuilder")
+  DayTimeIntervalArrayBuilder(handle: handle)
+
+# MonthDayNanoIntervalArrayBuilder creator
+proc newMonthDayNanoIntervalArrayBuilder*(): MonthDayNanoIntervalArrayBuilder =
+  let handle = garrow_month_day_nano_interval_array_builder_new()
+  if handle.isNil:
+    raise newException(OperationError,
+      "Failed to create MonthDayNanoIntervalArrayBuilder")
+  MonthDayNanoIntervalArrayBuilder(handle: handle)
 
 # TimestampArray operations
 proc len*(ta: TimestampArray): int =
@@ -479,6 +791,166 @@ proc finish*(d32ab: Date32ArrayBuilder): Date32Array =
     verify garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](d32ab.handle))
   Date32Array(handle: cast[ptr GArrowDate32Array](handle))
 
+# DurationArrayBuilder operations
+proc append*(dab: DurationArrayBuilder, val: int64) =
+  verify garrow_duration_array_builder_append_value(dab.handle, val)
+
+proc appendNull*(dab: DurationArrayBuilder) =
+  verify garrow_array_builder_append_null(cast[ptr GArrowArrayBuilder](dab.handle))
+
+proc append*(dab: DurationArrayBuilder, val: Duration) =
+  if val.unit != dab.unit:
+    raise newException(ValueError, "Duration unit mismatch")
+  dab.append(val.value)
+
+proc append*(dab: DurationArrayBuilder, val: Option[Duration]) =
+  if val.isSome:
+    dab.append(val.get())
+  else:
+    dab.appendNull()
+
+proc appendValues*(dab: DurationArrayBuilder, values: openArray[int64]) =
+  if values.len == 0:
+    return
+  verify garrow_duration_array_builder_append_values(
+    dab.handle, cast[ptr gint64](values[0].unsafeAddr), values.len.gint64,
+    nil, 0
+  )
+
+proc finish*(dab: DurationArrayBuilder): DurationArray =
+  let handle =
+    verify garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](dab.handle))
+  DurationArray(handle: cast[ptr GArrowDurationArray](handle), unit: dab.unit)
+
+# MonthIntervalArrayBuilder operations
+proc append*(miab: MonthIntervalArrayBuilder, val: int32) =
+  verify garrow_month_interval_array_builder_append_value(miab.handle, val)
+
+proc appendNull*(miab: MonthIntervalArrayBuilder) =
+  verify garrow_array_builder_append_null(cast[ptr GArrowArrayBuilder](miab.handle))
+
+proc append*(miab: MonthIntervalArrayBuilder, val: MonthInterval) =
+  miab.append(val.months)
+
+proc append*(miab: MonthIntervalArrayBuilder, val: Option[MonthInterval]) =
+  if val.isSome:
+    miab.append(val.get())
+  else:
+    miab.appendNull()
+
+proc appendValues*(miab: MonthIntervalArrayBuilder, values: openArray[int32]) =
+  if values.len == 0:
+    return
+  verify garrow_month_interval_array_builder_append_values(
+    miab.handle, cast[ptr gint32](values[0].unsafeAddr), values.len.gint64,
+    nil, 0
+  )
+
+proc finish*(miab: MonthIntervalArrayBuilder): MonthIntervalArray =
+  let handle =
+    verify garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](miab.handle))
+  MonthIntervalArray(handle: cast[ptr GArrowMonthIntervalArray](handle))
+
+# DayTimeIntervalArrayBuilder operations
+proc append*(dtiab: DayTimeIntervalArrayBuilder, val: DayTimeInterval) =
+  let dm = garrow_day_millisecond_new(val.days, val.millis)
+  if dm.isNil:
+    raise newException(OperationError, "Failed to create DayMillisecond")
+  verify garrow_day_time_interval_array_builder_append_value(dtiab.handle, dm)
+  g_object_unref(dm)
+
+proc appendNull*(dtiab: DayTimeIntervalArrayBuilder) =
+  verify garrow_array_builder_append_null(
+    cast[ptr GArrowArrayBuilder](dtiab.handle))
+
+proc append*(dtiab: DayTimeIntervalArrayBuilder, val: Option[DayTimeInterval]) =
+  if val.isSome:
+    dtiab.append(val.get())
+  else:
+    dtiab.appendNull()
+
+proc finish*(dtiab: DayTimeIntervalArrayBuilder): DayTimeIntervalArray =
+  let handle = verify garrow_array_builder_finish(
+    cast[ptr GArrowArrayBuilder](dtiab.handle))
+  DayTimeIntervalArray(handle: cast[ptr GArrowDayTimeIntervalArray](handle))
+
+# MonthDayNanoIntervalArrayBuilder operations
+proc append*(mdniab: MonthDayNanoIntervalArrayBuilder, val: MonthDayNanoInterval) =
+  let mdn = garrow_month_day_nano_new(val.months, val.days, val.nanos)
+  if mdn.isNil:
+    raise newException(OperationError,
+      "Failed to create MonthDayNano")
+  verify garrow_month_day_nano_interval_array_builder_append_value(
+    mdniab.handle, mdn)
+  g_object_unref(mdn)
+
+proc appendNull*(mdniab: MonthDayNanoIntervalArrayBuilder) =
+  verify garrow_array_builder_append_null(
+    cast[ptr GArrowArrayBuilder](mdniab.handle))
+
+proc append*(mdniab: MonthDayNanoIntervalArrayBuilder,
+             val: Option[MonthDayNanoInterval]) =
+  if val.isSome:
+    mdniab.append(val.get())
+  else:
+    mdniab.appendNull()
+
+proc finish*(mdniab: MonthDayNanoIntervalArrayBuilder): MonthDayNanoIntervalArray =
+  let handle = verify garrow_array_builder_finish(
+    cast[ptr GArrowArrayBuilder](mdniab.handle))
+  MonthDayNanoIntervalArray(
+    handle: cast[ptr GArrowMonthDayNanoIntervalArray](handle))
+
+# DayTimeIntervalArray operations
+proc len*(dtia: DayTimeIntervalArray): int =
+  garrow_array_get_length(cast[ptr GArrowArray](dtia.handle))
+
+proc `[]`*(dtia: DayTimeIntervalArray, idx: int): DayTimeInterval =
+  if idx < 0 or idx >= dtia.len:
+    raise newException(IndexDefect, "Index out of bounds")
+  let dm = garrow_day_time_interval_array_get_value(dtia.handle, idx.gint64)
+  var days: gint32
+  var millis: gint32
+  g_object_get(cast[gpointer](dm), "day".cstring, addr days,
+               "millisecond".cstring, addr millis, nil)
+  g_object_unref(dm)
+  DayTimeInterval(days: days, millis: millis)
+
+proc isNull*(dtia: DayTimeIntervalArray, idx: int): bool =
+  if idx < 0 or idx >= dtia.len:
+    raise newException(IndexDefect, "Index out of bounds")
+  garrow_array_is_null(cast[ptr GArrowArray](dtia.handle), idx) != 0
+
+proc `$`*(dtia: DayTimeIntervalArray): string =
+  let cStr = verify garrow_array_to_string(cast[ptr GArrowArray](dtia.handle))
+  result = $newGString(cStr, owned = true)
+
+# MonthDayNanoIntervalArray operations
+proc len*(mdnia: MonthDayNanoIntervalArray): int =
+  garrow_array_get_length(cast[ptr GArrowArray](mdnia.handle))
+
+proc `[]`*(mdnia: MonthDayNanoIntervalArray, idx: int): MonthDayNanoInterval =
+  if idx < 0 or idx >= mdnia.len:
+    raise newException(IndexDefect, "Index out of bounds")
+  let mdn = garrow_month_day_nano_interval_array_get_value(
+    mdnia.handle, idx.gint64)
+  var months: gint32
+  var days: gint32
+  var nanos: int64
+  g_object_get(cast[gpointer](mdn), "month".cstring, addr months,
+               "day".cstring, addr days, "nanosecond".cstring, addr nanos, nil)
+  g_object_unref(mdn)
+  MonthDayNanoInterval(months: months, days: days, nanos: nanos)
+
+proc isNull*(mdnia: MonthDayNanoIntervalArray, idx: int): bool =
+  if idx < 0 or idx >= mdnia.len:
+    raise newException(IndexDefect, "Index out of bounds")
+  garrow_array_is_null(cast[ptr GArrowArray](mdnia.handle), idx) != 0
+
+proc `$`*(mdnia: MonthDayNanoIntervalArray): string =
+  let cStr = verify garrow_array_to_string(cast[ptr GArrowArray](mdnia.handle))
+  result = $newGString(cStr, owned = true)
+
 # Array operations
 proc `[]`*(ta: TimestampArray, idx: int): int64 =
   if idx < 0 or idx >= ta.len:
@@ -511,6 +983,42 @@ proc `$`*(ta: TimestampArray): string =
 
 proc `$`*(d32a: Date32Array): string =
   let cStr = verify garrow_array_to_string(cast[ptr GArrowArray](d32a.handle))
+  result = $newGString(cStr, owned = true)
+
+# DurationArray operations
+proc len*(da: DurationArray): int =
+  garrow_array_get_length(cast[ptr GArrowArray](da.handle))
+
+proc `[]`*(da: DurationArray, idx: int): int64 =
+  if idx < 0 or idx >= da.len:
+    raise newException(IndexDefect, "Index out of bounds")
+  garrow_duration_array_get_value(da.handle, idx.gint64)
+
+proc isNull*(da: DurationArray, idx: int): bool =
+  if idx < 0 or idx >= da.len:
+    raise newException(IndexDefect, "Index out of bounds")
+  garrow_array_is_null(cast[ptr GArrowArray](da.handle), idx) != 0
+
+proc `$`*(da: DurationArray): string =
+  let cStr = verify garrow_array_to_string(cast[ptr GArrowArray](da.handle))
+  result = $newGString(cStr, owned = true)
+
+# MonthIntervalArray operations
+proc len*(mia: MonthIntervalArray): int =
+  garrow_array_get_length(cast[ptr GArrowArray](mia.handle))
+
+proc `[]`*(mia: MonthIntervalArray, idx: int): int32 =
+  if idx < 0 or idx >= mia.len:
+    raise newException(IndexDefect, "Index out of bounds")
+  garrow_month_interval_array_get_value(mia.handle, idx.gint64)
+
+proc isNull*(mia: MonthIntervalArray, idx: int): bool =
+  if idx < 0 or idx >= mia.len:
+    raise newException(IndexDefect, "Index out of bounds")
+  garrow_array_is_null(cast[ptr GArrowArray](mia.handle), idx) != 0
+
+proc `$`*(mia: MonthIntervalArray): string =
+  let cStr = verify garrow_array_to_string(cast[ptr GArrowArray](mia.handle))
   result = $newGString(cStr, owned = true)
 
 # Time32 constructors and operations

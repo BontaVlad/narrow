@@ -272,3 +272,290 @@ suite "Time Unit Consistency":
     builder.append(1000000000'i64)
     let arr = builder.finish()
     check arr.unit == GARROW_TIME_UNIT_NANO
+
+suite "DurationArray - Building and Operations":
+
+  test "Create DurationArrayBuilder with default unit":
+    let builder = newDurationArrayBuilder()
+    check builder.unit == GARROW_TIME_UNIT_NANO
+
+  test "Create DurationArrayBuilder with explicit unit":
+    let builder = newDurationArrayBuilder(GARROW_TIME_UNIT_MILLI)
+    check builder.unit == GARROW_TIME_UNIT_MILLI
+
+  test "Append raw int64 values and finish":
+    var builder = newDurationArrayBuilder(GARROW_TIME_UNIT_MICRO)
+    builder.append(100'i64)
+    builder.append(200'i64)
+    builder.appendNull()
+    let arr = builder.finish()
+    check arr.len == 3
+    check arr.unit == GARROW_TIME_UNIT_MICRO
+    check arr[0] == 100
+    check arr[1] == 200
+    check arr.isNull(2)
+    check not arr.isNull(0)
+
+  test "Append Duration objects":
+    var builder = newDurationArrayBuilder(GARROW_TIME_UNIT_SECOND)
+    let d1 = newDuration(60, GARROW_TIME_UNIT_SECOND)
+    let d2 = newDuration(120, GARROW_TIME_UNIT_SECOND)
+    builder.append(d1)
+    builder.append(d2)
+    let arr = builder.finish()
+    check arr.len == 2
+    check arr[0] == 60
+    check arr[1] == 120
+
+  test "Append Duration with unit mismatch raises":
+    var builder = newDurationArrayBuilder(GARROW_TIME_UNIT_MILLI)
+    let d = newDuration(1, GARROW_TIME_UNIT_SECOND)
+    expect(ValueError):
+      builder.append(d)
+
+  test "Append Option[Duration]":
+    var builder = newDurationArrayBuilder(GARROW_TIME_UNIT_NANO)
+    builder.append(some(newDuration(500'i64, GARROW_TIME_UNIT_NANO)))
+    builder.append(none(Duration))
+    builder.append(some(newDuration(1000'i64, GARROW_TIME_UNIT_NANO)))
+    let arr = builder.finish()
+    check arr.len == 3
+    check arr[0] == 500
+    check arr.isNull(1)
+    check arr[2] == 1000
+
+  test "Bulk appendValues with raw int64":
+    var builder = newDurationArrayBuilder(GARROW_TIME_UNIT_MICRO)
+    builder.appendValues([1'i64, 2'i64, 3'i64])
+    let arr = builder.finish()
+    check arr.len == 3
+    check arr[0] == 1
+    check arr[1] == 2
+    check arr[2] == 3
+
+  test "appendValues with empty array":
+    var builder = newDurationArrayBuilder()
+    builder.appendValues(newSeq[int64](0))
+    let arr = builder.finish()
+    check arr.len == 0
+
+  test "String representation":
+    var builder = newDurationArrayBuilder(GARROW_TIME_UNIT_SECOND)
+    builder.append(1'i64)
+    builder.append(42'i64)
+    builder.appendNull()
+    let arr = builder.finish()
+    let str = $arr
+    check str.len > 0
+
+  test "Bounds checking on index":
+    var builder = newDurationArrayBuilder()
+    builder.append(1'i64)
+    let arr = builder.finish()
+    expect(IndexDefect):
+      discard arr[-1]
+    expect(IndexDefect):
+      discard arr[5]
+
+  test "Memory management - multiple arrays":
+    for _ in 0 ..< 10:
+      var builder = newDurationArrayBuilder()
+      builder.append(1'i64)
+      discard builder.finish()
+
+suite "MonthIntervalArray - Building and Operations":
+
+  test "Create MonthIntervalArrayBuilder":
+    var builder = newMonthIntervalArrayBuilder()
+    builder.append(1'i32)
+    let arr = builder.finish()
+    check arr.len == 1
+
+  test "Append raw int32 values and finish":
+    var builder = newMonthIntervalArrayBuilder()
+    builder.append(1'i32)
+    builder.append(6'i32)
+    builder.appendNull()
+    let arr = builder.finish()
+    check arr.len == 3
+    check arr[0] == 1
+    check arr[1] == 6
+    check arr.isNull(2)
+
+  test "Append MonthInterval objects":
+    var builder = newMonthIntervalArrayBuilder()
+    let m1 = newMonthInterval(3'i32)
+    let m2 = newMonthInterval(12'i32)
+    builder.append(m1)
+    builder.append(m2)
+    let arr = builder.finish()
+    check arr.len == 2
+    check arr[0] == 3
+    check arr[1] == 12
+
+  test "Append Option[MonthInterval]":
+    var builder = newMonthIntervalArrayBuilder()
+    builder.append(some(newMonthInterval(1'i32)))
+    builder.append(none(MonthInterval))
+    builder.append(some(newMonthInterval(24'i32)))
+    let arr = builder.finish()
+    check arr.len == 3
+    check arr[0] == 1
+    check arr.isNull(1)
+    check arr[2] == 24
+
+  test "Bulk appendValues with raw int32":
+    var builder = newMonthIntervalArrayBuilder()
+    builder.appendValues([1'i32, 2'i32, 3'i32])
+    let arr = builder.finish()
+    check arr.len == 3
+    check arr[0] == 1
+    check arr[1] == 2
+    check arr[2] == 3
+
+  test "appendValues with empty array":
+    var builder = newMonthIntervalArrayBuilder()
+    builder.appendValues(newSeq[int32](0))
+    let arr = builder.finish()
+    check arr.len == 0
+
+  test "String representation":
+    var builder = newMonthIntervalArrayBuilder()
+    builder.append(1'i32)
+    builder.appendNull()
+    builder.append(12'i32)
+    let arr = builder.finish()
+    let str = $arr
+    check str.len > 0
+
+  test "Bounds checking on index":
+    var builder = newMonthIntervalArrayBuilder()
+    builder.append(1'i32)
+    let arr = builder.finish()
+    expect(IndexDefect):
+      discard arr[-1]
+    expect(IndexDefect):
+      discard arr[5]
+
+  test "isNull bounds checking":
+    var builder = newMonthIntervalArrayBuilder()
+    builder.append(1'i32)
+    let arr = builder.finish()
+    expect(IndexDefect):
+      discard arr.isNull(-1)
+
+  test "Memory management - multiple arrays":
+    for _ in 0 ..< 10:
+      var builder = newMonthIntervalArrayBuilder()
+      builder.append(1'i32)
+      discard builder.finish()
+
+suite "DayTimeIntervalArray - Building and Operations":
+
+  test "Create builder and append values":
+    var builder = newDayTimeIntervalArrayBuilder()
+    let dti1 = newDayTimeInterval(1'i32, 1000'i32)
+    let dti2 = newDayTimeInterval(2'i32, 2000'i32)
+    builder.append(dti1)
+    builder.append(dti2)
+    let arr = builder.finish()
+    check arr.len == 2
+
+  test "Append with nulls":
+    var builder = newDayTimeIntervalArrayBuilder()
+    let dti1 = newDayTimeInterval(5'i32, 500'i32)
+    builder.append(some(dti1))
+    builder.append(none(DayTimeInterval))
+    builder.append(some(newDayTimeInterval(10'i32, 1000'i32)))
+    let arr = builder.finish()
+    check arr.len == 3
+    check arr.isNull(1)
+    check not arr.isNull(0)
+
+  test "Index access returns correct values":
+    var builder = newDayTimeIntervalArrayBuilder()
+    builder.append(newDayTimeInterval(1'i32, 100'i32))
+    builder.append(newDayTimeInterval(7'i32, 3500'i32))
+    let arr = builder.finish()
+    check arr[0].days == 1
+    check arr[0].millis == 100
+    check arr[1].days == 7
+    check arr[1].millis == 3500
+
+  test "String representation":
+    var builder = newDayTimeIntervalArrayBuilder()
+    builder.append(newDayTimeInterval(1'i32, 100'i32))
+    builder.appendNull()
+    let arr = builder.finish()
+    let str = $arr
+    check str.len > 0
+
+  test "Bounds checking":
+    var builder = newDayTimeIntervalArrayBuilder()
+    builder.append(newDayTimeInterval(1'i32, 0'i32))
+    let arr = builder.finish()
+    expect(IndexDefect):
+      discard arr[-1]
+    expect(IndexDefect):
+      discard arr[5]
+
+  test "Memory management stress":
+    for _ in 0 ..< 10:
+      var builder = newDayTimeIntervalArrayBuilder()
+      builder.append(newDayTimeInterval(1'i32, 100'i32))
+      discard builder.finish()
+
+suite "MonthDayNanoIntervalArray - Building and Operations":
+
+  test "Create builder and append values":
+    var builder = newMonthDayNanoIntervalArrayBuilder()
+    let mdn1 = newMonthDayNanoInterval(1'i32, 15'i32, 1000'i64)
+    let mdn2 = newMonthDayNanoInterval(3'i32, 0'i32, 500'i64)
+    builder.append(mdn1)
+    builder.append(mdn2)
+    let arr = builder.finish()
+    check arr.len == 2
+
+  test "Append with nulls":
+    var builder = newMonthDayNanoIntervalArrayBuilder()
+    builder.append(some(newMonthDayNanoInterval(2'i32, 10'i32, 0'i64)))
+    builder.append(none(MonthDayNanoInterval))
+    builder.append(some(newMonthDayNanoInterval(6'i32, 0'i32, 999'i64)))
+    let arr = builder.finish()
+    check arr.len == 3
+    check arr.isNull(1)
+    check not arr.isNull(0)
+
+  test "Index access returns correct values":
+    var builder = newMonthDayNanoIntervalArrayBuilder()
+    builder.append(newMonthDayNanoInterval(2'i32, 5'i32, 100'i64))
+    builder.append(newMonthDayNanoInterval(12'i32, 30'i32, 9999'i64))
+    let arr = builder.finish()
+    check arr[0].months == 2
+    check arr[0].days == 5
+    check arr[0].nanos == 100
+    check arr[1].months == 12
+    check arr[1].days == 30
+    check arr[1].nanos == 9999
+
+  test "String representation":
+    var builder = newMonthDayNanoIntervalArrayBuilder()
+    builder.append(newMonthDayNanoInterval(1'i32, 1'i32, 1'i64))
+    let arr = builder.finish()
+    let str = $arr
+    check str.len > 0
+
+  test "Bounds checking":
+    var builder = newMonthDayNanoIntervalArrayBuilder()
+    builder.append(newMonthDayNanoInterval(1'i32, 0'i32, 0'i64))
+    let arr = builder.finish()
+    expect(IndexDefect):
+      discard arr[-1]
+    expect(IndexDefect):
+      discard arr[5]
+
+  test "Memory management stress":
+    for _ in 0 ..< 10:
+      var builder = newMonthDayNanoIntervalArrayBuilder()
+      builder.append(newMonthDayNanoInterval(1'i32, 0'i32, 0'i64))
+      discard builder.finish()

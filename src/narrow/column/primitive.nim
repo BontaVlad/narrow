@@ -98,6 +98,8 @@ proc newArrayBuilder*[T](): ArrayBuilder[T] =
     handle = garrow_double_array_builder_new()
   elif T is string:
     handle = garrow_string_array_builder_new()
+  elif T is seq[byte]:
+    handle = garrow_binary_array_builder_new()
   else:
     static:
       doAssert false, "Unsupported type for ArrayBuilder"
@@ -177,6 +179,12 @@ proc append*[T](builder: ArrayBuilder[T], val: sink T) =
     verify garrow_string_array_builder_append_value(
       cast[ptr GArrowStringArrayBuilder](builder.handle), val.cstring
     )
+  elif T is seq[byte]:
+    let gb = g_bytes_new(
+      if val.len > 0: cast[pointer](val[0].unsafeAddr) else: nil, val.len.csize_t)
+    verify garrow_binary_array_builder_append_value_bytes(
+      cast[ptr GArrowBinaryArrayBuilder](builder.handle), gb)
+    g_bytes_unref(gb)
 
 proc appendNull*[T](builder: ArrayBuilder[T]) =
   when T is bool:
@@ -222,6 +230,10 @@ proc appendNull*[T](builder: ArrayBuilder[T]) =
   elif T is float64:
     verify garrow_double_array_builder_append_null(
       cast[ptr GArrowDoubleArrayBuilder](builder.handle)
+    )
+  elif T is seq[byte]:
+    verify garrow_binary_array_builder_append_null(
+      cast[ptr GArrowBinaryArrayBuilder](builder.handle)
     )
   else:
     verify garrow_array_builder_append_null(builder.handle)
@@ -521,6 +533,17 @@ proc `[]`*[T](arr: Array[T], i: int): T =
     let cstr =
       garrow_string_array_get_string(cast[ptr GArrowStringArray](arr.handle), i)
     return $newGString(cstr, owned = true)
+  elif T is seq[byte]:
+    let gb = garrow_binary_array_get_value(
+      cast[ptr GArrowBinaryArray](arr.handle), i.gint64)
+    var size: gsize
+    let data = g_bytes_get_data(gb, addr size)
+    let sz = int(size)
+    result = newSeq[byte](sz)
+    if sz > 0:
+      copyMem(addr result[0], data, sz)
+    g_bytes_unref(gb)
+    return result
   else:
     {.error: "Unsupported array type for indexing".}
 
