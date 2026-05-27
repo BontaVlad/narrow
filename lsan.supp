@@ -1,7 +1,12 @@
 # === Arrow C++ / Parquet GLib ===
-leak:arrow::csv::ConvertOptions::Defaults
-leak:garrow_csv_read_options_add_schema
-leak:garrow_csv_read_options_init
+# Upstream leaks from Arrow shared libraries (CI may lack debug symbols
+# so function names can't be resolved; library-level patterns catch these)
+leak:libarrow
+leak:libarrow-glib
+leak:libparquet-glib
+leak:libarrow-dataset-glib
+
+# Function-level patterns for local runs where symbols resolve:
 leak:garrow_field_new
 leak:gparquet_file_metadata_get_row_group
 leak:gparquet_row_group_metadata_get_column_chunk
