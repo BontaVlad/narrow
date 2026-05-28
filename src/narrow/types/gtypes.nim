@@ -364,3 +364,7 @@ proc newGType*(pt: ptr GArrowDataType): GADType =
 proc newHalfFloatGType*(): GADType =
   let handle = garrow_half_float_data_type_new()
   result.handle = cast[ptr GArrowDataType](handle)
+
+proc newNullGType*(): GADType =
+  let handle = garrow_null_data_type_new()
+  result.handle = cast[ptr GArrowDataType](handle)

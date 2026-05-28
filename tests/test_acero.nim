@@ -93,3 +93,66 @@ suite "Acero - Project Table":
     plan.wait()
     check projected.nRows == 3   # ids 3, 4, 5
     check projected.nColumns == 1
+
+suite "Acero - Plan Introspection":
+  test "getNodes returns node list":
+    let schema = newSchema([newField[int32]("id"), newField[string]("name")])
+    let ids = newArray(@[1'i32, 2, 3, 4, 5])
+    let names = newArray(@["a", "b", "c", "d", "e"])
+    let table = newArrowTable(schema, ids, names)
+
+    let pool = newThreadPool()
+    let ctx = newExecuteContext(pool.toExecutor)
+    let plan = newExecutePlan(ctx)
+    let source = plan.buildSourceNode(newSourceNodeOptions(table))
+    let filterNode = plan.buildFilterNode(source,
+      newFilterNodeOptions(col("id") > 2'i32))
+    let sinkOpts = newSinkNodeOptions()
+    discard plan.buildSinkNode(filterNode, sinkOpts)
+
+    let nodes = plan.getNodes()
+    check nodes != nil
+
+  test "getKindName returns human-readable node type":
+    let pool = newThreadPool()
+    let ctx = newExecuteContext(pool.toExecutor)
+    let plan = newExecutePlan(ctx)
+    let table = newArrowTable(
+      newSchema([newField[int32]("x")]),
+      newArray(@[1'i32, 2, 3]),
+    )
+    let source = plan.buildSourceNode(newSourceNodeOptions(table))
+    let sinkOpts = newSinkNodeOptions()
+    discard plan.buildSinkNode(source, sinkOpts)
+
+    let nodes = plan.getNodes()
+    check nodes != nil
+
+    var current = nodes
+    var kindNames: seq[string]
+    var nodeCount = 0
+    while current != nil:
+      let rawNode = cast[ptr GArrowExecuteNode](current.data)
+      discard g_object_ref(rawNode)
+      let kind = getKindName(ExecuteNode(handle: rawNode))
+      kindNames.add(kind)
+      current = current.next
+      inc nodeCount
+
+    check nodeCount >= 2
+    check "SourceNode" in kindNames
+
+  test "outputSchema on a plan node":
+    let pool = newThreadPool()
+    let ctx = newExecuteContext(pool.toExecutor)
+    let plan = newExecutePlan(ctx)
+    let table = newArrowTable(
+      newSchema([newField[int32]("x"), newField[string]("y")]),
+      newArray(@[1'i32, 2, 3]),
+      newArray(@["a", "b", "c"]),
+    )
+    let source = plan.buildSourceNode(newSourceNodeOptions(table))
+    let schema = source.outputSchema
+    check schema.nFields == 2
+    check schema.getField(0).name == "x"
+    check schema.getField(1).name == "y"

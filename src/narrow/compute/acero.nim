@@ -114,6 +114,10 @@ proc outputSchema*(node: ExecuteNode): Schema =
   let handle = garrow_execute_node_get_output_schema(node.toPtr)
   result = newSchema(handle)
 
+proc getKindName*(node: ExecuteNode): string =
+  ## Returns the kind name of an execution node (e.g. "source", "filter").
+  result = $garrow_execute_node_get_kind_name(node.toPtr)
+
 # ============================================================================
 # Plan Lifecycle
 # ============================================================================
@@ -133,6 +137,11 @@ proc wait*(plan: ExecutePlan) =
 proc stop*(plan: ExecutePlan) =
   ## Stops the plan execution.
   garrow_execute_plan_stop(plan.toPtr)
+
+proc getNodes*(plan: ExecutePlan): ptr GList =
+  ## Returns the list of nodes in the execution plan.
+  ## Useful for introspection and debugging.
+  result = garrow_execute_plan_get_nodes(plan.toPtr)
 
 # ============================================================================
 # Sink Reader

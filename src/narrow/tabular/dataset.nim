@@ -268,7 +268,6 @@ proc newDefaultPartitioning*(): Partitioning =
   result.handle = gadataset_partitioning_create_default()
 
 proc newDirectoryPartitioning*(schema: Schema): DirectoryPartitioning =
-  # TODO: impplement dictionaries for partitioning
   result.handle = cast[ptr GADatasetPartitioning](verify gadataset_directory_partitioning_new(
     schema.toPtr, nil, nil
   ))
@@ -277,7 +276,6 @@ proc newHivePartitioningOptions*(): HivePartitioningOptions =
   result.handle = gadataset_hive_partitioning_options_new()
 
 proc newHivePartitioning*(schema: Schema): HivePartitioning =
-  # TODO: impplement dictionaries for partitioning
   let opts = newHivePartitioningOptions()
   result.handle = cast[ptr GADatasetPartitioning](verify gadataset_hive_partitioning_new(
     schema.toPtr, nil, opts.toPtr
@@ -290,8 +288,6 @@ proc newKeyValuePartitioningOptions*(): KeyValuePartitioningOptions =
 proc newDirectoryPartitioning*(
     schema: Schema, options: KeyValuePartitioningOptions
 ): DirectoryPartitioning =
-  ## Creates a directory partitioning scheme with custom options
-  # TODO: implement dictionaries for partitioning
   result.handle = cast[ptr GADatasetPartitioning](verify gadataset_directory_partitioning_new(
     schema.toPtr, nil, options.toPtr
   ))
@@ -299,8 +295,6 @@ proc newDirectoryPartitioning*(
 proc newHivePartitioning*(
     schema: Schema, options: HivePartitioningOptions
 ): HivePartitioning =
-  ## Creates a Hive partitioning scheme with custom options
-  # TODO: implement dictionaries for partitioning
   result.handle = cast[ptr GADatasetPartitioning](verify gadataset_hive_partitioning_new(
     schema.toPtr, nil, options.toPtr
   ))

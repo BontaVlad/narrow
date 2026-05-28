@@ -946,3 +946,59 @@ proc newHalfFloatScalar*(value: HalfFloat): HGFloatScalar =
 
 func getValue*(scalar: HGFloatScalar): HalfFloat =
   HalfFloat(garrow_half_float_scalar_get_value(scalar.handle))
+
+# ============================================================================
+# Null Array Types
+# ============================================================================
+
+arcGObject:
+  type
+    NullArray* = object
+      handle*: ptr GArrowNullArray
+
+    NullArrayBuilder* = object
+      handle*: ptr GArrowNullArrayBuilder
+
+    NullScalar* = object
+      handle*: ptr GArrowNullScalar
+
+proc newNullArrayBuilder*(): NullArrayBuilder =
+  result.handle = garrow_null_array_builder_new()
+  if isNil(result.handle):
+    raise newException(OperationError, "Error creating null array builder")
+
+proc appendNull*(builder: var NullArrayBuilder) =
+  verify garrow_null_array_builder_append_null(builder.handle)
+
+proc appendNulls*(builder: var NullArrayBuilder, n: int) =
+  verify garrow_null_array_builder_append_nulls(builder.handle, n.gint64)
+
+proc finish*(builder: NullArrayBuilder): NullArray =
+  let handle = verify garrow_array_builder_finish(
+    cast[ptr GArrowArrayBuilder](builder.handle))
+  result.handle = cast[ptr GArrowNullArray](handle)
+
+proc newNullArray*(length: int): NullArray =
+  result.handle = garrow_null_array_new(length.gint64)
+  if isNil(result.handle):
+    raise newException(OperationError, "Error creating null array")
+
+proc newNullArray*(builder: NullArrayBuilder): NullArray =
+  result = builder.finish()
+
+func len*(arr: NullArray): int =
+  garrow_array_get_length(cast[ptr GArrowArray](arr.handle)).int
+
+func isNull*(arr: NullArray, i: int): bool =
+  if i < 0:
+    raise newException(IndexDefect, "Negative indexes are not supported")
+  if i >= arr.len:
+    raise newException(IndexDefect, fmt"index {i} not in 0 ..< {arr.len}")
+  true
+
+proc `$`*(arr: NullArray): string =
+  let cStr = verify garrow_array_to_string(cast[ptr GArrowArray](arr.handle))
+  result = $newGString(cStr, owned = true)
+
+proc newNullScalar*(): NullScalar =
+  result.handle = garrow_null_scalar_new()

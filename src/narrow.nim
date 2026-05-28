@@ -6,17 +6,20 @@ import narrow/core/[ffi, error]
 import
   narrow/types/[
     gtypes, gtemporal, gdecimal, glisttype, glargelisttype, gfixedsizelisttype,
-    gfixedshapetensortype, guuid, gmap, glist,
+    gfixedshapetensortype, guuid, gmap, glist, gtensor,
   ]
-import narrow/column/[primitive, nested, metadata, buffer]
+import narrow/column/[primitive, nested, metadata, buffer, binary, dictionary, ree, union]
 import narrow/tabular/[table, batch, dataset]
+import narrow/interop/cdata
 import
   narrow/compute/
-    [filters, expressions, acero, functions, statistics, sorting, casting, aggregations]
+    [filters, expressions, acero, functions, statistics, sorting, casting, aggregations,
+     functions_options]
 import narrow/io/[parquet, csv, compressed, filesystem, json, ipc, feather]
 
 export
   ffi, error, gtypes, gtemporal, gdecimal, glisttype, glargelisttype, gfixedsizelisttype,
-  gfixedshapetensortype, guuid, gmap, glist, primitive, nested, metadata, buffer, table,
-  batch, filters, expressions, acero, parquet, csv, compressed, filesystem, json, ipc, feather,
-  dataset, functions, statistics, sorting, casting, aggregations
+  gfixedshapetensortype, guuid, gmap, glist, gtensor, primitive, nested, metadata, buffer,
+  binary, dictionary, ree, union, table, batch, filters, expressions, acero, parquet, csv,
+  compressed, filesystem, json, ipc, feather, dataset, functions, statistics, sorting,
+  casting, aggregations, functions_options, cdata

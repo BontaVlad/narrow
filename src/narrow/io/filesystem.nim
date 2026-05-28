@@ -94,6 +94,21 @@ proc finalizeS3*() =
   if isS3Enabled().bool:
     verify garrow_s3_finalize()
 
+arcGObject:
+  type
+    GcsFileSystem* = object
+      handle*: ptr GArrowGCSFileSystem
+
+    AzureFileSystem* = object
+      handle*: ptr GArrowAzureFileSystem
+
+    HdfsFileSystem* = object
+      handle*: ptr GArrowHDFSFileSystem
+
+# GCS / Azure / HDFS: Only `get_type` is available in the FFI surface.
+# No constructors or options types are exposed. Instances may be
+# obtained through Arrow Dataset's FileSystem discovery mechanism.
+
 # =============================================================================
 # Uri Implementation
 # =============================================================================
