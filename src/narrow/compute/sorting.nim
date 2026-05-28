@@ -129,3 +129,17 @@ proc sortBy*(rb: RecordBatch,
     sortKeys[i] = newSortKey(name, order)
   let indices = sortIndices(rb, sortKeys)
   result = take(rb, indices)
+
+# ============================================================================
+# Direct Array-Level Sort / Filter (no compute init)
+# ============================================================================
+
+proc sortToIndices*[T](arr: Array[T]): Array[uint64] =
+  let handle = verify garrow_array_sort_to_indices(arr.toPtr)
+  result = newArray[uint64](cast[ptr GArrowArray](handle))
+
+proc takeChunkedArray*[T](arr: Array[T], indices: ChunkedArray[uint64],
+    options: TakeOptions = newTakeOptions()): ChunkedArray[void] =
+  let rawHandle = verify garrow_array_take_chunked_array(
+    arr.toPtr, indices.toPtr, options.toPtr)
+  newChunkedArray[void](rawHandle)

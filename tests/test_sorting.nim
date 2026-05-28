@@ -287,3 +287,24 @@ suite "Null handling":
     check res[0] == 10
     check res[1] == 0  # null value default
     check res[2] == 30
+
+suite "Array sortToIndices (direct FFI)":
+  test "sortToIndices returns ascending indices by default":
+    let arr = newArray(@[3'i32, 1, 2])
+    let res = sortToIndices(arr)
+    check res.len == 3
+    check res[0] == 1'u64
+    check res[1] == 2'u64
+    check res[2] == 0'u64
+
+  test "sortToIndices on empty array":
+    let arr = newArray[int32](@[])
+    let res = sortToIndices(arr)
+    check res.len == 0
+
+suite "Array takeChunkedArray":
+  test "takeChunkedArray returns ChunkedArray":
+    let arr = newArray(@[10'i32, 20, 30, 40, 50])
+    let chunked = newChunkedArray([newArray(@[0'u64, 2, 4])])
+    let res = takeChunkedArray(arr, chunked)
+    check res.len == 3

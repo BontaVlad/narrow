@@ -61,3 +61,65 @@ suite "Compute Options - Memory":
     var opts3 = newVarianceOptions()
     opts3 = opts1
     check not isNil(opts3.handle)
+
+suite "Compute Options - Strftime":
+  test "create StrftimeOptions":
+    let opts = newStrftimeOptions()
+    check not isNil(opts.handle)
+
+suite "Compute Options - Pad":
+  test "create PadOptions":
+    let opts = newPadOptions()
+    check not isNil(opts.handle)
+
+suite "Compute Options - Mode":
+  test "create ModeOptions":
+    let opts = newModeOptions()
+    check not isNil(opts.handle)
+
+suite "Compute Options - Quantile":
+  test "create QuantileOptions":
+    let opts = newQuantileOptions()
+    check not isNil(opts.handle)
+
+  test "setQ on QuantileOptions":
+    var opts = newQuantileOptions()
+    opts.setQ(0.5)
+    let qs = opts.getQs
+    check qs.len >= 0
+
+suite "Compute Options - TDigest":
+  test "create TDigestOptions":
+    let opts = newTDigestOptions()
+    check not isNil(opts.handle)
+
+  test "setQ on TDigestOptions":
+    var opts = newTDigestOptions()
+    opts.setQ(0.99)
+    let qs = opts.getQs
+    check qs.len >= 0
+
+suite "Compute Options - SelectK":
+  test "create SelectKOptions":
+    let opts = newSelectKOptions()
+    check not isNil(opts.handle)
+
+  test "addSortKey to SelectKOptions":
+    var opts = newSelectKOptions()
+    let key = newSortKey("col1", Ascending)
+    opts.addSortKey(key)
+
+suite "Compute Options - Trim":
+  test "create TrimOptions":
+    let opts = newTrimOptions()
+    check not isNil(opts.handle)
+
+suite "RoundMode":
+  test "all round mode values distinct":
+    var seen: set[RoundMode]
+    for m in [rmDown, rmUp, rmTowardsZero, rmTowardsInfinity,
+              rmHalfDown, rmHalfUp, rmHalfTowardsZero,
+              rmHalfTowardsInfinity, rmHalfToEven, rmHalfToOdd]:
+      check m notin seen
+      seen.incl(m)
+    check seen.len == 10

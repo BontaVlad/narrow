@@ -1,5 +1,5 @@
 import std/[options, strformat, macros, strutils, sequtils]
-import ../core/[ffi, error]
+import ../core/[ffi, error, utils]
 import ../types/[gtypes, glist]
 import ./[primitive, metadata]
 
@@ -702,4 +702,61 @@ proc `$`*(s: Struct): string =
 
 proc `$`*(sa: StructArray): string =
   let cStr = verify garrow_array_to_string(cast[ptr GArrowArray](sa.toPtr))
+  result = $newGString(cStr, owned = true)
+
+# ============================================================================
+# LargeListArray and LargeListArrayBuilder
+# ============================================================================
+
+arcGObject:
+  type
+    LargeListArray* = object
+      handle*: ptr GArrowLargeListArray
+
+    LargeListArrayBuilder* = object
+      handle*: ptr GArrowLargeListArrayBuilder
+
+proc newLargeListArrayBuilder*(field: Field): LargeListArrayBuilder =
+  let listType = garrow_large_list_data_type_new(field.toPtr)
+  result.handle = verify garrow_large_list_array_builder_new(listType)
+
+proc append*(builder: var LargeListArrayBuilder) =
+  verify garrow_large_list_array_builder_append_value(builder.handle)
+
+proc appendNull*(builder: var LargeListArrayBuilder) =
+  verify garrow_large_list_array_builder_append_null(builder.handle)
+
+proc getValueBuilder*(builder: var LargeListArrayBuilder): ptr GArrowArrayBuilder =
+  result = garrow_large_list_array_builder_get_value_builder(builder.handle)
+
+proc finish*(builder: LargeListArrayBuilder): LargeListArray =
+  let handle = verify garrow_array_builder_finish(
+    cast[ptr GArrowArrayBuilder](builder.handle))
+  result.handle = cast[ptr GArrowLargeListArray](handle)
+
+func len*(arr: LargeListArray): int =
+  garrow_array_get_length(cast[ptr GArrowArray](arr.handle)).int
+
+func isNull*(arr: LargeListArray, i: int): bool =
+  if i < 0:
+    raise newException(IndexDefect, "Negative indexes are not supported")
+  if i >= arr.len:
+    raise newException(IndexDefect, fmt"index {i} not in 0 ..< {arr.len}")
+  garrow_array_is_null(cast[ptr GArrowArray](arr.handle), i.gint64) != 0
+
+proc getValue*(arr: LargeListArray, i: int): ptr GArrowArray =
+  result = garrow_large_list_array_get_value(arr.handle, i.gint64)
+
+proc getValueType*(arr: LargeListArray): GADType =
+  let handle = garrow_large_list_array_get_value_type(arr.handle)
+  newGType(handle)
+
+func getValueOffset*(arr: LargeListArray, i: int64): int64 =
+  garrow_large_list_array_get_value_offset(arr.handle, i)
+
+func getValueLength*(arr: LargeListArray, i: int64): int64 =
+  garrow_large_list_array_get_value_length(arr.handle, i)
+
+proc `$`*(arr: LargeListArray): string =
+  let cStr = verify garrow_array_to_string(cast[ptr GArrowArray](arr.handle))
   result = $newGString(cStr, owned = true)
