@@ -28,6 +28,9 @@ tests/expr_debug.nim
 tests/test_rg_leak.nim
 tests/higher/test_cookbook
 
+# Script binaries
+scripts/cookbook_runner
+
 # Benchmark binaries and results
 benchmarks/bench_*
 !benchmarks/bench_*.nim

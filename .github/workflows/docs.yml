@@ -52,14 +52,25 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - uses: extractions/setup-just@v2
+
       - name: Install Nim dependencies
         run: nimble install -y
 
-      - name: Generate docs
+      - name: Generate API docs
         run: |
           nimble doc --project --outdir:docs src/narrow.nim
           mv docs/theindex.html docs/index.html
           touch docs/.nojekyll
+
+      - name: Generate cookbook
+        run: just cookbook-ci
+
+      - name: Link cookbook from API docs index
+        run: |
+          if [ -f docs/index.html ]; then
+            sed -i 's#</body>#<p><a href="cookbook/htmldocs/index.html">Cookbook</a></p></body>#' docs/index.html
+          fi
 
       - uses: actions/configure-pages@v4
 

@@ -342,6 +342,71 @@ clean:
     rm -rf {{out_root}} {{coverage_dir}} coverage.info {{profile_dir}}
 
 # =============================================================================
+# Cookbook
+# =============================================================================
+
+# Build the cookbook: run all snippets to inject outputs, then render HTML
+cookbook: cookbook-run cookbook-html
+
+# Run every ```nim test``` snippet and write its stdout into the markdown
+cookbook-run:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    nim c -o:scripts/cookbook_runner scripts/cookbook_runner.nim
+    scripts/cookbook_runner docs/cookbook
+
+# Render the cookbook markdown to HTML via nim rst2html (outputs already
+# injected into the .md files by `cookbook-run`)
+cookbook-html:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cflags="$(pkg-config --cflags arrow-dataset-glib parquet-glib)"
+    out="docs/cookbook/htmldocs"
+    rm -rf "$out"
+    mkdir -p "$out"
+    # Sections first so .idx files exist for the index page
+    for f in reading_and_writing_data creating_arrow_objects \
+             working_with_schema data_manipulation arrow_flight; do
+        nim rst2html --project --path:src --passC:"$cflags" \
+            --docCmd:skip --outdir:"$out" "docs/cookbook/$f.md"
+    done
+    # Index page
+    nim rst2html --project --path:src --passC:"$cflags" \
+        --docCmd:skip --outdir:"$out" docs/cookbook/cookbook.md
+    # Aggregate index (theindex.html) from the .idx files
+    nim buildIndex -o:"$out/theindex.html" "$out"
+    # Serve the cookbook landing page at the directory root
+    cp "$out/cookbook.html" "$out/index.html"
+
+# CI variant: render HTML by running every ```nim test``` snippet natively
+# via rst2html (no runner script, no pre-injected outputs required).  A
+# failing snippet causes the step to exit non-zero.
+cookbook-ci:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    libs="$(pkg-config --libs arrow-dataset-glib parquet-glib)"
+    cflags="$(pkg-config --cflags arrow-dataset-glib parquet-glib)"
+    out="docs/cookbook/htmldocs"
+    rm -rf "$out"
+    mkdir -p "$out"
+    # Sections first so .idx files exist for the index page.
+    # rst2html compiles and runs each ```nim test``` block, embedding the
+    # captured stdout as a <pre class="listing"> preview below the code.
+    for f in reading_and_writing_data creating_arrow_objects \
+             working_with_schema data_manipulation arrow_flight; do
+        nim rst2html --project --path:src --passC:"$cflags" \
+            --docCmd:"--passL:'$libs'" \
+            --outdir:"$out" "docs/cookbook/$f.md"
+    done
+    # Index page (no runnable snippets, skip compilation)
+    nim rst2html --project --path:src --passC:"$cflags" \
+        --docCmd:skip --outdir:"$out" docs/cookbook/cookbook.md
+    # Aggregate index (theindex.html) from the .idx files
+    nim buildIndex -o:"$out/theindex.html" "$out"
+    # Serve the cookbook landing page at the directory root
+    cp "$out/cookbook.html" "$out/index.html"
+
+# =============================================================================
 # Internal targets
 # =============================================================================
 
