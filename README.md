@@ -22,6 +22,14 @@ Narrow wraps the Apache Arrow GLib C API to provide Nim with:
 - **Compute operations** - Expression-based filtering, aggregations, and the Acero execution engine
 - **Memory safety** - Integration with Nim's ARC/ORC memory management via GObject reference counting
 
+## Cookbook
+
+The [narrow Cookbook](https://bontavlad.github.io/narrow/cookbook/htmldocs/) is a
+collection of runnable recipes covering reading/writing data, creating Arrow
+objects, working with schemas, data manipulation, and more. Every recipe is a
+tested `nim` snippet with its output rendered inline. The cookbook is generated
+automatically in the [docs pipeline](.github/workflows/docs.yml).
+
 ## Requirements
 
 - Nim 2.2.6 or later
