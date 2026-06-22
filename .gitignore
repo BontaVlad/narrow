@@ -41,7 +41,6 @@ mystring.txt
 something.md
 drafts/
 reports/
-notes/floating_references.md
 
 # Generated bindings output
 src/narrow.out
@@ -56,6 +55,12 @@ package-lock.json
 .opencode/
 .ruff_cache/
 .venv/
+
+# Agent / maintainer docs (kept locally, not published)
+AGENTS.md
+PERSONALITY.md
+TODO_PLAN.md
+FEATURE_MANUAL.md
 
 # Pre-built third-party
 nlvm-linux-da658c6/
