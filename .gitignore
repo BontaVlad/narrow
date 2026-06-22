@@ -1,6 +1,64 @@
+# Build artifacts
 nimcache/
 nimblecache/
 htmldocs/
 nimble.develop
 nimble.paths
 nimbledeps
+atlas.lock
+
+# Compiled binaries (no extensions on Linux)
+narrow
+narrow.out
+src/narrow.out
+src/narrow/column/primitive
+src/narrow/compute/expressions
+src/narrow/compute/filters
+src/narrow/core/utils.nim.bak
+src/narrow/io/parquet
+src/narrow/tabular/batch
+src/narrow/tabular/table
+src/narrow/types/gtypes
+
+# Test binaries
+tests/test_*
+!tests/test_*.nim
+tests/expr_debug
+tests/expr_debug.nim
+tests/test_rg_leak.nim
+tests/higher/test_cookbook
+
+# Benchmark binaries and results
+benchmarks/bench_*
+!benchmarks/bench_*.nim
+benchmarks/results/
+
+# Coverage
+coverage.info
+
+# Debug / temp files
+mystring.txt
+something.md
+drafts/
+reports/
+notes/floating_references.md
+
+# Generated bindings output
+src/narrow.out
+
+# Node / web tooling (not part of Nim package)
+node_modules/
+package.json
+package-lock.json
+
+# Editor / tooling
+.mcp.json
+.opencode/
+.ruff_cache/
+.venv/
+
+# Pre-built third-party
+nlvm-linux-da658c6/
+arrow/
+nimpkg.py
+narrow/

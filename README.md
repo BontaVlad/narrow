@@ -61,19 +61,28 @@ All subsequent commands (`nimble install`, `nimble test`, etc.) must also be run
 
 ## Installation
 
-Add to your `nimble` file:
+Add to your `.nimble` file:
 
 ```nim
-#requires "narrow >= 0.1.0"
-TODO
+requires "narrow >= 0.0.1"
 ```
 
 Or install directly:
 
 ```bash
-#nimble install narrow
-TODO
+nimble install narrow
 ```
+
+With [atlas](https://github.com/nim-lang/atlas):
+
+```bash
+atlas use narrow
+```
+
+> **Note:** Narrow wraps the Apache Arrow GLib C API. You must install the system
+> libraries (`arrow-glib`, `parquet-glib`, `arrow-dataset-glib`) and link them
+> via `pkg-config` when compiling your project. See
+> [Installing Dependencies](#installing-dependencies) below.
 
 ## Usage
 

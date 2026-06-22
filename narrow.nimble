@@ -1,16 +1,21 @@
 import std/[os, strformat, strutils, sequtils, parseutils]
 
-version       = "0.1.0"
+version       = "0.0.1"
 author        = "Sergiu Vlad Bonta"
 description   = "A Nim wrapper around the Apache Arrow C API."
-license       = "MIT License"
+license       = "MIT"
 srcDir        = "src"
 installExt    = @["nim"]
-bin           = @["narrow"]
 
-# requires "nim >= 2.2.6"
+requires "nim >= 2.2.6"
 requires "unittest2 >= 0.2.3"
-requires "criterion >= 0.3.1"
+
+task test, "Run the test suite":
+  for file in walkDirRec("tests"):
+    if file.endsWith(".nim") and file.startsWith("tests/test_"):
+      let name = file.splitFile.name
+      exec fmt"nim c --verbosity:0 --hints:off --mm:orc -o:nimcache/tests/{name} {file}"
+      exec fmt"./nimcache/tests/{name}"
 
 task generate, "Generate bindings":
   # Futhark is required only for binding generation, not for normal use
