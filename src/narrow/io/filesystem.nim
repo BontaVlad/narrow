@@ -1,3 +1,8 @@
+## Filesystem abstraction for local and remote storage.
+##
+## `LocalFileSystem` provides access to the local disk. `SubTreeFileSystem`
+## sandboxes access to a subdirectory. All filesystems support input/output
+## streams, file info, and directory listing.
 import ../core/[ffi, error, utils]
 import ../types/[gtypes, glist]
 
@@ -47,14 +52,12 @@ type
   FileSystem* = ref FileSystemObj
 
   LocalFileSystem* = ref object of FileSystemObj
-    ## Filesystem implementation for local disk access
-    ##
+    ## Filesystem implementation for local disk access.
     ## Provides access to files on the local machine. Symlinks are automatically
     ## followed except when deleting entries.
 
   SubTreeFileSystem* = ref object of FileSystemObj
-    ## A filesystem rooted at a particular subdirectory
-    ##
+    ## A filesystem rooted at a particular subdirectory.
     ## Useful for sandboxing filesystem access to a specific directory tree.
     basePath*: string
 
@@ -69,9 +72,8 @@ type StreamError* = object of CatchableError
 # =============================================================================
 
 arcGObject:
-  type
-    S3GlobalOptions* = object
-      handle*: ptr GArrowS3GlobalOptions
+  type S3GlobalOptions* = object
+    handle*: ptr GArrowS3GlobalOptions
 
 proc newS3GlobalOptions*(): S3GlobalOptions =
   result.handle = garrow_s3_global_options_new()
@@ -667,6 +669,7 @@ proc isValid*(fs: FileSystem): bool {.inline.} =
   fs != nil and fs.handle != nil
 
 proc newFileSystem*(p: ptr GArrowFileSystem): FileSystem =
+  ## Wraps an existing `GArrowFileSystem` pointer.
   new(result)
   result.handle = p
 
@@ -744,7 +747,8 @@ proc getFileInfos*(fs: FileSystem, paths: openArray[string]): seq[FileInfo] =
 
 proc getFileInfos*(fs: FileSystem, selector: FileSelector): seq[FileInfo] =
   ## Get information about files matching a selector
-  let glistPtr = verify garrow_file_system_get_file_infos_selector(fs.handle, selector.handle)
+  let glistPtr =
+    verify garrow_file_system_get_file_infos_selector(fs.handle, selector.handle)
   let gList = newGlist[ptr GArrowFileInfo](glistPtr)
   result = newSeqOfCap[FileInfo](gList.len)
 

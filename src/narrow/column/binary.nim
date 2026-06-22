@@ -1,3 +1,8 @@
+## Binary and string array types: fixed-size binary, binary view, large binary.
+##
+## `FixedSizeBinaryArray` stores fixed-length byte sequences. `BinaryViewArray`
+## and `StringViewArray` use the Arrow string view format for efficient
+## variable-length data. `LargeBinaryArray` supports > 2GB of data.
 import std/[strformat]
 import ../core/[ffi, error, utils]
 import ../types/gtypes
@@ -7,9 +12,8 @@ import ../types/gtypes
 # ============================================================================
 
 arcGObject:
-  type
-    FixedSizeBinaryDataType* = object
-      handle*: ptr GArrowFixedSizeBinaryDataType
+  type FixedSizeBinaryDataType* = object ## Data type for fixed-length byte sequences.
+    handle*: ptr GArrowFixedSizeBinaryDataType
 
 proc newFixedSizeBinaryDataType*(byteWidth: int32): FixedSizeBinaryDataType =
   result.handle = garrow_fixed_size_binary_data_type_new(byteWidth)
@@ -25,7 +29,7 @@ func byteWidth*(dt: FixedSizeBinaryDataType): int32 =
 
 arcGObject:
   type
-    FixedSizeBinaryArray* = object
+    FixedSizeBinaryArray* = object ## An array of fixed-length byte sequences.
       handle*: ptr GArrowFixedSizeBinaryArray
 
     FixedSizeBinaryArrayBuilder* = object
@@ -38,9 +42,7 @@ arcGObject:
 # Array Builder
 # ============================================================================
 
-proc newFixedSizeBinaryArrayBuilder*(
-    byteWidth: int32
-): FixedSizeBinaryArrayBuilder =
+proc newFixedSizeBinaryArrayBuilder*(byteWidth: int32): FixedSizeBinaryArrayBuilder =
   let dt = garrow_fixed_size_binary_data_type_new(byteWidth)
   if isNil(dt):
     raise newException(OperationError, "Error creating fixed-size binary type")
@@ -51,19 +53,21 @@ proc newFixedSizeBinaryArrayBuilder*(
 
 proc append*(builder: var FixedSizeBinaryArrayBuilder, val: seq[byte]) =
   let gb = g_bytes_new(
-    if val.len > 0: cast[pointer](val[0].unsafeAddr) else: nil,
-    val.len.csize_t)
-  verify garrow_fixed_size_binary_array_builder_append_value_bytes(
-    builder.handle, gb)
+    if val.len > 0:
+      cast[pointer](val[0].unsafeAddr)
+    else:
+      nil,
+    val.len.csize_t,
+  )
+  verify garrow_fixed_size_binary_array_builder_append_value_bytes(builder.handle, gb)
   g_bytes_unref(gb)
 
 proc appendNull*(builder: var FixedSizeBinaryArrayBuilder) =
-  verify garrow_array_builder_append_null(
-    cast[ptr GArrowArrayBuilder](builder.handle))
+  verify garrow_array_builder_append_null(cast[ptr GArrowArrayBuilder](builder.handle))
 
 proc finish*(builder: FixedSizeBinaryArrayBuilder): FixedSizeBinaryArray =
-  let handle = verify garrow_array_builder_finish(
-    cast[ptr GArrowArrayBuilder](builder.handle))
+  let handle =
+    verify garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](builder.handle))
   result.handle = cast[ptr GArrowFixedSizeBinaryArray](handle)
 
 # ============================================================================
@@ -122,8 +126,12 @@ iterator items*(arr: FixedSizeBinaryArray): seq[byte] =
 proc newFixedSizeBinaryScalar*(value: seq[byte]): FixedSizeBinaryScalar =
   let dt = newFixedSizeBinaryDataType(value.len.int32)
   let gb = g_bytes_new(
-    if value.len > 0: cast[pointer](value[0].unsafeAddr) else: nil,
-    value.len.csize_t)
+    if value.len > 0:
+      cast[pointer](value[0].unsafeAddr)
+    else:
+      nil,
+    value.len.csize_t,
+  )
   let buf = garrow_buffer_new_bytes(gb)
   result.handle = garrow_fixed_size_binary_scalar_new(dt.handle, buf)
   g_object_unref(buf)
@@ -136,9 +144,11 @@ proc newFixedSizeBinaryScalar*(value: seq[byte]): FixedSizeBinaryScalar =
 arcGObject:
   type
     BinaryViewArray* = object
+      ## An array of variable-length byte sequences using the Arrow binary view format.
       handle*: ptr GArrowBinaryViewArray
 
     StringViewArray* = object
+      ## An array of variable-length strings using the Arrow string view format.
       handle*: ptr GArrowStringViewArray
 
 func len*(arr: BinaryViewArray): int =
@@ -208,6 +218,7 @@ proc `$`*(arr: StringViewArray): string =
 arcGObject:
   type
     LargeBinaryArray* = object
+      ## An array of variable-length byte sequences supporting > 2GB of data.
       handle*: ptr GArrowLargeBinaryArray
 
     LargeBinaryArrayBuilder* = object
@@ -230,19 +241,21 @@ proc newLargeBinaryArrayBuilder*(): LargeBinaryArrayBuilder =
 
 proc append*(builder: var LargeBinaryArrayBuilder, val: seq[byte]) =
   let gb = g_bytes_new(
-    if val.len > 0: cast[pointer](val[0].unsafeAddr) else: nil,
-    val.len.csize_t)
-  verify garrow_large_binary_array_builder_append_value_bytes(
-    builder.handle, gb)
+    if val.len > 0:
+      cast[pointer](val[0].unsafeAddr)
+    else:
+      nil,
+    val.len.csize_t,
+  )
+  verify garrow_large_binary_array_builder_append_value_bytes(builder.handle, gb)
   g_bytes_unref(gb)
 
 proc appendNull*(builder: var LargeBinaryArrayBuilder) =
-  verify garrow_array_builder_append_null(
-    cast[ptr GArrowArrayBuilder](builder.handle))
+  verify garrow_array_builder_append_null(cast[ptr GArrowArrayBuilder](builder.handle))
 
 proc finish*(builder: LargeBinaryArrayBuilder): LargeBinaryArray =
-  let handle = verify garrow_array_builder_finish(
-    cast[ptr GArrowArrayBuilder](builder.handle))
+  let handle =
+    verify garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](builder.handle))
   result.handle = cast[ptr GArrowLargeBinaryArray](handle)
 
 # ============================================================================
@@ -301,16 +314,14 @@ proc newLargeStringArrayBuilder*(): LargeStringArrayBuilder =
     raise newException(OperationError, "Error creating large string builder")
 
 proc append*(builder: var LargeStringArrayBuilder, val: string) =
-  verify garrow_large_string_array_builder_append_string(
-    builder.handle, val.cstring)
+  verify garrow_large_string_array_builder_append_string(builder.handle, val.cstring)
 
 proc appendNull*(builder: var LargeStringArrayBuilder) =
-  verify garrow_array_builder_append_null(
-    cast[ptr GArrowArrayBuilder](builder.handle))
+  verify garrow_array_builder_append_null(cast[ptr GArrowArrayBuilder](builder.handle))
 
 proc finish*(builder: LargeStringArrayBuilder): LargeStringArray =
-  let handle = verify garrow_array_builder_finish(
-    cast[ptr GArrowArrayBuilder](builder.handle))
+  let handle =
+    verify garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](builder.handle))
   result.handle = cast[ptr GArrowLargeStringArray](handle)
 
 # ============================================================================
@@ -334,8 +345,7 @@ func `[]`*(arr: LargeStringArray, i: int): string =
     raise newException(IndexDefect, "Negative indexes are not supported")
   if i >= arr.len:
     raise newException(IndexDefect, fmt"index {i} not in 0 ..< {arr.len}")
-  let cstr =
-    garrow_large_string_array_get_string(arr.handle, i.gint64)
+  let cstr = garrow_large_string_array_get_string(arr.handle, i.gint64)
   result = $newGString(cstr, owned = true)
 
 proc `$`*(arr: LargeStringArray): string =

@@ -1,3 +1,8 @@
+## Acero execution engine — in-memory data processing pipelines.
+##
+## Build a plan with Source → Filter → Project → Aggregate → Sink nodes, then
+## execute it. `aggregateTable` provides a convenient group-by + aggregate API
+## on top of the engine.
 import std/[cpuinfo, strutils]
 import ../core/[ffi, error, utils]
 import ../types/glist
@@ -26,24 +31,29 @@ type JoinType* = enum ## Hash join type. Maps to `GArrowJoinType`.
 arcGObject:
   type
     ExecuteContext* = object
+      ## Execution context for an Acero plan (holds executor and options).
       handle*: ptr GArrowExecuteContext
 
-    ExecutePlan* = object
+    ExecutePlan* = object ## A complete Acero execution plan (DAG of nodes).
       handle*: ptr GArrowExecutePlan
 
     ExecuteNode* = object
+      ## A single node in an execution plan (source, filter, sink, ...).
       handle*: ptr GArrowExecuteNode
 
     SourceNodeOptions* = object
+      ## Options for constructing a source node from a table or record batch.
       handle*: ptr GArrowSourceNodeOptions
 
     FilterNodeOptions* = object
+      ## Options for constructing a filter node from a boolean expression.
       handle*: ptr GArrowFilterNodeOptions
 
     SinkNodeOptions* = object
+      ## Options for constructing a sink node that captures plan output.
       handle*: ptr GArrowSinkNodeOptions
 
-    ThreadPool* = object
+    ThreadPool* = object ## A thread pool used as the executor for an execution context.
       handle*: ptr GArrowThreadPool
 
 func toExecutor*(pool: ThreadPool): ptr GArrowExecutor {.inline.} =
@@ -160,20 +170,22 @@ proc getReader*(options: SinkNodeOptions, schema: Schema): RecordBatchReader =
 arcGObject:
   type
     Aggregation* = object
+      ## Descriptor of one aggregation (function, input, output) for an aggregate node.
       handle*: ptr GArrowAggregation
 
     AggregateNodeOptions* = object
+      ## Options for constructing an aggregate node (aggregations + group keys).
       handle*: ptr GArrowAggregateNodeOptions
 
 arcGObject:
-  type
-    HashJoinNodeOptions* = object
-      handle*: ptr GArrowHashJoinNodeOptions
+  type HashJoinNodeOptions* = object
+    ## Options for constructing a hash join node (join type + key columns).
+    handle*: ptr GArrowHashJoinNodeOptions
 
 arcGObject:
-  type
-    ProjectNodeOptions* = object
-      handle*: ptr GArrowProjectNodeOptions
+  type ProjectNodeOptions* = object
+    ## Options for constructing a project node (output expressions + names).
+    handle*: ptr GArrowProjectNodeOptions
 
 proc newAggregation*(function, input, output: string): Aggregation =
   ## Creates an aggregation descriptor for use with Acero aggregate nodes.
@@ -233,8 +245,16 @@ proc newHashJoinNodeOptions*(
   for k in rightKeys:
     rp.add(k.cstring)
 
-  let lptr = if lp.len == 0: nil else: addr lp[0]
-  let rptr = if rp.len == 0: nil else: addr rp[0]
+  let lptr =
+    if lp.len == 0:
+      nil
+    else:
+      addr lp[0]
+  let rptr =
+    if rp.len == 0:
+      nil
+    else:
+      addr rp[0]
 
   result.handle = verify garrow_hash_join_node_options_new(
     joinType.GArrowJoinType, lptr, lp.len.gsize, rptr, rp.len.gsize
@@ -246,10 +266,12 @@ proc setLeftOutputs*(opts: HashJoinNodeOptions, outputs: openArray[string]) =
   var ptrs: seq[cstring]
   for o in outputs:
     ptrs.add(o.cstring)
-  let p = if ptrs.len == 0: nil else: addr ptrs[0]
-  verify garrow_hash_join_node_options_set_left_outputs(
-    opts.toPtr, p, ptrs.len.gsize
-  )
+  let p =
+    if ptrs.len == 0:
+      nil
+    else:
+      addr ptrs[0]
+  verify garrow_hash_join_node_options_set_left_outputs(opts.toPtr, p, ptrs.len.gsize)
 
 proc setRightOutputs*(opts: HashJoinNodeOptions, outputs: openArray[string]) =
   ## Restrict which columns from the right table appear in the join result.
@@ -257,10 +279,12 @@ proc setRightOutputs*(opts: HashJoinNodeOptions, outputs: openArray[string]) =
   var ptrs: seq[cstring]
   for o in outputs:
     ptrs.add(o.cstring)
-  let p = if ptrs.len == 0: nil else: addr ptrs[0]
-  verify garrow_hash_join_node_options_set_right_outputs(
-    opts.toPtr, p, ptrs.len.gsize
-  )
+  let p =
+    if ptrs.len == 0:
+      nil
+    else:
+      addr ptrs[0]
+  verify garrow_hash_join_node_options_set_right_outputs(opts.toPtr, p, ptrs.len.gsize)
 
 proc buildHashJoinNode*(
     plan: ExecutePlan, left, right: ExecuteNode, options: HashJoinNodeOptions
@@ -394,9 +418,7 @@ proc filterTable*(table: ArrowTable, filter: Expression): ArrowTable =
   plan.wait()
 
 proc joinTables*(
-    left, right: ArrowTable,
-    joinType: JoinType,
-    leftKeys, rightKeys: openArray[string],
+    left, right: ArrowTable, joinType: JoinType, leftKeys, rightKeys: openArray[string]
 ): ArrowTable =
   ## Join two tables on common key columns using Acero's hash join engine.
   ##
@@ -459,9 +481,8 @@ proc newProjectNodeOptions*(
     else:
       addr namePtrs[0]
 
-  result.handle = garrow_project_node_options_new(
-    exprList.toPtr, namesPtr, namePtrs.len.gsize
-  )
+  result.handle =
+    garrow_project_node_options_new(exprList.toPtr, namesPtr, namePtrs.len.gsize)
   if result.handle.isNil:
     raise newException(OperationError, "Failed to create project node options")
 
@@ -474,8 +495,7 @@ proc buildProjectNode*(
   result = ExecuteNode(handle: handle)
 
 proc projectTable*(
-    table: ArrowTable, expressions: openArray[Expression],
-    names: openArray[string] = []
+    table: ArrowTable, expressions: openArray[Expression], names: openArray[string] = []
 ): ArrowTable =
   ensureComputeInitialized()
 

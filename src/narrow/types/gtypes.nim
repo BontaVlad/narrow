@@ -1,13 +1,18 @@
+## Arrow data type mappings and runtime type checking.
+##
+## `GADType` wraps an Arrow `GArrowDataType`, describing the logical type of
+## an array or field. `newGType[T]` maps Nim types to Arrow types at compile
+## time. `GString` is a GLib string wrapper for C interop.
 import std/[macros]
 import ../core/[ffi, error, utils]
 
 arcGObject:
-  type
-    GADType* = object
-      handle*: ptr GArrowDataType
+  type GADType* = object
+    ## Wrapper for an Arrow `GArrowDataType`. Describes the logical type of an array or field.
+    handle*: ptr GArrowDataType
 
 type
-  GString* = object
+  GString* = object ## Wrapper for a GLib `GString` used in C interop.
     handle*: cstring
 
   # Distinct scalar types for temporal values (to distinguish from primitives)

@@ -1,3 +1,8 @@
+## Dictionary-encoded arrays for categorical data.
+##
+## `DictionaryArray` stores values as integer indices into a dictionary,
+## reducing memory for repeated values. `DictionaryDataType` pairs an index
+## type with a value type.
 import ../core/[ffi, error, utils]
 import ../types/gtypes
 import ./primitive
@@ -7,19 +12,18 @@ import ./primitive
 # ============================================================================
 
 arcGObject:
-  type
-    DictionaryDataType* = object
-      handle*: ptr GArrowDictionaryDataType
+  type DictionaryDataType* = object
+    ## Pairs an index data type with a value data type for dictionary encoding.
+    handle*: ptr GArrowDictionaryDataType
 
 proc newDictionaryDataType*(
     indexDataType: GADType, valueDataType: GADType, ordered: bool = false
 ): DictionaryDataType =
   result.handle = garrow_dictionary_data_type_new(
-    indexDataType.handle, valueDataType.handle,
-    if ordered: 1.gboolean else: 0.gboolean)
+    indexDataType.handle, valueDataType.handle, if ordered: 1.gboolean else: 0.gboolean
+  )
   if isNil(result.handle):
-    raise newException(OperationError,
-      "Error creating dictionary data type")
+    raise newException(OperationError, "Error creating dictionary data type")
 
 proc indexDataType*(dt: DictionaryDataType): ptr GArrowDataType =
   garrow_dictionary_data_type_get_index_data_type(dt.handle)
@@ -35,16 +39,18 @@ proc isOrdered*(dt: DictionaryDataType): bool =
 # ============================================================================
 
 arcGObject:
-  type
-    DictionaryArray* = object
-      handle*: ptr GArrowDictionaryArray
+  type DictionaryArray* = object
+    ## An array of integer indices into a dictionary, encoding categorical data.
+    handle*: ptr GArrowDictionaryArray
 
 proc newDictionaryArray*[T, U](
     dataType: DictionaryDataType, indices: Array[T], dictionary: Array[U]
 ): DictionaryArray =
   result.handle = verify garrow_dictionary_array_new(
     cast[ptr GArrowDataType](dataType.handle),
-    cast[ptr GArrowArray](indices.toPtr), cast[ptr GArrowArray](dictionary.toPtr))
+    cast[ptr GArrowArray](indices.toPtr),
+    cast[ptr GArrowArray](dictionary.toPtr),
+  )
   if isNil(result.handle):
     raise newException(OperationError, "Error creating dictionary array")
 
@@ -72,12 +78,10 @@ proc `$`*(arr: DictionaryArray): string =
 # ============================================================================
 
 arcGObject:
-  type
-    DictionaryEncodeOptions* = object
-      handle*: ptr GArrowDictionaryEncodeOptions
+  type DictionaryEncodeOptions* = object
+    handle*: ptr GArrowDictionaryEncodeOptions
 
 proc newDictionaryEncodeOptions*(): DictionaryEncodeOptions =
   result.handle = garrow_dictionary_encode_options_new()
   if isNil(result.handle):
-    raise newException(OperationError,
-      "Error creating dictionary encode options")
+    raise newException(OperationError, "Error creating dictionary encode options")

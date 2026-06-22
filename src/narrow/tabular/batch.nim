@@ -1,3 +1,9 @@
+## Arrow record batches, readers, iterators, and builders.
+##
+## A `RecordBatch` is a collection of equal-length arrays sharing a schema —
+## the unit of streaming data in Arrow. `RecordBatchReader` provides streaming
+## access, and `RecordBatchBuilder` constructs batches incrementally.
+
 import std/[macros, options, strformat]
 import ../core/[ffi, error, utils]
 import ../types/[gtypes, glist]
@@ -10,12 +16,16 @@ import ../column/[primitive, metadata, buffer]
 arcGObject:
   type
     RecordBatchBuilder* = object
+      ## Builder for constructing `RecordBatch`es incrementally.
+      ## Access column builders via `columnBuilder`, then call `flush`.
       handle: ptr GArrowRecordBatchBuilder
 
     RecordBatch* = object
+      ## A collection of equal-length arrays sharing a schema.
+      ## The unit of streaming data in Arrow.
       handle*: ptr GArrowRecordBatch
 
-    RecordBatchIterator* = object
+    RecordBatchIterator* = object ## Iterator over a sequence of record batches.
       handle: ptr GArrowRecordBatchIterator
 
     WriteOptions* = object
@@ -23,6 +33,8 @@ arcGObject:
 
 # Manual type — multiple handles, not eligible for arcGObject
 type RecordBatchReader* = object
+  ## Streaming reader that produces `RecordBatch`es one at a time.
+  ## `nil` from `readNext` signals end-of-stream.
   handle*: ptr GArrowRecordBatchReader
   streamHandle*: ptr GArrowInputStream # Keep stream alive as long as reader exists
 
@@ -74,6 +86,7 @@ proc newRecordBatch*(handle: ptr GArrowRecordBatch): RecordBatch =
   result.handle = handle
 
 macro newRecordBatch*(schema: Schema, arrays: varargs[typed]): RecordBatch =
+  ## Create a record batch from a schema and arrays (one per field).
   let builderSym = genSym(nskLet, "builder")
 
   var bodyStmts = newStmtList()
@@ -118,25 +131,31 @@ proc validateFull*(rb: RecordBatch): bool =
     )
 
 proc schema*(rb: RecordBatch): Schema =
+  ## Returns the schema of the record batch.
   let handle = garrow_record_batch_get_schema(rb.handle)
   result = newSchema(handle)
 
 proc nColumns*(rb: RecordBatch): int =
+  ## Returns the number of columns in the record batch.
   garrow_record_batch_get_n_columns(rb.handle).int
 
 proc nRows*(rb: RecordBatch): int64 =
+  ## Returns the number of rows in the record batch.
   garrow_record_batch_get_n_rows(rb.handle).int64
 
 proc getColumnName*(rb: RecordBatch, idx: int): string =
   result = $garrow_record_batch_get_column_name(rb.toPtr, idx.gint)
 
 proc getColumnData*[T](rb: RecordBatch, idx: int): Array[T] =
+  ## Returns the column data at index `idx` as a typed array.
   result = newArray[T](garrow_record_batch_get_column_data(rb.toPtr, idx.gint))
 
 proc `[]`*[T](rb: RecordBatch, idx: int, _: typedesc[T]): Array[T] =
+  ## Returns the column at `idx` as `Array[T]`.
   result = getColumnData[T](rb, idx)
 
 proc `[]`*[T](rb: RecordBatch, key: string, _: typedesc[T]): Array[T] =
+  ## Returns the column named `key` as `Array[T]`. Raises `KeyError` if not found.
   let schema = rb.schema
   let idx = schema.getFieldIndex(key)
   result = getColumnData[T](rb, idx)
@@ -150,16 +169,19 @@ proc equalMetadata*(
   garrow_record_batch_equal_metadata(rb1.toPtr, rb2.toPtr, checkMetadata.gboolean).bool
 
 proc slice*(rb: RecordBatch, offset: int64, length: int64): RecordBatch =
+  ## Returns a sub-batch covering `offset` to `offset + length`. Shares data with the original.
   let handle = garrow_record_batch_slice(rb.toPtr, offset.gint64, length.gint64)
   result = newRecordBatch(handle)
 
 proc addColumn*(rb: RecordBatch, idx: uint, field: Field, column: Array): RecordBatch =
+  ## Returns a new batch with a column inserted at `idx`.
   let handle = verify garrow_record_batch_add_column(
     rb.toPtr, idx.guint, field.toPtr, column.toPtr
   )
   result = newRecordBatch(handle)
 
 proc removeColumn*(rb: RecordBatch, idx: uint): RecordBatch =
+  ## Returns a new batch without the column at `idx`.
   let handle = verify garrow_record_batch_remove_column(rb.toPtr, idx.guint)
   result = newRecordBatch(handle)
 
@@ -167,6 +189,7 @@ proc schema*(builder: RecordBatchBuilder): Schema =
   result = newSchema(garrow_record_batch_builder_get_schema(builder.toPtr))
 
 proc newRecordBatchBuilder*(schema: Schema): RecordBatchBuilder =
+  ## Create a new builder for the given schema.
   let handle = verify garrow_record_batch_builder_new(schema.toPtr)
   result.handle = handle
 
@@ -180,6 +203,7 @@ proc capacity*(builder: RecordBatchBuilder): int64 =
 proc columnBuilder*[T](
     builder: RecordBatchBuilder, idx: int
 ): ArrayBuilder[T] {.inline.} =
+  ## Returns the array builder for column `idx`. Append values to it.
   let cBuilder = garrow_record_batch_builder_get_column_builder(builder.toPtr, idx.gint)
   # get_column_builder returns transfer-none (cached internal reference),
   # so we must ref before wrapping in an owning ArrayBuilder
@@ -187,10 +211,12 @@ proc columnBuilder*[T](
   result = newArrayBuilder[T](cBuilder)
 
 proc flush*(builder: RecordBatchBuilder): RecordBatch =
+  ## Builds the record batch and resets the column builders.
   let handle = verify garrow_record_batch_builder_flush(builder.toPtr)
   result.handle = handle
 
 proc newRecordBatchIterator*(recordBatches: seq[RecordBatch]): RecordBatchIterator =
+  ## Create an iterator over the given batches.
   var glist = newGList[ptr GArrowRecordBatch]()
   for rb in recordBatches:
     glist.append(rb.toPtr)
@@ -199,6 +225,7 @@ proc newRecordBatchIterator*(recordBatches: seq[RecordBatch]): RecordBatchIterat
   result.handle = handle
 
 proc next*(it: RecordBatchIterator): Option[RecordBatch] =
+  ## Returns the next batch, or `none` at end-of-stream.
   var err: ptr GError
   let handle = garrow_record_batch_iterator_next(it.toPtr, addr err)
 
@@ -215,6 +242,7 @@ proc `==`*(it1, it2: RecordBatchIterator): bool {.inline.} =
   garrow_record_batch_iterator_equal(it1.toPtr, it2.toPtr).bool
 
 proc toList*(it: RecordBatchIterator): seq[RecordBatch] =
+  ## Consumes the iterator and returns all remaining batches.
   var err: ptr GError
   let glist = garrow_record_batch_iterator_to_list(it.toPtr, addr err)
 

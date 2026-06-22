@@ -1,30 +1,35 @@
+## Parquet column statistics.
+##
+## Statistics objects expose min, max, null count, and distinct value count
+## for Parquet column chunks. Used by the scanner for row group pruning.
 import ../core/[ffi, utils]
 import ../column/primitive
 
 arcGObject:
   type
-    Statistics* = object
+    Statistics* = object ## Base statistics for a Parquet column chunk.
       handle*: ptr GParquetStatistics
 
-    BooleanStatistics* = object
+    BooleanStatistics* = object ## Typed statistics for a Parquet column chunk.
       handle*: ptr GParquetBooleanStatistics
 
-    Int32Statistics* = object
+    Int32Statistics* = object ## Typed statistics for a Parquet column chunk.
       handle*: ptr GParquetInt32Statistics
 
-    Int64Statistics* = object
+    Int64Statistics* = object ## Typed statistics for a Parquet column chunk.
       handle*: ptr GParquetInt64Statistics
 
-    FloatStatistics* = object
+    FloatStatistics* = object ## Typed statistics for a Parquet column chunk.
       handle*: ptr GParquetFloatStatistics
 
-    DoubleStatistics* = object
+    DoubleStatistics* = object ## Typed statistics for a Parquet column chunk.
       handle*: ptr GParquetDoubleStatistics
 
-    ByteArrayStatistics* = object
+    ByteArrayStatistics* = object ## Typed statistics for a Parquet column chunk.
       handle*: ptr GParquetByteArrayStatistics
 
     FixedLengthByteArrayStatistics* = object
+      ## Typed statistics for a Parquet column chunk.
       handle*: ptr GParquetFixedLengthByteArrayStatistics
 
 proc newStatistics*(handle: ptr GParquetStatistics): Statistics =
@@ -226,9 +231,8 @@ proc toFixedLengthByteArrayStatistics*(s: Statistics): FixedLengthByteArrayStati
 # ============================================================================
 
 arcGObject:
-  type
-    ArrayStatistics* = object
-      handle*: ptr GArrowArrayStatistics
+  type ArrayStatistics* = object
+    handle*: ptr GArrowArrayStatistics
 
 proc newArrayStatistics*(arr: Array): ArrayStatistics =
   result.handle = garrow_array_get_statistics(arr.handle)

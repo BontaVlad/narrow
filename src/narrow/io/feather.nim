@@ -1,3 +1,7 @@
+## Feather (Arrow IPC) file format reading and writing.
+##
+## Feather is the Arrow IPC file format on disk. Use `readFeather`/`writeFeather`
+## or the `FeatherReader` type for direct access.
 import ../core/[ffi, error]
 import ../tabular/table
 import ./filesystem
@@ -8,14 +12,14 @@ import ./filesystem
 
 type
   FeatherReader* = object
-    ## Reader for Feather file format
-    ## Wraps GArrowFeatherFileReader
+    ## Reader for Feather file format.
+    ## Wraps GArrowFeatherFileReader.
     handle: ptr GArrowFeatherFileReader
     stream: SeekableInputStream
 
   FeatherWriteProperties* = object
-    ## Properties for writing Feather files (compression, etc.)
-    ## Wraps GArrowFeatherWriteProperties
+    ## Properties for writing Feather files (compression, etc.).
+    ## Wraps GArrowFeatherWriteProperties.
     handle: ptr GArrowFeatherWriteProperties
 
 # ============================================================================

@@ -1,3 +1,8 @@
+## Parquet file reading and writing.
+##
+## Parquet is a columnar storage format with efficient compression and
+## encoding. Use `readTable`/`writeTable` for simple cases, or `FileReader`/
+## `FileWriter` for fine-grained control over row groups and columns.
 import std/[options, sequtils, sets]
 import ../core/[ffi, error, utils]
 import ../types/[gtypes]
@@ -9,29 +14,34 @@ import ../compute/[acero, expressions, statistics]
 arcGObject:
   type
     FileReader* = object
+      ## Reader for Parquet files. Supports reading full tables, individual row groups, or single columns.
       handle*: ptr GParquetArrowFileReader
 
     FileWriter* = object
+      ## Writer for Parquet files. Supports configurable compression via `WriterProperties`.
       handle*: ptr GParquetArrowFileWriter
 
     WriterProperties* = object
+      ## Configuration for Parquet writing: compression codec, row group size, etc.
       handle*: ptr GParquetWriterProperties
 
     # Metadata Types
     ColumnChunkMetadata* = object
+      ## Metadata for a single column chunk within a row group.
       handle*: ptr GParquetColumnChunkMetadata
 
-    FileMetadata* = object
+    FileMetadata* = object ## Metadata for an entire Parquet file.
       handle*: ptr GParquetFileMetadata
 
 # RowGroupMetadata manually managed to work around Arrow GLib bug:
 # dispose is never assigned (only finalize), so owner FileMetadata
 # is never unreffed and raw C++ pointer is never freed.
-type
-  RowGroupMetadata* = object
-    handle*: ptr GParquetRowGroupMetadata
+type RowGroupMetadata* = object ## Metadata for a single row group.
+  handle*: ptr GParquetRowGroupMetadata
 
-proc getRowGroupPrivateOwner*(handle: ptr GParquetRowGroupMetadata): ptr GParquetFileMetadata =
+proc getRowGroupPrivateOwner*(
+    handle: ptr GParquetRowGroupMetadata
+): ptr GParquetFileMetadata =
   # G_DEFINE_TYPE_WITH_PRIVATE puts private data at offset -16 from object pointer
   let priv = cast[pointer](cast[uint](handle) - 16)
   # Private struct layout: metadata (ptr), owner (ptr)
@@ -66,15 +76,16 @@ proc `=copy`*(dest: var RowGroupMetadata, src: RowGroupMetadata) =
 proc toPtr*(rgm: RowGroupMetadata): ptr GParquetRowGroupMetadata {.inline.} =
   rgm.handle
 
-type Writable* =
-  concept w
-      w.schema is Schema
-      w.toPtr is ptr GArrowTable | ptr GArrowRecordBatch
+type Writable* = concept w
+  w.schema is Schema
+  w.toPtr is ptr GArrowTable | ptr GArrowRecordBatch
 
 proc newFileReader*(sis: SeekableInputStream): FileReader =
+  ## Creates a Parquet file reader from a seekable input stream.
   result.handle = verify gparquet_arrow_file_reader_new_arrow(sis.toPtr)
 
 proc newFileReader*(uri: string): FileReader =
+  ## Creates a Parquet file reader from a file URI.
   result.handle = verify gparquet_arrow_file_reader_new_path(uri)
 
 proc schema*(pfr: FileReader): Schema =
@@ -85,9 +96,11 @@ func nRowGroups*(pfr: FileReader): int {.inline.} =
   gparquet_arrow_file_reader_get_n_row_groups(pfr.toPtr)
 
 func nRows*(pfr: FileReader): int64 {.inline.} =
+  ## Returns the number of rows in the file.
   gparquet_arrow_file_reader_get_n_rows(pfr.toPtr)
 
 proc close*(pfr: FileReader) =
+  ## Closes the reader.
   gparquet_arrow_file_reader_close(pfr.toPtr)
 
 proc readRowGroup*(pfr: FileReader, rowGroupIndex: int): ArrowTable =
@@ -132,16 +145,19 @@ proc metadata*(reader: FileReader): FileMetadata =
   #   discard g_object_ref(handle)
 
 proc newFileWriter*(uri: string, schema: Schema, wp: WriterProperties): FileWriter =
+  ## Creates a Parquet file writer writing to a file URI.
   result.handle =
     verify gparquet_arrow_file_writer_new_path(schema.toPtr, uri.cstring, wp.toPtr)
 
 proc newFileWriter*(
     snk: OutputStream, schema: Schema, wp: WriterProperties
 ): FileWriter =
+  ## Creates a Parquet file writer writing to an output stream.
   result.handle =
     verify gparquet_arrow_file_writer_new_arrow(schema.toPtr, snk.toPtr, wp.toPtr)
 
 proc close*(fw: FileWriter) =
+  ## Closes the writer, finalizing the file footer. Must be called.
   verify gparquet_arrow_file_writer_close(fw.toPtr)
 
 proc newRowGroup*(fw: FileWriter) =
@@ -151,9 +167,7 @@ proc newBufferedRowGroup*(fw: FileWriter) =
   verify gparquet_arrow_file_writer_new_buffered_row_group(fw.toPtr)
 
 proc writeChunkedArray*(fw: FileWriter, chunkedArray: ChunkedArray) =
-  verify gparquet_arrow_file_writer_write_chunked_array(
-    fw.toPtr, chunkedArray.handle
-  )
+  verify gparquet_arrow_file_writer_write_chunked_array(fw.toPtr, chunkedArray.handle)
 
 proc writeRecordBatch*(fw: FileWriter, rb: RecordBatch) =
   verify gparquet_arrow_file_writer_write_record_batch(fw.toPtr, rb.toPtr)
@@ -192,6 +206,7 @@ proc `dataPageSize=`*(wp: var WriterProperties, size: int64) =
 proc setCompression*(
     wp: WriterProperties, path: string, compression: GArrowCompressionType
 ) =
+  ## Sets the compression codec for a specific column.
   gparquet_writer_properties_set_compression(wp.handle, compression, path.cstring)
 
 func compression*(
@@ -345,6 +360,7 @@ proc filterRowGroups*(
       result.add(i)
 
 proc readTable*(uri: string): ArrowTable =
+  ## Reads a Parquet file into an `ArrowTable`.
   let reader = newFileReader(uri)
   let handle = verify gparquet_arrow_file_reader_read_table(reader.toPtr)
   result = newArrowTable(handle)
@@ -441,6 +457,7 @@ proc writeTable*[T: Writable](
     chunk_size: int = 65536,
     wp: WriterProperties = newWriterProperties(),
 ) =
+  ## Writes a table to a Parquet file.
   let writer = newFileWriter(uri, writable.schema, wp)
   defer:
     writer.close()

@@ -1,3 +1,7 @@
+## Type casting for arrays, chunked arrays, and tables.
+##
+## `castTo` produces a new array with a different data type. `castTable`
+## casts specific columns in a table, passing through unchanged columns.
 import std/[options, tables]
 import ../core/[ffi, error, utils]
 import ../types/[gtypes, glist]
@@ -13,6 +17,7 @@ import ./functions
 
 arcGObject:
   type CastOptions* = object
+    ## Options for cast operations: overflow, truncation, and error behavior.
     handle*: ptr GArrowCastOptions
 
 # ============================================================================
@@ -20,6 +25,7 @@ arcGObject:
 # ============================================================================
 
 proc newCastOptions*(): CastOptions =
+  ## Create default cast options.
   let handle = garrow_cast_options_new()
   if isNil(handle):
     raise newException(IOError, "Failed to create CastOptions")
@@ -103,12 +109,14 @@ proc `toDataType=`*(options: CastOptions, value: GADType) =
 proc castTo*(
     arr: Array, gtype: GADType, options: CastOptions = newCastOptions()
 ): Array[void] =
+  ## Cast an array to a different data type (untyped result).
   let handle = verify garrow_array_cast(arr.toPtr, gtype.toPtr, options.toPtr)
   result = newArray[void](handle)
 
 proc castTo*[T: ArrowValue](
     arr: Array, options: CastOptions = newCastOptions()
 ): Array[T] =
+  ## Cast an array to a typed `Array[T]` using `T`'s Arrow data type.
   let gtype = newGType(T)
   let handle = verify garrow_array_cast(arr.toPtr, gtype.toPtr, options.toPtr)
   result = newArray[T](handle)
@@ -116,11 +124,12 @@ proc castTo*[T: ArrowValue](
 proc castChunks*(
     chunkedArray: ChunkedArray, gtype: GADType, options: CastOptions = newCastOptions()
 ): ChunkedArray[void] =
-    var opts = options
-    opts.toDataType = gtype
-    let arg = newDatum(chunkedArray)
-    let datum = call("cast", arg, options = toFunctionOptions(opts))
-    result = datum.toChunkedArray
+  ## Cast each chunk of a chunked array to a new data type.
+  var opts = options
+  opts.toDataType = gtype
+  let arg = newDatum(chunkedArray)
+  let datum = call("cast", arg, options = toFunctionOptions(opts))
+  result = datum.toChunkedArray
 
 proc castTable*(
     table: ArrowTable,

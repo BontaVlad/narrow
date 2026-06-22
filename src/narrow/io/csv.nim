@@ -1,3 +1,8 @@
+## CSV file reading and writing.
+##
+## Use `readCSV` to read a CSV file into an `ArrowTable` with automatic type
+## inference, or `writeCsv` to write a table to CSV. `CsvReadOptions` and
+## `WriteOptions` control parsing and formatting behavior.
 import std/[strformat, options, tables, sets, sequtils, strutils]
 import ../core/[ffi, error]
 import ../types/gtypes
@@ -7,23 +12,24 @@ import ./filesystem
 
 type
   CsvReadOptions* = object
+    ## Options for CSV reading: delimiter, header row, column types, etc.
     handle*: ptr GArrowCSVReadOptions
     schema*: Option[Schema]
 
   WriteOptions* = object
+    ## Options for CSV writing: header inclusion, batch size, delimiter, etc.
     includeHeader*: bool
     batchSize*: int
     delimiter*: char
     nullString*: string
     eol*: string
 
-  Writable* =
-    concept w
-        w.nRows is int64
-        w.nColumns is int
-        slice(w, int64, int64) is typed
-        for col in w.columns:
-          col is Field
+  Writable* = concept w
+    w.nRows is int64
+    w.nColumns is int
+    slice(w, int64, int64) is typed
+    for col in w.columns:
+      col is Field
 
 proc newCsvReadOptions*(
     allowNewlinesInValues: Option[bool] = none(bool),
@@ -41,6 +47,7 @@ proc newCsvReadOptions*(
     quoteCharacter: Option[char] = none(char),
     useThreads: Option[bool] = none(bool),
 ): CsvReadOptions =
+  ## Creates `CsvReadOptions` with optional property overrides.
   let handle = garrow_csv_read_options_new()
   if handle.isNil:
     raise newException(IOError, "Failed to create CsvReadOptions")
@@ -302,6 +309,7 @@ proc setFalseValues*(options: CsvReadOptions, values: openArray[string]) =
   )
 
 proc readCSV*(uri: string, options: CsvReadOptions): ArrowTable =
+  ## Reads a CSV file into an `ArrowTable` using the given options.
   let scheme = g_uri_peek_scheme(uri)
   var fullUri = uri
   if $scheme == "":
@@ -331,12 +339,14 @@ proc readCSV*(uri: string, options: CsvReadOptions): ArrowTable =
         result = result.removeColumn(k)
 
 proc readCSV*(uri: string): ArrowTable =
+  ## Reads a CSV file into an `ArrowTable` with default options.
   let options = newCsvReadOptions()
   return readCSV(uri, options)
 
 proc newWriteOptions*(
     includeHeader = true, batchSize = 1024, delimiter = ',', nullString = "", eol = "\n"
 ): WriteOptions =
+  ## Creates `WriteOptions` with the given formatting parameters.
   WriteOptions(
     includeHeader: includeHeader,
     batchSize: batchSize,
@@ -370,6 +380,7 @@ template formatCell(col: typed, rowIdx: int): string =
     ""
 
 proc writeCsv*[T: Writable](writable: T, options: WriteOptions, output: OutputStream) =
+  ## Writes a table to an output stream as CSV.
   let columns = writable.columns.toSeq
   if options.includeHeader:
     var columnNames = newSeq[string](columns.len)
@@ -448,6 +459,7 @@ proc writeCsv*[T: Writable](writable: T, options: WriteOptions, output: OutputSt
 proc writeCsv*[T: Writable](
     uri: string, writable: T, options: WriteOptions = newWriteOptions()
 ) =
+  ## Writes a table to a CSV file at the given URI.
   let scheme = g_uri_peek_scheme(uri)
   var fullUri = uri
   if $scheme == "":

@@ -1,3 +1,7 @@
+## Nested Arrow types: lists, maps, and structs.
+##
+## `ListArray` stores variable-length lists. `MapArray` stores key-value pairs.
+## `StructArray` stores named fields. Each has a corresponding builder.
 import std/[options, strformat, macros, strutils, sequtils]
 import ../core/[ffi, error, utils]
 import ../types/[gtypes, glist]
@@ -7,7 +11,7 @@ import ./[primitive, metadata]
 # ListArray
 # ============================================================================
 
-type ListArray*[T] = object
+type ListArray*[T] = object ## An array of variable-length lists of type `T`.
   handle: ptr GArrowListArray
 
 proc toPtr*[T](arr: ListArray[T]): ptr GArrowListArray {.inline.} =
@@ -129,7 +133,7 @@ proc `==`*[T](a, b: ListArray[T]): bool =
 # ListArrayBuilder
 # ============================================================================
 
-type ListArrayBuilder*[T: ArrowValue] = object
+type ListArrayBuilder*[T: ArrowValue] = object ## Builder for `ListArray[T]`.
   handle: ptr GArrowListArrayBuilder
 
 proc `=destroy`*[T](builder: ListArrayBuilder[T]) =
@@ -178,10 +182,10 @@ proc finish*[T](builder: ListArrayBuilder[T]): ListArray[T] =
 # ============================================================================
 
 type
-  MapDataType* = object
+  MapDataType* = object ## Data type for a map: key type and value type.
     handle: ptr GArrowMapDataType
 
-  MapArray*[K, V] = object
+  MapArray*[K, V] = object ## An array of key-value map entries.
     handle: ptr GArrowMapArray
 
 proc toPtr*(dt: MapDataType): ptr GArrowMapDataType {.inline.} =
@@ -345,6 +349,7 @@ proc `$`*[K, V](arr: MapArray[K, V]): string =
 # ============================================================================
 
 type MapArrayBuilder*[K: ArrowValue, V: ArrowValue] = object
+  ## Builder for `MapArray[K, V]`.
   handle: ptr GArrowMapArrayBuilder
 
 proc `=destroy`*[K, V](builder: MapArrayBuilder[K, V]) =
@@ -405,6 +410,7 @@ type
     handle*: ptr GArrowStructDataType
 
   StructArray* = object
+    ## An array of named fields, like a record batch but without a schema object.
     handle: ptr GArrowStructArray
 
   StructBuilder* = object
@@ -711,6 +717,7 @@ proc `$`*(sa: StructArray): string =
 arcGObject:
   type
     LargeListArray* = object
+      ## An array of variable-length lists supporting > 2GB of data.
       handle*: ptr GArrowLargeListArray
 
     LargeListArrayBuilder* = object
@@ -730,8 +737,8 @@ proc getValueBuilder*(builder: var LargeListArrayBuilder): ptr GArrowArrayBuilde
   result = garrow_large_list_array_builder_get_value_builder(builder.handle)
 
 proc finish*(builder: LargeListArrayBuilder): LargeListArray =
-  let handle = verify garrow_array_builder_finish(
-    cast[ptr GArrowArrayBuilder](builder.handle))
+  let handle =
+    verify garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](builder.handle))
   result.handle = cast[ptr GArrowLargeListArray](handle)
 
 func len*(arr: LargeListArray): int =

@@ -1,3 +1,8 @@
+## Sorting and selection (take) operations.
+##
+## `sortIndices` returns the indices that would sort an array or table.
+## `take` selects elements by index. `sortBy` combines both for convenient
+## table sorting by column name.
 import ../core/[ffi, error, utils]
 import ../types/[gtypes, glist]
 import ../column/primitive
@@ -7,19 +12,19 @@ import ../tabular/[table, batch]
 # Type Definitions
 # ============================================================================
 
-type SortOrder* = enum
+type SortOrder* = enum ## Sort direction: `Ascending` or `Descending`.
   Ascending = GARROW_SORT_ORDER_ASCENDING
   Descending = GARROW_SORT_ORDER_DESCENDING
 
 arcGObject:
   type
-    SortKey* = object
+    SortKey* = object ## A column name and sort order pair.
       handle*: ptr GArrowSortKey
 
-    SortOptions* = object
+    SortOptions* = object ## Options for multi-key sorting.
       handle*: ptr GArrowSortOptions
 
-    TakeOptions* = object
+    TakeOptions* = object ## Options for the take operation.
       handle*: ptr GArrowTakeOptions
 
 # ============================================================================
@@ -27,6 +32,7 @@ arcGObject:
 # ============================================================================
 
 proc newSortKey*(name: string, order: SortOrder = Ascending): SortKey =
+  ## Create a sort key from a column name and optional sort order.
   let handle = verify garrow_sort_key_new(name.cstring, order.GArrowSortOrder)
   result.handle = handle
 
@@ -110,20 +116,21 @@ proc sortBy*(table: ArrowTable, keys: openArray[(string, SortOrder)]): ArrowTabl
 # ============================================================================
 
 proc sortIndices*(rb: RecordBatch, keys: openArray[SortKey]): Array[uint64] =
+  ## Return indices that would sort the record batch by the given sort keys.
   ensureComputeInitialized()
   let options = newSortOptions(keys)
   let handle = verify garrow_record_batch_sort_indices(rb.toPtr, options.toPtr)
   result = newArray[uint64](cast[ptr GArrowArray](handle))
 
 proc take*(rb: RecordBatch, indices: Array[uint64]): RecordBatch =
+  ## Return a new record batch with rows selected by the given indices.
   ensureComputeInitialized()
   let options = newTakeOptions()
-  let handle = verify garrow_record_batch_take(
-    rb.toPtr, indices.toPtr, options.toPtr)
+  let handle = verify garrow_record_batch_take(rb.toPtr, indices.toPtr, options.toPtr)
   result = newRecordBatch(handle)
 
-proc sortBy*(rb: RecordBatch,
-              keys: openArray[(string, SortOrder)]): RecordBatch =
+proc sortBy*(rb: RecordBatch, keys: openArray[(string, SortOrder)]): RecordBatch =
+  ## Sort a record batch by the given column names and orders.
   var sortKeys = newSeq[SortKey](keys.len)
   for i, (name, order) in keys:
     sortKeys[i] = newSortKey(name, order)
@@ -135,11 +142,15 @@ proc sortBy*(rb: RecordBatch,
 # ============================================================================
 
 proc sortToIndices*[T](arr: Array[T]): Array[uint64] =
+  ## Return indices that would sort the array (Acero sort-to-indices).
   let handle = verify garrow_array_sort_to_indices(arr.toPtr)
   result = newArray[uint64](cast[ptr GArrowArray](handle))
 
-proc takeChunkedArray*[T](arr: Array[T], indices: ChunkedArray[uint64],
-    options: TakeOptions = newTakeOptions()): ChunkedArray[void] =
-  let rawHandle = verify garrow_array_take_chunked_array(
-    arr.toPtr, indices.toPtr, options.toPtr)
+proc takeChunkedArray*[T](
+    arr: Array[T],
+    indices: ChunkedArray[uint64],
+    options: TakeOptions = newTakeOptions(),
+): ChunkedArray[void] =
+  let rawHandle =
+    verify garrow_array_take_chunked_array(arr.toPtr, indices.toPtr, options.toPtr)
   newChunkedArray[void](rawHandle)

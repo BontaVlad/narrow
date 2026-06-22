@@ -1,7 +1,12 @@
+## Arrow buffers — contiguous memory regions backing arrays.
+##
+## Buffers hold the raw data, validity bitmap, and offsets for Arrow arrays.
+## They are the lowest-level building block of the columnar format.
 import ../core/[ffi, utils]
 
 arcGObject:
   type GBuffer* = object
+    ## Wrapper for an Arrow `GArrowBuffer`, a contiguous region of bytes.
     handle*: ptr GArrowBuffer
 
 proc newBuffer*(data: pointer, size: int64): GBuffer =

@@ -1,3 +1,8 @@
+## Typed Arrow arrays, array builders, and chunked arrays.
+##
+## This module provides `Array[T]`, `ArrayBuilder[T]`, and `ChunkedArray[T]` —
+## the core columnar data structures used throughout narrow. All arrays are
+## immutable; use `ArrayBuilder` to construct them.
 import std/[options, strformat]
 import ../core/[ffi, error, utils]
 import ../types/[gtypes, glist]
@@ -9,9 +14,11 @@ import ./buffer
 
 type
   ArrayBuilder*[T: ArrowValue] = object
+    ## Builder for constructing typed Arrow arrays. Append values one at a time or in bulk, then call `finish()` to produce an immutable `Array`.
     handle: ptr GArrowArrayBuilder
 
   Array*[T: ArrowValue = void] = object
+    ## An immutable, typed Arrow array. Element type `T` is inferred at construction. Use `[]` for element access, `len` for length.
     handle: ptr GArrowArray
 
 func toPtr*[T](b: ArrayBuilder[T]): ptr GArrowArrayBuilder {.inline.} =
@@ -69,9 +76,11 @@ proc toUntyped*[T: ArrowValue](arr: Array[T]): Array =
 # ============================================================================
 
 proc newArrayBuilder*[T](builderPtr: ptr GArrowArrayBuilder): ArrayBuilder[T] =
+  ## Wrap an existing C builder handle.
   result.handle = cast[ptr GArrowArrayBuilder](builderPtr)
 
 proc newArrayBuilder*[T](): ArrayBuilder[T] =
+  ## Create a new empty array builder for type `T`.
   var handle: gpointer
 
   when T is bool:
@@ -181,12 +190,19 @@ proc append*[T](builder: ArrayBuilder[T], val: sink T) =
     )
   elif T is seq[byte]:
     let gb = g_bytes_new(
-      if val.len > 0: cast[pointer](val[0].unsafeAddr) else: nil, val.len.csize_t)
+      if val.len > 0:
+        cast[pointer](val[0].unsafeAddr)
+      else:
+        nil,
+      val.len.csize_t,
+    )
     verify garrow_binary_array_builder_append_value_bytes(
-      cast[ptr GArrowBinaryArrayBuilder](builder.handle), gb)
+      cast[ptr GArrowBinaryArrayBuilder](builder.handle), gb
+    )
     g_bytes_unref(gb)
 
 proc appendNull*[T](builder: ArrayBuilder[T]) =
+  ## Append a null value to the builder.
   when T is bool:
     verify garrow_boolean_array_builder_append_null(
       cast[ptr GArrowBooleanArrayBuilder](builder.handle)
@@ -245,6 +261,7 @@ proc append*[T](builder: ArrayBuilder[T], val: sink Option[T]) =
     builder.appendNull()
 
 proc appendValues*[T](builder: ArrayBuilder[T], values: openArray[T]) =
+  ## Append multiple values at once. More efficient than repeated `append` calls.
   if len(values) == 0:
     return
 
@@ -424,6 +441,7 @@ proc appendValues*[T](builder: ArrayBuilder[T], values: Array[T]) =
       builder.append(val)
 
 proc finish*[T](builder: ArrayBuilder[T]): Array[T] =
+  ## Build and return the finished `Array`. The builder is reset.
   let handle = verify garrow_array_builder_finish(builder.handle)
   result.handle = handle
 
@@ -432,12 +450,14 @@ proc finish*[T](builder: ArrayBuilder[T]): Array[T] =
 # ============================================================================
 
 proc newArray*[T](values: sink seq[T]): Array[T] =
+  ## Create an array from a Nim sequence.
   let builder = newArrayBuilder[T]()
   if len(values) != 0:
     builder.appendValues(values)
   result = builder.finish()
 
 proc newArray*[T](values: sink seq[T], mask: openArray[bool]): Array[T] =
+  ## Create an array with a validity mask. `true` in the mask marks a null.
   let builder = newArrayBuilder[T]()
   for i in 0 ..< values.len:
     if mask[i]:
@@ -452,6 +472,7 @@ proc newArray*[T](gptr: pointer): Array[T] =
   result.handle = rawPtr
 
 proc newArray*[T](handle: ptr GArrowArray): Array[T] =
+  ## Wrap an existing C array handle.
   result.handle = handle
 
 proc toTyped*[T: ArrowValue](arr: Array): Array[T] =
@@ -495,9 +516,11 @@ proc `==`*[T](a: Array[T], b: openArray[T]): bool =
   return true
 
 proc len*(ar: Array): int =
+  ## Returns the number of rows in the array.
   return garrow_array_get_length(ar.handle)
 
 proc `[]`*[T](arr: Array[T], i: int): T =
+  ## Returns the element at index `i`. Raises `IndexDefect` on out-of-bounds.
   if len(arr) == 0:
     raise newException(IndexDefect, "Empty array")
   if i < 0:
@@ -534,8 +557,8 @@ proc `[]`*[T](arr: Array[T], i: int): T =
       garrow_string_array_get_string(cast[ptr GArrowStringArray](arr.handle), i)
     return $newGString(cstr, owned = true)
   elif T is seq[byte]:
-    let gb = garrow_binary_array_get_value(
-      cast[ptr GArrowBinaryArray](arr.handle), i.gint64)
+    let gb =
+      garrow_binary_array_get_value(cast[ptr GArrowBinaryArray](arr.handle), i.gint64)
     var size: gsize
     let data = g_bytes_get_data(gb, addr size)
     let sz = int(size)
@@ -548,6 +571,7 @@ proc `[]`*[T](arr: Array[T], i: int): T =
     {.error: "Unsupported array type for indexing".}
 
 proc `[]`*[T](arr: Array[T], slice: HSlice[int, int]): Array[T] =
+  ## Returns a zero-copy slice covering `slice.a` to `slice.b`. The slice shares data with the base array.
   if slice.a < 0 or slice.b < 0:
     raise newException(IndexDefect, "Negative indexes are not supported")
   if slice.a > slice.b:
@@ -560,10 +584,12 @@ proc `[]`*[T](arr: Array[T], slice: HSlice[int, int]): Array[T] =
   result.handle = garrow_array_slice(arr.handle, offset.gint64, length.gint64)
 
 iterator items*[T](arr: Array[T]): T =
+  ## Iterates over all elements of the array.
   for i in 0 ..< arr.len:
     yield arr[i]
 
 proc isNull*(arr: Array, i: int): bool =
+  ## Returns whether the `i`-th value is null.
   if i < 0:
     raise newException(IndexDefect, "Negative indexes are not supported")
   if i > len(arr):
@@ -571,6 +597,7 @@ proc isNull*(arr: Array, i: int): bool =
   return garrow_array_is_null(arr.handle, i) != 0
 
 proc isValid*(arr: Array, i: int): bool =
+  ## Returns whether the `i`-th value is valid (not null).
   if i < 0:
     raise newException(IndexDefect, "Negative indexes are not supported")
   if i > len(arr):
@@ -582,6 +609,7 @@ proc nNulls*(arr: Array): int64 =
   result = garrow_array_get_n_nulls(arr.handle)
 
 proc tryGet*[T](arr: Array[T], i: int): Option[T] =
+  ## Returns `some(value)` if the `i`-th element is valid, `none` if null or out of bounds.
   if i < 0 or i >= arr.len:
     return none(T)
   if arr.isNull(i):
@@ -672,6 +700,7 @@ proc `$`*(arr: Array): string =
 # ============================================================================
 
 type ChunkedArray*[T = void] = object
+  ## A columnar data structure composed of one or more `Array` chunks. Useful for data that doesn't fit in a single contiguous buffer.
   handle*: ptr GArrowChunkedArray
 
 proc toPtr*[T](c: ChunkedArray[T] | ChunkedArray): ptr GArrowChunkedArray {.inline.} =
@@ -698,6 +727,7 @@ proc `=copy`*[T](dest: var ChunkedArray[T], src: ChunkedArray[T]) =
       discard g_object_ref(dest.handle)
 
 proc newChunkedArray*[T](chunks: openArray[Array[T]]): ChunkedArray[T] =
+  ## Create a chunked array from one or more typed array chunks.
   let cList = newGList(chunks)
   var handle: ptr GArrowChunkedArray
   if len(cList) == 0:
@@ -723,6 +753,7 @@ proc toTyped*[T: ArrowValue](ca: ChunkedArray): ChunkedArray[T] =
     result.handle = cast[ptr GArrowChunkedArray](g_object_ref(ca.handle))
 
 proc `==`*[T, U](a: ChunkedArray[T], b: ChunkedArray[U]): bool {.inline.} =
+  ## Returns whether two chunked arrays are equal.
   result = garrow_chunked_array_equal(a.toPtr, b.toPtr) != 0
 
 proc getValueDataType*(chunkedArray: ChunkedArray): GADType =
@@ -732,6 +763,7 @@ proc getValueType*(chunkedArray: ChunkedArray): GArrowType =
   result = garrow_chunked_array_get_value_type(chunkedArray.toPtr)
 
 proc len*(chunkedArray: ChunkedArray): int =
+  ## Returns the number of rows in the chunked array.
   result = int(garrow_chunked_array_get_length(chunkedArray.toPtr))
 
 proc nRows*(chunkedArray: ChunkedArray): int64 {.inline.} =
@@ -743,18 +775,22 @@ proc nNulls*(chunkedArray: ChunkedArray): int64 {.inline.} =
   result = garrow_chunked_array_get_n_nulls(chunkedArray.toPtr).int64
 
 proc nChunks*(chunkedArray: ChunkedArray): uint =
+  ## Returns the number of chunks in the chunked array.
   result = garrow_chunked_array_get_n_chunks(chunkedArray.toPtr)
 
 proc getChunk*[T](chunkedArray: ChunkedArray[T], i: uint): Array[T] =
+  ## Returns the chunk at index `i`. Raises `IndexDefect` on out-of-bounds.
   if i.int >= chunkedArray.len:
     raise newException(IndexDefect, "Chunk index out of bounds")
   let handle = garrow_chunked_array_get_chunk(chunkedArray.toPtr, i.guint)
   result.handle = handle
 
 proc getChunks*[T](chunkedArray: ChunkedArray[T]): ptr GList =
+  ## Returns a GList of all chunks. The caller must not free the list.
   result = garrow_chunked_array_get_chunks(chunkedArray.toPtr)
 
 proc slice*(chunkedArray: ChunkedArray, offset: uint64, length: uint64): ChunkedArray =
+  ## Returns a zero-copy slice of the chunked array starting at `offset` with the given `length`.
   let handle =
     garrow_chunked_array_slice(chunkedArray.toPtr, offset.guint64, length.guint64)
   result = ChunkedArray(handle: handle)
@@ -769,6 +805,7 @@ proc `$`*(chunkedArray: ChunkedArray): string =
   result = $newGString(cStr, owned = true)
 
 proc combine*[T](chunkedArray: ChunkedArray[T]): Array[T] =
+  ## Concatenate all chunks into a single contiguous `Array`.
   let handle = verify garrow_chunked_array_combine(chunkedArray.toPtr)
   result.handle = handle
 
@@ -862,14 +899,10 @@ proc newHalfFloatArrayBuilder*(): HGFloatArrayBuilder =
     raise newException(OperationError, "Error creating half-float builder")
 
 proc append*(builder: var HGFloatArrayBuilder, val: sink HalfFloat) =
-  verify garrow_half_float_array_builder_append_value(
-    builder.handle, val.uint16
-  )
+  verify garrow_half_float_array_builder_append_value(builder.handle, val.uint16)
 
 proc appendNull*(builder: var HGFloatArrayBuilder) =
-  verify garrow_array_builder_append_null(
-    cast[ptr GArrowArrayBuilder](builder.handle)
-  )
+  verify garrow_array_builder_append_null(cast[ptr GArrowArrayBuilder](builder.handle))
 
 proc appendValues*(builder: var HGFloatArrayBuilder, values: openArray[HalfFloat]) =
   let len = values.len.gint64
@@ -881,8 +914,8 @@ proc appendValues*(builder: var HGFloatArrayBuilder, values: openArray[HalfFloat
   )
 
 proc finish*(builder: HGFloatArrayBuilder): HGFloatArray =
-  let handle = verify garrow_array_builder_finish(
-    cast[ptr GArrowArrayBuilder](builder.handle))
+  let handle =
+    verify garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](builder.handle))
   result.handle = cast[ptr GArrowHalfFloatArray](handle)
 
 proc newHalfFloatArray*(values: sink seq[HalfFloat]): HGFloatArray =
@@ -891,8 +924,9 @@ proc newHalfFloatArray*(values: sink seq[HalfFloat]): HGFloatArray =
     builder.appendValues(values)
   result = builder.finish()
 
-proc newHalfFloatArray*(values: sink seq[HalfFloat],
-                         mask: openArray[bool]): HGFloatArray =
+proc newHalfFloatArray*(
+    values: sink seq[HalfFloat], mask: openArray[bool]
+): HGFloatArray =
   var builder = newHalfFloatArrayBuilder()
   for i in 0 ..< values.len:
     if i < mask.len and mask[i]:
@@ -908,8 +942,7 @@ func isNull*(arr: HGFloatArray, i: int): bool =
   if i < 0:
     raise newException(IndexDefect, "Negative indexes are not supported")
   if i >= arr.len:
-    raise newException(IndexDefect,
-      fmt"index {i} not in 0 ..< {arr.len}")
+    raise newException(IndexDefect, fmt"index {i} not in 0 ..< {arr.len}")
   garrow_array_is_null(cast[ptr GArrowArray](arr.handle), i.gint64) != 0
 
 func `[]`*(arr: HGFloatArray, i: int): HalfFloat =
@@ -918,8 +951,7 @@ func `[]`*(arr: HGFloatArray, i: int): HalfFloat =
   if i < 0:
     raise newException(IndexDefect, "Negative indexes are not supported")
   if i >= arr.len:
-    raise newException(IndexDefect,
-      fmt"index {i} not in 0 ..< {arr.len}")
+    raise newException(IndexDefect, fmt"index {i} not in 0 ..< {arr.len}")
   HalfFloat(garrow_half_float_array_get_value(arr.handle, i.gint64))
 
 proc `$`*(arr: HGFloatArray): string =
@@ -974,8 +1006,8 @@ proc appendNulls*(builder: var NullArrayBuilder, n: int) =
   verify garrow_null_array_builder_append_nulls(builder.handle, n.gint64)
 
 proc finish*(builder: NullArrayBuilder): NullArray =
-  let handle = verify garrow_array_builder_finish(
-    cast[ptr GArrowArrayBuilder](builder.handle))
+  let handle =
+    verify garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](builder.handle))
   result.handle = cast[ptr GArrowNullArray](handle)
 
 proc newNullArray*(length: int): NullArray =

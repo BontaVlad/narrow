@@ -1,16 +1,21 @@
+## Arrow compute function registry.
+##
+## `call()` invokes a named compute function (e.g., "add", "cast", "sum")
+## with `Datum` arguments. `find()` looks up a function by name; `listFunctions()`
+## enumerates all registered functions.
 import ../core/[ffi, error, utils]
 import ../types/[gtypes, glist]
 import ./expressions
 
 arcGObject:
   type
-    Function* = object
+    Function* = object ## A registered compute function.
       handle: ptr GArrowFunction
 
-    FunctionOptions* = object
+    FunctionOptions* = object ## Base type for function-specific options.
       handle*: ptr GArrowFunctionOptions
 
-    FunctionDoc* = object
+    FunctionDoc* = object ## Documentation metadata for a compute function.
       handle: ptr GArrowFunctionDoc
 
 # ============================================================================
@@ -18,17 +23,20 @@ arcGObject:
 # ============================================================================
 
 proc find*(name: string): Function =
+  ## Look up a compute function by name; raises `ValueError` if not found.
   let handle = garrow_function_find(name.cstring)
   if handle.isNil:
     raise newException(ValueError, "Function not found: " & name)
   result.handle = handle
 
 proc name*(fn: Function): string =
+  ## Returns the name of this compute function.
   let cstr = garrow_function_get_name(fn.handle)
   result = $cstr
   # result = $newGString(cstr)
 
 proc listFunctions*(): seq[Function] =
+  ## Returns all registered compute functions.
   let glist = newGList[ptr GArrowFunction](garrow_function_all())
   result = newSeqOfCap[Function](glist.len)
   for f in glist:

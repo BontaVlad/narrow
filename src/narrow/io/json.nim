@@ -1,3 +1,7 @@
+## Line-delimited JSON (JSONL / NDJSON) reading.
+##
+## Each line must be a JSON object representing one row. Column types are
+## inferred from the JSON structure.
 import ../core/[ffi, error]
 import ../tabular/table
 import ./filesystem
@@ -8,13 +12,14 @@ type
     Error = GARROW_JSON_READ_ERROR
     InferType = GARROW_JSON_READ_INFER_TYPE
 
-  JsonReadOptions* = object
+  JsonReadOptions* = object ## Options for JSON reading.
     handle*: ptr GArrowJSONReadOptions
 
-  JsonReader* = object
+  JsonReader* = object ## Reader for line-delimited JSON files.
     handle*: ptr GArrowJSONReader
 
 proc newJsonReadOptions*(): JsonReadOptions =
+  ## Creates `JsonReadOptions` with default settings.
   let handle = garrow_json_read_options_new()
   if handle.isNil:
     raise newException(IOError, "Failed to create JsonReadOptions")
@@ -23,6 +28,7 @@ proc newJsonReadOptions*(): JsonReadOptions =
 proc newJsonReadOptions*(
     unexpectedFieldBehavior: JsonUnexpectedFieldBehavior
 ): JsonReadOptions =
+  ## Creates `JsonReadOptions` with a specified unexpected-field behavior.
   let handle = garrow_json_read_options_new()
   if handle.isNil:
     raise newException(IOError, "Failed to create JsonReadOptions")
@@ -87,19 +93,23 @@ proc toPtr*(r: JsonReader): ptr GArrowJSONReader {.inline.} =
   r.handle
 
 proc newJsonReader*(stream: InputStream, options: JsonReadOptions): JsonReader =
+  ## Creates a JSON reader from an input stream and read options.
   let handle = verify garrow_json_reader_new(stream.handle, options.handle)
   result.handle = handle
 
 proc read*(reader: JsonReader): ArrowTable =
+  ## Reads all rows from the JSON reader into an `ArrowTable`.
   let tablePtr = verify garrow_json_reader_read(reader.handle)
   result = newArrowTable(tablePtr)
 
 proc readJSON*(uri: string, options: JsonReadOptions): ArrowTable =
+  ## Reads a line-delimited JSON file into an `ArrowTable` using the given options.
   let fs = newFileSystem(uri)
   with fs.openInputStream(uri), stream:
     let reader = newJsonReader(stream, options)
     result = reader.read()
 
 proc readJSON*(uri: string): ArrowTable =
+  ## Reads a line-delimited JSON file into an `ArrowTable` with default options.
   let options = newJsonReadOptions()
   return readJSON(uri, options)

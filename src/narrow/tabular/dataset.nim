@@ -1,3 +1,8 @@
+## Collection of data fragments and potentially child datasets.
+##
+## Arrow Datasets allow you to query against data that has been split across
+## multiple files. This sharding of data may indicate partitioning, which
+## can accelerate queries that only touch some partitions (files).
 import ../core/[ffi, error, utils]
 import ../compute/expressions
 import ../column/metadata
@@ -6,30 +11,30 @@ import ../types/gtypes
 import ./table
 import ./batch
 
-## Collection of data fragments and potentially child datasets.
-##
-## Arrow Datasets allow you to query against data that has been split across
-## multiple files. This sharding of data may indicate partitioning, which
-## can accelerate queries that only touch some partitions (files).
 arcGObject:
   type
     Dataset* = object
+      ## Collection of data fragments and potentially child
+      ## datasets. Supports querying data split across multiple files.
       handle: ptr GADatasetDataset
 
-    FileSystemDataset* = object
+    FileSystemDataset* = object ## A dataset backed by files on a filesystem.
       handle: ptr GADatasetFileSystemDataset
 
 type
   Fragment* {.inheritable.} = object
+    ## A portion of a dataset. Fragment is the
+    ## unit of parallelism for scanning.
     handle: ptr GADatasetFragment
 
   InMemoryFragment* = object of Fragment
+    ## A fragment backed by in-memory
+    ## record batches.
 
 arcGObject:
   type
     Scanner* = object
       ## The execution engine for reading dataset fragments.
-      ##
       ## A Scanner walks over the fragments in a Dataset, applies push-down
       ## filtering (using file statistics and partition pruning), and produces
       ## `RecordBatch`es or a materialized `ArrowTable`. For single-file reads,
@@ -39,7 +44,6 @@ arcGObject:
 
     ScannerBuilder* = object
       ## A configurator / factory for creating a `Scanner`.
-      ##
       ## Set scan options (such as a filter expression) on the builder, then
       ## call `finish()` to produce an immutable `Scanner`. This separation
       ## allows Arrow to apply optimizations (e.g., skipping Parquet row groups
@@ -53,6 +57,8 @@ type
     Parquet
 
   FileFormat* = object
+    ## Defines the file format (Parquet, CSV, IPC) for
+    ## dataset discovery and writing.
     handle: ptr GADatasetFileFormat
     kind*: FileFormatTp
 
@@ -62,9 +68,13 @@ type SegmentEncoding* = enum
 
 type
   DatasetFactory* {.inheritable.} = object
+    ## Factory for discovering and
+    ## creating datasets from multiple sources.
     handle: ptr GADatasetDatasetFactory
 
   FileSystemDatasetFactory* = object of DatasetFactory
+    ## Factory for creating
+    ## datasets from files on a filesystem.
 
 arcGObject:
   type FinishOptions* = object
@@ -72,6 +82,8 @@ arcGObject:
 
 type
   Partitioning* {.inheritable.} = object
+    ## Describes how data is partitioned
+    ## across files. Used for partition pruning during scans.
     handle: ptr GADatasetPartitioning
 
   DirectoryPartitioning* = object of Partitioning
@@ -243,6 +255,7 @@ proc typeName*(ds: Dataset): string =
   result = $newGString(gadataset_dataset_get_type_name(ds.toPtr), owned = true)
 
 proc newFileFormat*(format: FileFormatTp): FileFormat =
+  ## Creates a file format object for the given format type.
   case format
   of CSV:
     result.handle = cast[ptr GADatasetFileFormat](gadataset_csv_file_format_new())
@@ -260,14 +273,15 @@ proc getTypeName*(partitioning: Partitioning): string =
   ## Returns the type name of the partitioning (e.g., "directory", "hive")
   if partitioning.handle == nil:
     return ""
-  result = $newGString(
-    gadataset_partitioning_get_type_name(partitioning.toPtr), owned = true)
+  result =
+    $newGString(gadataset_partitioning_get_type_name(partitioning.toPtr), owned = true)
 
 proc newDefaultPartitioning*(): Partitioning =
   ## Creates a default partitioning scheme (no partitioning)
   result.handle = gadataset_partitioning_create_default()
 
 proc newDirectoryPartitioning*(schema: Schema): DirectoryPartitioning =
+  ## Creates directory-based partitioning (e.g., `/year=2020/month=1/`).
   result.handle = cast[ptr GADatasetPartitioning](verify gadataset_directory_partitioning_new(
     schema.toPtr, nil, nil
   ))
@@ -276,6 +290,7 @@ proc newHivePartitioningOptions*(): HivePartitioningOptions =
   result.handle = gadataset_hive_partitioning_options_new()
 
 proc newHivePartitioning*(schema: Schema): HivePartitioning =
+  ## Creates Hive-style partitioning.
   let opts = newHivePartitioningOptions()
   result.handle = cast[ptr GADatasetPartitioning](verify gadataset_hive_partitioning_new(
     schema.toPtr, nil, opts.toPtr
@@ -336,8 +351,9 @@ proc nullFallback*(partitioning: HivePartitioning): string =
   ## Gets the fallback string for null values from a Hive partitioning
   if partitioning.handle == nil:
     return ""
-  let gstr =
-    newGString(gadataset_hive_partitioning_get_null_fallback(partitioning.toPtr), owned = true)
+  let gstr = newGString(
+    gadataset_hive_partitioning_get_null_fallback(partitioning.toPtr), owned = true
+  )
   if gstr.handle != nil:
     result = $gstr
 
@@ -500,8 +516,8 @@ proc format*(ds: Dataset): FileFormat =
   var formatPtr: ptr GADatasetFileFormat
   g_object_get(ds.toPtr, "format", addr formatPtr, nil)
   if formatPtr != nil:
-    let typeName = $newGString(
-      gadataset_file_format_get_type_name(formatPtr), owned = true)
+    let typeName =
+      $newGString(gadataset_file_format_get_type_name(formatPtr), owned = true)
     let kind =
       case typeName
       of "GArrowCSVFileFormat": CSV

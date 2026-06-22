@@ -1,3 +1,8 @@
+## Expression DSL for compute operations and filtering.
+##
+## `col("name")` creates a column reference; `lit(value)` creates a literal.
+## Combine with operators (`>`, `<`, `==`, `and`, `or`, `+`, `-`, `*`, `/`)
+## to build filter and projection expressions. `Expression` is the result type.
 import std/[strutils, sets, options, parseutils]
 import ../column/primitive
 import ../types/gtypes
@@ -15,7 +20,7 @@ import ../compute/statistics
 # ============================================================================
 
 type
-  DatumKind* = enum
+  DatumKind* = enum ## Tag for the kind of value in a `Datum`.
     dkNone
     dkArray
     dkChunkedArray
@@ -47,8 +52,7 @@ type
     ekField ## A column reference by name
     ekCall ## A function invocation with arguments
 
-  ## Result of evaluating a comparison against known bounds
-  BoundResult* = enum
+  BoundResult* = enum ## Result of evaluating a comparison against known bounds
     brAlwaysTrue ## The comparison is always satisfied given the bounds
     brAlwaysFalse ## The comparison can never be satisfied given the bounds
     brIndeterminate ## Can't determine — must read the data
@@ -58,16 +62,17 @@ type
     handle*: ptr GArrowScalar
     kind*: ScalarKind
 
-  Scalar* = ref ScalarObj
+  Scalar* = ref ScalarObj ## A single typed value.
 
   DatumCompatible* = ArrowPrimitive | Array | ChunkedArray | ArrowTable | RecordBatch
 
   FilterClause* = tuple[field: string, op: string, value: string]
+    ## A boolean expression used as a filter.
 
 arcGObject:
-  type
-    Datum* = object
-      handle: ptr GArrowDatum
+  type Datum* = object
+    ## A polymorphic value: either a `Scalar`, an `Array`, or a `ChunkedArray`.
+    handle: ptr GArrowDatum
 
 type
   ExpressionObj = object
@@ -82,6 +87,7 @@ type
       args*: seq[Expression]
 
   Expression* = ref ExpressionObj
+    ## A symbolic expression over columns and literals. Used for filtering, projection, and compute.
 
 # ============================================================================
 # ARC Hooks — Scalar (ref type, only need destroy for the object)

@@ -1,3 +1,8 @@
+## Scalar reductions and element-wise arithmetic on arrays.
+##
+## `mean`, `sum`, `count` compute scalar statistics. `multiply`, `subtract`,
+## `divide`, `equal`, `greater`, `less` perform element-wise operations
+## returning a `Datum`. `countValues` returns a histogram of distinct values.
 import ../core/[ffi, error, utils]
 import ../types/gtypes
 import ../column/primitive
@@ -9,13 +14,13 @@ import ./functions
 # CountMode & CountOptions
 # ============================================================================
 
-type CountMode* = enum
+type CountMode* = enum ## Mode for counting: all values or only valid (non-null) values.
   OnlyValid = GARROW_COUNT_MODE_ONLY_VALID.int
   OnlyNull = GARROW_COUNT_MODE_ONLY_NULL.int
   All = GARROW_COUNT_MODE_ALL.int
 
 arcGObject:
-  type CountOptions* = object
+  type CountOptions* = object ## Options for the count operation.
     handle*: ptr GArrowCountOptions
 
 proc newCountOptions*(mode: CountMode = All): CountOptions =

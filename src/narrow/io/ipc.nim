@@ -1,3 +1,9 @@
+## Arrow IPC (Inter-Process Communication) format reading and writing.
+##
+## IPC is the native Arrow wire format. The file format (with footer) supports
+## random access; the streaming format is for sequential writes. Use
+## `readIpcFile`/`writeIpcFile` for the file format, or `IpcStreamWriter`/
+## `IpcFileWriter` for streaming.
 import ../core/[ffi, error]
 import ../tabular/[table, batch]
 import ../column/[metadata]
@@ -9,25 +15,25 @@ import ./filesystem
 
 type
   IpcFileReader* = object
-    ## Random-access IPC file format reader
-    ## Wraps GArrowRecordBatchFileReader (separate from RecordBatchReader hierarchy)
+    ## Random-access IPC file format reader.
+    ## Wraps GArrowRecordBatchFileReader (separate from RecordBatchReader hierarchy).
     handle: ptr GArrowRecordBatchFileReader
     stream: SeekableInputStream # Keep stream alive as long as reader exists
 
   IpcStreamWriter* = object
-    ## Streaming IPC format writer
-    ## Wraps GArrowRecordBatchStreamWriter
+    ## Streaming IPC format writer.
+    ## Wraps GArrowRecordBatchStreamWriter.
     handle: ptr GArrowRecordBatchStreamWriter
 
   IpcFileWriter* = object
-    ## File IPC format writer (with footer)
-    ## Wraps GArrowRecordBatchFileWriter (inherits from StreamWriter)
+    ## File IPC format writer (with footer).
+    ## Wraps GArrowRecordBatchFileWriter (inherits from StreamWriter).
     handle: ptr GArrowRecordBatchFileWriter
 
-  IpcWriteOptions* = object
+  IpcWriteOptions* = object ## Options for IPC writing.
     handle: ptr GArrowWriteOptions
 
-  IpcReadOptions* = object
+  IpcReadOptions* = object ## Options for IPC reading.
     handle*: ptr GArrowReadOptions
 
 # ============================================================================

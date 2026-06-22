@@ -1,3 +1,7 @@
+## Union types for heterogeneous nested data.
+##
+## `SparseUnionArray` and `DenseUnionArray` store values that can be one of
+## several types, with a type code per element.
 import ../core/[ffi, error, utils]
 import ../types/[glist, gtypes]
 
@@ -8,9 +12,11 @@ import ../types/[glist, gtypes]
 arcGObject:
   type
     SparseUnionDataType* = object
+      ## Data type for a sparse union: each child field has the full length.
       handle*: ptr GArrowSparseUnionDataType
 
     DenseUnionDataType* = object
+      ## Data type for a dense union: child fields store only referenced values.
       handle*: ptr GArrowDenseUnionDataType
 
 proc newSparseUnionDataType*(
@@ -18,20 +24,20 @@ proc newSparseUnionDataType*(
 ): SparseUnionDataType =
   let fieldList = newGList(@fields)
   result.handle = garrow_sparse_union_data_type_new(
-    fieldList.list, cast[cstring](typeCodes), nTypeCodes.gsize)
+    fieldList.list, cast[cstring](typeCodes), nTypeCodes.gsize
+  )
   if isNil(result.handle):
-    raise newException(OperationError,
-      "Error creating sparse union data type")
+    raise newException(OperationError, "Error creating sparse union data type")
 
 proc newDenseUnionDataType*(
     fields: openArray[ptr GArrowField], typeCodes: ptr int8, nTypeCodes: int
 ): DenseUnionDataType =
   let fieldList = newGList(@fields)
   result.handle = garrow_dense_union_data_type_new(
-    fieldList.list, cast[cstring](typeCodes), nTypeCodes.gsize)
+    fieldList.list, cast[cstring](typeCodes), nTypeCodes.gsize
+  )
   if isNil(result.handle):
-    raise newException(OperationError,
-      "Error creating dense union data type")
+    raise newException(OperationError, "Error creating dense union data type")
 
 # ============================================================================
 # Union Arrays
@@ -40,9 +46,11 @@ proc newDenseUnionDataType*(
 arcGObject:
   type
     SparseUnionArray* = object
+      ## An array whose elements can be one of several types, stored sparsely.
       handle*: ptr GArrowSparseUnionArray
 
     DenseUnionArray* = object
+      ## An array whose elements can be one of several types, stored densely with offsets.
       handle*: ptr GArrowDenseUnionArray
 
 proc newSparseUnionArray*(
@@ -53,32 +61,38 @@ proc newSparseUnionArray*(
   if isNil(result.handle):
     raise newException(OperationError, "Error creating sparse union array")
 
-proc newSparseUnionArray*(dt: SparseUnionDataType,
-    typeIds: ptr GArrowInt8Array, fields: openArray[ptr GArrowArray]
+proc newSparseUnionArray*(
+    dt: SparseUnionDataType,
+    typeIds: ptr GArrowInt8Array,
+    fields: openArray[ptr GArrowArray],
 ): SparseUnionArray =
   let fieldList = newGList(@fields)
-  result.handle = verify garrow_sparse_union_array_new_data_type(
-    dt.handle, typeIds, fieldList.list)
+  result.handle =
+    verify garrow_sparse_union_array_new_data_type(dt.handle, typeIds, fieldList.list)
   if isNil(result.handle):
     raise newException(OperationError, "Error creating sparse union array")
 
-proc newDenseUnionArray*(typeIds: ptr GArrowInt8Array,
+proc newDenseUnionArray*(
+    typeIds: ptr GArrowInt8Array,
     valueOffsets: ptr GArrowInt32Array,
-    fields: openArray[ptr GArrowArray]
+    fields: openArray[ptr GArrowArray],
 ): DenseUnionArray =
   let fieldList = newGList(@fields)
-  result.handle = verify garrow_dense_union_array_new(
-    typeIds, valueOffsets, fieldList.list)
+  result.handle =
+    verify garrow_dense_union_array_new(typeIds, valueOffsets, fieldList.list)
   if isNil(result.handle):
     raise newException(OperationError, "Error creating dense union array")
 
-proc newDenseUnionArray*(dt: DenseUnionDataType,
-    typeIds: ptr GArrowInt8Array, valueOffsets: ptr GArrowInt32Array,
-    fields: openArray[ptr GArrowArray]
+proc newDenseUnionArray*(
+    dt: DenseUnionDataType,
+    typeIds: ptr GArrowInt8Array,
+    valueOffsets: ptr GArrowInt32Array,
+    fields: openArray[ptr GArrowArray],
 ): DenseUnionArray =
   let fieldList = newGList(@fields)
   result.handle = verify garrow_dense_union_array_new_data_type(
-    dt.handle, typeIds, valueOffsets, fieldList.list)
+    dt.handle, typeIds, valueOffsets, fieldList.list
+  )
   if isNil(result.handle):
     raise newException(OperationError, "Error creating dense union array")
 
@@ -97,19 +111,19 @@ arcGObject:
     DenseUnionScalar* = object
       handle*: ptr GArrowDenseUnionScalar
 
-proc newSparseUnionScalar*(dt: SparseUnionDataType, typeCode: int8,
-    value: ptr GArrowScalar): SparseUnionScalar =
+proc newSparseUnionScalar*(
+    dt: SparseUnionDataType, typeCode: int8, value: ptr GArrowScalar
+): SparseUnionScalar =
   result.handle = garrow_sparse_union_scalar_new(dt.handle, typeCode, value)
   if isNil(result.handle):
-    raise newException(OperationError,
-      "Error creating sparse union scalar")
+    raise newException(OperationError, "Error creating sparse union scalar")
 
-proc newDenseUnionScalar*(dt: DenseUnionDataType, typeCode: int8,
-    value: ptr GArrowScalar): DenseUnionScalar =
+proc newDenseUnionScalar*(
+    dt: DenseUnionDataType, typeCode: int8, value: ptr GArrowScalar
+): DenseUnionScalar =
   result.handle = garrow_dense_union_scalar_new(dt.handle, typeCode, value)
   if isNil(result.handle):
-    raise newException(OperationError,
-      "Error creating dense union scalar")
+    raise newException(OperationError, "Error creating dense union scalar")
 
 # ============================================================================
 # Common Accessors
