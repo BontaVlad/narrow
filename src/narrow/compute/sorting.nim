@@ -150,7 +150,7 @@ proc takeChunkedArray*[T](
     arr: Array[T],
     indices: ChunkedArray[uint64],
     options: TakeOptions = newTakeOptions(),
-): ChunkedArray[void] =
+): ChunkedArray[Untyped] =
   let rawHandle =
     verify garrow_array_take_chunked_array(arr.toPtr, indices.toPtr, options.toPtr)
-  newChunkedArray[void](rawHandle)
+  newChunkedArray[Untyped](rawHandle)

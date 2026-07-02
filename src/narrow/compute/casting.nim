@@ -108,10 +108,10 @@ proc `toDataType=`*(options: CastOptions, value: GADType) =
 
 proc castTo*(
     arr: Array, gtype: GADType, options: CastOptions = newCastOptions()
-): Array[void] =
+): Array[Untyped] =
   ## Cast an array to a different data type (untyped result).
   let handle = verify garrow_array_cast(arr.toPtr, gtype.toPtr, options.toPtr)
-  result = newArray[void](handle)
+  result = newArray[Untyped](handle)
 
 proc castTo*[T: ArrowValue](
     arr: Array, options: CastOptions = newCastOptions()
@@ -123,7 +123,7 @@ proc castTo*[T: ArrowValue](
 
 proc castChunks*(
     chunkedArray: ChunkedArray, gtype: GADType, options: CastOptions = newCastOptions()
-): ChunkedArray[void] =
+): ChunkedArray[Untyped] =
   ## Cast each chunk of a chunked array to a new data type.
   var opts = options
   opts.toDataType = gtype
@@ -158,7 +158,7 @@ proc castTable*(
     return table
 
   var fields = newSeq[Field](nCols)
-  var castedChunks = newSeq[ChunkedArray[void]](nCols)
+  var castedChunks = newSeq[ChunkedArray[Untyped]](nCols)
   var touched = newSeq[bool](nCols)
 
   # Process castMap first — build new fields/chunks for changed columns

@@ -17,7 +17,7 @@ type
     ## Builder for constructing typed Arrow arrays. Append values one at a time or in bulk, then call `finish()` to produce an immutable `Array`.
     handle: ptr GArrowArrayBuilder
 
-  Array*[T: ArrowValue = void] = object
+  Array*[T: ArrowValue = Untyped] = object
     ## An immutable, typed Arrow array. Element type `T` is inferred at construction. Use `[]` for element access, `len` for length.
     handle: ptr GArrowArray
 
@@ -706,7 +706,7 @@ proc `$`*(arr: Array): string =
 # ChunkedArray Types
 # ============================================================================
 
-type ChunkedArray*[T = void] = object
+type ChunkedArray*[T = Untyped] = object
   ## A columnar data structure composed of one or more `Array` chunks. Useful for data that doesn't fit in a single contiguous buffer.
   handle*: ptr GArrowChunkedArray
 

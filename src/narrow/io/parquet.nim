@@ -127,10 +127,10 @@ proc readRowGroup*(
   )
   result = newArrowTable(handle)
 
-proc readColumnData*(pfr: FileReader, columnIndex: int): ChunkedArray[void] =
+proc readColumnData*(pfr: FileReader, columnIndex: int): ChunkedArray[Untyped] =
   let handle =
     verify gparquet_arrow_file_reader_read_column_data(pfr.toPtr, columnIndex.gint)
-  result = newChunkedArray[void](handle)
+  result = newChunkedArray[Untyped](handle)
 
 proc `useThreads=`*(pfr: FileReader, useThreads: bool) =
   gparquet_arrow_file_reader_set_use_threads(pfr.toPtr, useThreads.gboolean)
@@ -371,7 +371,7 @@ proc readTable*(uri: string, columns: sink seq[string]): ArrowTable =
   let reader = newFileReader(uri)
   let schema = reader.schema
 
-  var data = newSeqOfCap[ChunkedArray[void]](columns.len)
+  var data = newSeqOfCap[ChunkedArray[Untyped]](columns.len)
   var fields = newSeqOfCap[Field](columns.len)
   for c in columns:
     let idx = schema.getFieldIndex(c)
@@ -415,7 +415,7 @@ proc readTable*(
         newSchema(columns.mapIt(schema[it]))
       else:
         schema
-    result = newArrowTable(resultSchema, newSeq[ChunkedArray[void]]())
+    result = newArrowTable(resultSchema, newSeq[ChunkedArray[Untyped]]())
   else:
     # Build deterministic column indices: requested columns first (in order),
     # then filter-only columns (in schema order)
@@ -443,7 +443,7 @@ proc readTable*(
     # Project to only requested columns
     if columns.len > 0:
       var selectedFields = newSeqOfCap[Field](columns.len)
-      var selectedData = newSeqOfCap[ChunkedArray[void]](columns.len)
+      var selectedData = newSeqOfCap[ChunkedArray[Untyped]](columns.len)
       for c in columns:
         selectedFields.add(schema.tryGetField(c).get())
         selectedData.add(filtered[c])

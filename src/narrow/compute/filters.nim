@@ -130,7 +130,7 @@ proc filter*(
   result = newArrowTable(handle)
 
 proc filter*(
-    table: ArrowTable, filter: ChunkedArray[void], options: FilterOptions
+    table: ArrowTable, filter: ChunkedArray[Untyped], options: FilterOptions
 ): ArrowTable =
   ## Returns a new array containing only elements where the mask is `true`.
   let handle =
@@ -161,7 +161,7 @@ proc filter*(table: ArrowTable, filter: BooleanArray): ArrowTable =
   let options = newFilterOptions()
   result = table.filter(filter, options)
 
-proc filter*(table: ArrowTable, filter: ChunkedArray[void]): ArrowTable =
+proc filter*(table: ArrowTable, filter: ChunkedArray[Untyped]): ArrowTable =
   ## Returns a new array containing only elements where the mask is `true`.
   let options = newFilterOptions()
   result = table.filter(filter, options)

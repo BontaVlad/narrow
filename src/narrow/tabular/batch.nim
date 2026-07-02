@@ -285,7 +285,7 @@ proc isNull*(rb: RecordBatch, rowIdx: int, colIdx: int): bool =
     raise newException(IndexDefect, "Column index out of bounds: " & $colIdx)
 
   let handle = garrow_record_batch_get_column_data(rb.toPtr, colIdx.gint)
-  let colArray = newArray[void](handle)
+  let colArray = newArray[Untyped](handle)
   result = colArray.isNull(rowIdx)
 
 proc isNull*(rb: RecordBatch, rowIdx: int, colName: string): bool =

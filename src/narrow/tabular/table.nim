@@ -361,22 +361,22 @@ proc getColumnData*[T](tbl: ArrowTable, idx: int): ChunkedArray[T] =
   let handle = garrow_table_get_column_data(tbl.handle, idx.gint)
   result = newChunkedArray[T](handle)
 
-proc `[]`*(tbl: ArrowTable, idx: int): ChunkedArray[void] =
+proc `[]`*(tbl: ArrowTable, idx: int): ChunkedArray[Untyped] =
   ## Returns the data of the `idx`-th column.
   let handle = garrow_table_get_column_data(tbl.handle, idx.gint)
-  result = newChunkedArray[void](handle)
+  result = newChunkedArray[Untyped](handle)
 
 proc `[]`*(tbl: ArrowTable, idx: int, T: typedesc): ChunkedArray[T] =
   ## Returns the data of the `idx`-th column typed as `ChunkedArray[T]`.
   result = getColumnData[T](tbl, idx)
 
-proc `[]`*(tbl: ArrowTable, key: string): ChunkedArray[void] =
+proc `[]`*(tbl: ArrowTable, key: string): ChunkedArray[Untyped] =
   ## Returns the data of the named column.
   ## Raises `KeyError` if the column does not exist.
   let schema = tbl.schema
   let idx = schema.getFieldIndex(key)
   let handle = garrow_table_get_column_data(tbl.handle, idx.gint)
-  result = newChunkedArray[void](handle)
+  result = newChunkedArray[Untyped](handle)
 
 proc `[]`*(tbl: ArrowTable, key: string, T: typedesc): ChunkedArray[T] =
   ## Returns the data of the named column typed as `ChunkedArray[T]`.
@@ -404,7 +404,7 @@ proc isNull*(tbl: ArrowTable, rowIdx: int, colIdx: int): bool =
     raise newException(IndexDefect, "Column index out of bounds: " & $colIdx)
 
   let handle = garrow_table_get_column_data(tbl.handle, colIdx.gint)
-  let colArray = newChunkedArray[void](handle)
+  let colArray = newChunkedArray[Untyped](handle)
   result = colArray.isNull(rowIdx)
 
 proc isNull*(tbl: ArrowTable, rowIdx: int, colName: string): bool =

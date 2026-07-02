@@ -22,9 +22,13 @@ type
 
   HalfFloat* = distinct uint16 ## IEEE 754 half-precision (16-bit) float
 
+  Untyped* = object
+    ## Erasure marker: an array/column whose element type is only known at runtime.
+
   ArrowPrimitive* =
-    void | bool | int8 | uint8 | int16 | uint16 | int32 | uint32 | int | int64 | uint64 |
-    float32 | float64 | string | seq[byte] | cstring | Date32 | Date64 | MonthInterval
+    Untyped | bool | int8 | uint8 | int16 | uint16 | int32 | uint32 | int | int64 |
+    uint64 | float32 | float64 | string | seq[byte] | cstring | Date32 | Date64 |
+    MonthInterval
 
   # Integer type groupings (compile-time)
   ArrowSignedInt* = int8 | int16 | int32 | int | int64
@@ -43,7 +47,7 @@ type
   ArrowTime* = object # Placeholder - Time32Array | Time64Array
 
   # Nested types
-  ArrowNested* = StructArray | MapArray | ListArray | ListArray[void]
+  ArrowNested* = StructArray | MapArray | ListArray | ListArray[Untyped]
 
   # Union types - will be added when union types are implemented
 
@@ -353,6 +357,11 @@ proc newGType*(T: typedesc[ArrowPrimitive]): GADType =
     result.handle = cast[ptr GArrowDataType](garrow_binary_data_type_new())
   elif T is cstring:
     result.handle = cast[ptr GArrowDataType](garrow_large_string_data_type_new())
+  elif T is Untyped:
+    raise newException(
+      TypeError,
+      "newGType: Untyped has no static Arrow data type — use dataType(arr) for the runtime tag.",
+    )
   else:
     raise newException(
       TypeError, "newGType: unsupported type for automatic Arrow GType construction."
