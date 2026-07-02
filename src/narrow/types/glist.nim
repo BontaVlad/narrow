@@ -7,7 +7,6 @@ type GAList*[T] = object
 proc toPtr*(g: GAList): ptr GList =
   g.list
 
-
 proc unrefGObject(data: pointer) {.cdecl.} =
   if data != nil:
     g_object_unref(data)

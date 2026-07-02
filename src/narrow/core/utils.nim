@@ -76,9 +76,7 @@ func freshGenericParams(gp: NimNode): NimNode =
       if n.kind == nnkIdent:
         freshNames.add(ident(n.strVal))
       elif n.kind == nnkPostfix and n[1].kind == nnkIdent:
-        freshNames.add(
-          newNimNode(nnkPostfix).add(ident"*", ident(n[1].strVal))
-        )
+        freshNames.add(newNimNode(nnkPostfix).add(ident"*", ident(n[1].strVal)))
     var freshIdentDefs = newNimNode(nnkIdentDefs)
     for name in freshNames:
       freshIdentDefs.add(name)

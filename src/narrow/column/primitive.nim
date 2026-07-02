@@ -71,6 +71,10 @@ proc toUntyped*[T: ArrowValue](arr: Array[T]): Array =
   ## Convert a typed Array to untyped.
   result.handle = arr.handle
 
+proc dataType*(arr: Array): GADType =
+  ## Returns the logical data type of the array.
+  result = newGType(garrow_array_get_value_data_type(arr.handle))
+
 # ============================================================================
 # Array Builders
 # ============================================================================
@@ -477,8 +481,11 @@ proc newArray*[T](handle: ptr GArrowArray): Array[T] =
 
 proc toTyped*[T: ArrowValue](arr: Array): Array[T] =
   ## Convert an untyped (or differently typed) Array to a typed Array.
-  ## This is the key runtime -> compile-time bridge.
+  ## This is the key runtime -> compile-time bridge. The runtime GArrowType
+  ## tag of the handle is checked against `T` before returning; a mismatch
+  ## raises `TypeError`.
   if not isNil(arr.handle):
+    arr.dataType.checkType(T)
     result.handle = cast[ptr GArrowArray](g_object_ref(arr.handle))
 
 proc viewAs*[T: ArrowValue](arr: Array): Array[T] =
@@ -749,7 +756,11 @@ proc newChunkedArray*[T](rawPtr: ptr GArrowChunkedArray): ChunkedArray[T] =
   result.handle = rawPtr
 
 proc toTyped*[T: ArrowValue](ca: ChunkedArray): ChunkedArray[T] =
+  ## Convert an untyped (or differently typed) ChunkedArray to a typed one.
+  ## The runtime GArrowType tag is checked against `T` before returning; a
+  ## mismatch raises `TypeError`.
   if not isNil(ca.handle):
+    ca.getValueDataType.checkType(T)
     result.handle = cast[ptr GArrowChunkedArray](g_object_ref(ca.handle))
 
 proc `==`*[T, U](a: ChunkedArray[T], b: ChunkedArray[U]): bool {.inline.} =

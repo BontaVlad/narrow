@@ -30,9 +30,7 @@ proc toBytes*(d: Decimal128): seq[byte] =
   g_bytes_unref(gb)
 
 proc rescale*(d: Decimal128, originalScale, newScale: int32): Decimal128 =
-  result.handle = verify garrow_decimal128_rescale(
-    d.handle, originalScale, newScale
-  )
+  result.handle = verify garrow_decimal128_rescale(d.handle, originalScale, newScale)
 
 proc toInt*(d: Decimal128): int64 =
   garrow_decimal128_to_integer(d.handle)
@@ -103,9 +101,7 @@ proc toBytes*(d: Decimal256): seq[byte] =
   g_bytes_unref(gb)
 
 proc rescale*(d: Decimal256, originalScale, newScale: int32): Decimal256 =
-  result.handle = verify garrow_decimal256_rescale(
-    d.handle, originalScale, newScale
-  )
+  result.handle = verify garrow_decimal256_rescale(d.handle, originalScale, newScale)
 
 proc `==`*(a, b: Decimal256): bool =
   garrow_decimal256_equal(a.handle, b.handle).bool
@@ -179,11 +175,10 @@ proc scale*(dt: Decimal256DataType): int32 =
 # Decimal128 Array
 # ============================================================================
 
-type
-  Decimal128Array* = object
-    handle: ptr GArrowDecimal128Array
-    precision*: int32
-    scale*: int32
+type Decimal128Array* = object
+  handle: ptr GArrowDecimal128Array
+  precision*: int32
+  scale*: int32
 
 proc `=destroy`*(a: Decimal128Array) =
   if not isNil(a.handle):
@@ -237,11 +232,10 @@ proc `$`*(a: Decimal128Array): string =
 # Decimal128 Array Builder
 # ============================================================================
 
-type
-  Decimal128ArrayBuilder* = object
-    handle: ptr GArrowDecimal128ArrayBuilder
-    precision: int32
-    scale: int32
+type Decimal128ArrayBuilder* = object
+  handle: ptr GArrowDecimal128ArrayBuilder
+  precision: int32
+  scale: int32
 
 proc `=destroy`*(b: Decimal128ArrayBuilder) =
   if not isNil(b.handle):
@@ -267,9 +261,7 @@ proc `=copy`*(dest: var Decimal128ArrayBuilder, src: Decimal128ArrayBuilder) =
     if not isNil(dest.handle):
       discard g_object_ref(dest.handle)
 
-proc newDecimal128ArrayBuilder*(
-    precision, scale: int32
-): Decimal128ArrayBuilder =
+proc newDecimal128ArrayBuilder*(precision, scale: int32): Decimal128ArrayBuilder =
   let dt = newDecimal128DataType(precision, scale)
   result.handle = garrow_decimal128_array_builder_new(dt.handle)
   result.precision = precision
@@ -290,9 +282,8 @@ proc appendNull*(b: var Decimal128ArrayBuilder) =
   verify garrow_array_builder_append_null(cast[ptr GArrowArrayBuilder](b.handle))
 
 proc finish*(b: var Decimal128ArrayBuilder): Decimal128Array =
-  let handle = verify garrow_array_builder_finish(
-    cast[ptr GArrowArrayBuilder](b.handle)
-  )
+  let handle =
+    verify garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](b.handle))
   Decimal128Array(
     handle: cast[ptr GArrowDecimal128Array](handle),
     precision: b.precision,
@@ -303,11 +294,10 @@ proc finish*(b: var Decimal128ArrayBuilder): Decimal128Array =
 # Decimal256 Array
 # ============================================================================
 
-type
-  Decimal256Array* = object
-    handle: ptr GArrowDecimal256Array
-    precision*: int32
-    scale*: int32
+type Decimal256Array* = object
+  handle: ptr GArrowDecimal256Array
+  precision*: int32
+  scale*: int32
 
 proc `=destroy`*(a: Decimal256Array) =
   if not isNil(a.handle):
@@ -361,11 +351,10 @@ proc `$`*(a: Decimal256Array): string =
 # Decimal256 Array Builder
 # ============================================================================
 
-type
-  Decimal256ArrayBuilder* = object
-    handle: ptr GArrowDecimal256ArrayBuilder
-    precision: int32
-    scale: int32
+type Decimal256ArrayBuilder* = object
+  handle: ptr GArrowDecimal256ArrayBuilder
+  precision: int32
+  scale: int32
 
 proc `=destroy`*(b: Decimal256ArrayBuilder) =
   if not isNil(b.handle):
@@ -391,9 +380,7 @@ proc `=copy`*(dest: var Decimal256ArrayBuilder, src: Decimal256ArrayBuilder) =
     if not isNil(dest.handle):
       discard g_object_ref(dest.handle)
 
-proc newDecimal256ArrayBuilder*(
-    precision, scale: int32
-): Decimal256ArrayBuilder =
+proc newDecimal256ArrayBuilder*(precision, scale: int32): Decimal256ArrayBuilder =
   let dt = newDecimal256DataType(precision, scale)
   result.handle = garrow_decimal256_array_builder_new(dt.handle)
   result.precision = precision
@@ -414,9 +401,8 @@ proc appendNull*(b: var Decimal256ArrayBuilder) =
   verify garrow_array_builder_append_null(cast[ptr GArrowArrayBuilder](b.handle))
 
 proc finish*(b: var Decimal256ArrayBuilder): Decimal256Array =
-  let handle = verify garrow_array_builder_finish(
-    cast[ptr GArrowArrayBuilder](b.handle)
-  )
+  let handle =
+    verify garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](b.handle))
   Decimal256Array(
     handle: cast[ptr GArrowDecimal256Array](handle),
     precision: b.precision,
@@ -461,26 +447,32 @@ proc toInt*(d: Decimal32): int64 =
   garrow_decimal32_to_integer(d.handle)
 
 proc rescale*(d: Decimal32, originalScale, newScale: int32): Decimal32 =
-  result.handle = verify garrow_decimal32_rescale(
-    d.handle, originalScale, newScale)
+  result.handle = verify garrow_decimal32_rescale(d.handle, originalScale, newScale)
 
 proc `==`*(a, b: Decimal32): bool =
   garrow_decimal32_equal(a.handle, b.handle).bool
+
 proc `<`*(a, b: Decimal32): bool =
   garrow_decimal32_less_than(a.handle, b.handle).bool
+
 proc `<=`*(a, b: Decimal32): bool =
   garrow_decimal32_less_than_or_equal(a.handle, b.handle).bool
+
 proc `>`*(a, b: Decimal32): bool =
   garrow_decimal32_greater_than(a.handle, b.handle).bool
+
 proc `>=`*(a, b: Decimal32): bool =
   garrow_decimal32_greater_than_or_equal(a.handle, b.handle).bool
 
 proc `+`*(a, b: Decimal32): Decimal32 =
   result.handle = garrow_decimal32_plus(a.handle, b.handle)
+
 proc `-`*(a, b: Decimal32): Decimal32 =
   result.handle = garrow_decimal32_minus(a.handle, b.handle)
+
 proc `*`*(a, b: Decimal32): Decimal32 =
   result.handle = garrow_decimal32_multiply(a.handle, b.handle)
+
 proc `/`*(a, b: Decimal32): Decimal32 =
   result.handle = verify garrow_decimal32_divide(a.handle, b.handle, nil)
 
@@ -528,26 +520,32 @@ proc toInt*(d: Decimal64): int64 =
   garrow_decimal64_to_integer(d.handle)
 
 proc rescale*(d: Decimal64, originalScale, newScale: int32): Decimal64 =
-  result.handle = verify garrow_decimal64_rescale(
-    d.handle, originalScale, newScale)
+  result.handle = verify garrow_decimal64_rescale(d.handle, originalScale, newScale)
 
 proc `==`*(a, b: Decimal64): bool =
   garrow_decimal64_equal(a.handle, b.handle).bool
+
 proc `<`*(a, b: Decimal64): bool =
   garrow_decimal64_less_than(a.handle, b.handle).bool
+
 proc `<=`*(a, b: Decimal64): bool =
   garrow_decimal64_less_than_or_equal(a.handle, b.handle).bool
+
 proc `>`*(a, b: Decimal64): bool =
   garrow_decimal64_greater_than(a.handle, b.handle).bool
+
 proc `>=`*(a, b: Decimal64): bool =
   garrow_decimal64_greater_than_or_equal(a.handle, b.handle).bool
 
 proc `+`*(a, b: Decimal64): Decimal64 =
   result.handle = garrow_decimal64_plus(a.handle, b.handle)
+
 proc `-`*(a, b: Decimal64): Decimal64 =
   result.handle = garrow_decimal64_minus(a.handle, b.handle)
+
 proc `*`*(a, b: Decimal64): Decimal64 =
   result.handle = garrow_decimal64_multiply(a.handle, b.handle)
+
 proc `/`*(a, b: Decimal64): Decimal64 =
   result.handle = verify garrow_decimal64_divide(a.handle, b.handle, nil)
 
@@ -577,20 +575,16 @@ proc newDecimal64DataType*(precision, scale: int32): Decimal64DataType =
   result.handle = verify garrow_decimal64_data_type_new(precision, scale)
 
 proc precision*(dt: Decimal32DataType): int32 =
-  garrow_decimal_data_type_get_precision(
-    cast[ptr GArrowDecimalDataType](dt.handle))
+  garrow_decimal_data_type_get_precision(cast[ptr GArrowDecimalDataType](dt.handle))
 
 proc scale*(dt: Decimal32DataType): int32 =
-  garrow_decimal_data_type_get_scale(
-    cast[ptr GArrowDecimalDataType](dt.handle))
+  garrow_decimal_data_type_get_scale(cast[ptr GArrowDecimalDataType](dt.handle))
 
 proc precision*(dt: Decimal64DataType): int32 =
-  garrow_decimal_data_type_get_precision(
-    cast[ptr GArrowDecimalDataType](dt.handle))
+  garrow_decimal_data_type_get_precision(cast[ptr GArrowDecimalDataType](dt.handle))
 
 proc scale*(dt: Decimal64DataType): int32 =
-  garrow_decimal_data_type_get_scale(
-    cast[ptr GArrowDecimalDataType](dt.handle))
+  garrow_decimal_data_type_get_scale(cast[ptr GArrowDecimalDataType](dt.handle))
 
 func maxPrecision*(T: typedesc[Decimal32DataType]): int32 =
   garrow_decimal32_data_type_max_precision()
@@ -600,11 +594,10 @@ func maxPrecision*(T: typedesc[Decimal64DataType]): int32 =
 
 # --- Decimal32 Array ---
 
-type
-  Decimal32Array* = object
-    handle: ptr GArrowDecimal32Array
-    precision*: int32
-    scale*: int32
+type Decimal32Array* = object
+  handle: ptr GArrowDecimal32Array
+  precision*: int32
+  scale*: int32
 
 proc `=destroy`*(a: Decimal32Array) =
   if not isNil(a.handle):
@@ -649,11 +642,10 @@ proc `$`*(a: Decimal32Array): string =
 
 # --- Decimal64 Array ---
 
-type
-  Decimal64Array* = object
-    handle: ptr GArrowDecimal64Array
-    precision*: int32
-    scale*: int32
+type Decimal64Array* = object
+  handle: ptr GArrowDecimal64Array
+  precision*: int32
+  scale*: int32
 
 proc `=destroy`*(a: Decimal64Array) =
   if not isNil(a.handle):
@@ -698,11 +690,10 @@ proc `$`*(a: Decimal64Array): string =
 
 # --- Decimal32 / Decimal64 Array Builders ---
 
-type
-  Decimal32ArrayBuilder* = object
-    handle: ptr GArrowDecimal32ArrayBuilder
-    precision: int32
-    scale: int32
+type Decimal32ArrayBuilder* = object
+  handle: ptr GArrowDecimal32ArrayBuilder
+  precision: int32
+  scale: int32
 
 proc `=destroy`*(b: Decimal32ArrayBuilder) =
   if not isNil(b.handle):
@@ -728,8 +719,7 @@ proc `=copy`*(dest: var Decimal32ArrayBuilder, src: Decimal32ArrayBuilder) =
     if not isNil(dest.handle):
       discard g_object_ref(dest.handle)
 
-proc newDecimal32ArrayBuilder*(
-    precision, scale: int32): Decimal32ArrayBuilder =
+proc newDecimal32ArrayBuilder*(precision, scale: int32): Decimal32ArrayBuilder =
   let dt = newDecimal32DataType(precision, scale)
   result.handle = garrow_decimal32_array_builder_new(dt.handle)
   result.precision = precision
@@ -747,22 +737,21 @@ proc append*(b: var Decimal32ArrayBuilder, val: int64) =
   b.append(d)
 
 proc appendNull*(b: var Decimal32ArrayBuilder) =
-  verify garrow_array_builder_append_null(
-    cast[ptr GArrowArrayBuilder](b.handle))
+  verify garrow_array_builder_append_null(cast[ptr GArrowArrayBuilder](b.handle))
 
 proc finish*(b: var Decimal32ArrayBuilder): Decimal32Array =
-  let handle = verify garrow_array_builder_finish(
-    cast[ptr GArrowArrayBuilder](b.handle))
+  let handle =
+    verify garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](b.handle))
   Decimal32Array(
     handle: cast[ptr GArrowDecimal32Array](handle),
     precision: b.precision,
-    scale: b.scale)
+    scale: b.scale,
+  )
 
-type
-  Decimal64ArrayBuilder* = object
-    handle: ptr GArrowDecimal64ArrayBuilder
-    precision: int32
-    scale: int32
+type Decimal64ArrayBuilder* = object
+  handle: ptr GArrowDecimal64ArrayBuilder
+  precision: int32
+  scale: int32
 
 proc `=destroy`*(b: Decimal64ArrayBuilder) =
   if not isNil(b.handle):
@@ -788,8 +777,7 @@ proc `=copy`*(dest: var Decimal64ArrayBuilder, src: Decimal64ArrayBuilder) =
     if not isNil(dest.handle):
       discard g_object_ref(dest.handle)
 
-proc newDecimal64ArrayBuilder*(
-    precision, scale: int32): Decimal64ArrayBuilder =
+proc newDecimal64ArrayBuilder*(precision, scale: int32): Decimal64ArrayBuilder =
   let dt = newDecimal64DataType(precision, scale)
   result.handle = garrow_decimal64_array_builder_new(dt.handle)
   result.precision = precision
@@ -807,16 +795,16 @@ proc append*(b: var Decimal64ArrayBuilder, val: int64) =
   b.append(d)
 
 proc appendNull*(b: var Decimal64ArrayBuilder) =
-  verify garrow_array_builder_append_null(
-    cast[ptr GArrowArrayBuilder](b.handle))
+  verify garrow_array_builder_append_null(cast[ptr GArrowArrayBuilder](b.handle))
 
 proc finish*(b: var Decimal64ArrayBuilder): Decimal64Array =
-  let handle = verify garrow_array_builder_finish(
-    cast[ptr GArrowArrayBuilder](b.handle))
+  let handle =
+    verify garrow_array_builder_finish(cast[ptr GArrowArrayBuilder](b.handle))
   Decimal64Array(
     handle: cast[ptr GArrowDecimal64Array](handle),
     precision: b.precision,
-    scale: b.scale)
+    scale: b.scale,
+  )
 
 # --- Decimal32 / Decimal64 Scalars ---
 
@@ -827,12 +815,10 @@ arcGObject:
   type Decimal64Scalar* = object
     handle*: ptr GArrowDecimal64Scalar
 
-proc newDecimal32Scalar*(
-    dt: Decimal32DataType, value: Decimal32): Decimal32Scalar =
+proc newDecimal32Scalar*(dt: Decimal32DataType, value: Decimal32): Decimal32Scalar =
   result.handle = garrow_decimal32_scalar_new(dt.handle, value.handle)
 
-proc newDecimal64Scalar*(
-    dt: Decimal64DataType, value: Decimal64): Decimal64Scalar =
+proc newDecimal64Scalar*(dt: Decimal64DataType, value: Decimal64): Decimal64Scalar =
   result.handle = garrow_decimal64_scalar_new(dt.handle, value.handle)
 
 proc getValue*(sc: Decimal32Scalar): Decimal32 =

@@ -8,13 +8,15 @@ import ../column/buffer
 # ============================================================================
 
 arcGObject:
-  type
-    Tensor* = object
-      handle*: ptr GArrowTensor
+  type Tensor* = object
+    handle*: ptr GArrowTensor
 
 proc newTensor*(
-    dataType: GADType, data: GBuffer, shape: openArray[int64],
-    strides: openArray[int64] = [], dimNames: openArray[string] = []
+    dataType: GADType,
+    data: GBuffer,
+    shape: openArray[int64],
+    strides: openArray[int64] = [],
+    dimNames: openArray[string] = [],
 ): Tensor =
   var cShape: seq[gint64]
   for s in shape:
@@ -31,12 +33,22 @@ proc newTensor*(
   result.handle = garrow_tensor_new(
     dataType.handle,
     data.handle,
-    if cShape.len > 0: cast[ptr gint64](addr cShape[0]) else: nil,
+    if cShape.len > 0:
+      cast[ptr gint64](addr cShape[0])
+    else:
+      nil,
     cShape.len.gsize,
-    if cStrides.len > 0: cast[ptr gint64](addr cStrides[0]) else: nil,
+    if cStrides.len > 0:
+      cast[ptr gint64](addr cStrides[0])
+    else:
+      nil,
     cStrides.len.gsize,
-    if cNames.len > 0: cast[ptr cstring](addr cNames[0]) else: nil,
-    cNames.len.gsize)
+    if cNames.len > 0:
+      cast[ptr cstring](addr cNames[0])
+    else:
+      nil,
+    cNames.len.gsize,
+  )
   if isNil(result.handle):
     raise newException(OperationError, "Error creating tensor")
 

@@ -113,6 +113,18 @@ suite "Array cast":
     check casted.getChunk(1)[0] == "true"
     check casted.getChunk(2)[2] == "false"
 
+  test "toTyped accepts a matching type":
+    let arr = newArray(@[1'i32, 2, 3])
+    let untyped = castTo(arr, newGType(int32))
+    let typed = toTyped[int32](untyped)
+    check typed.len == 3
+    check typed[0] == 1
+
+  test "toTyped raises TypeError on type mismatch":
+    let arr = newArray(@["a", "b", "c"])
+    let untyped = castTo(arr, newGType(string))
+    expect TypeError:
+      discard toTyped[int32](untyped)
 
 suite "Table cast (hashmap)":
   test "cast single column":

@@ -148,7 +148,11 @@ proc getColumnName*(rb: RecordBatch, idx: int): string =
 
 proc getColumnData*[T](rb: RecordBatch, idx: int): Array[T] =
   ## Returns the column data at index `idx` as a typed array.
-  result = newArray[T](garrow_record_batch_get_column_data(rb.toPtr, idx.gint))
+  ## The column's runtime GArrowType tag is checked against `T`; a mismatch
+  ## raises `TypeError`.
+  let handle = garrow_record_batch_get_column_data(rb.toPtr, idx.gint)
+  result = newArray[T](handle)
+  result.dataType.checkType(T)
 
 proc `[]`*[T](rb: RecordBatch, idx: int, _: typedesc[T]): Array[T] =
   ## Returns the column at `idx` as `Array[T]`.

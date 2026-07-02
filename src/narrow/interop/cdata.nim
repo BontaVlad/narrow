@@ -13,13 +13,10 @@ proc exportRecordBatch*(batch: RecordBatch): (pointer, pointer) =
   ## `ArrowSchema` C structs (owned by the caller).
   var cArray: gpointer
   var cSchema: gpointer
-  verify garrow_record_batch_export(
-    batch.toPtr, addr cArray, addr cSchema)
+  verify garrow_record_batch_export(batch.toPtr, addr cArray, addr cSchema)
   result = (cArray, cSchema)
 
-proc importRecordBatchReader*(
-    cAbiArrayStream: pointer
-): RecordBatchReader =
+proc importRecordBatchReader*(cAbiArrayStream: pointer): RecordBatchReader =
   ## Imports a RecordBatchReader from an Arrow C Data Interface
   ## `ArrowArrayStream`.
   let handle = verify garrow_record_batch_reader_import(cAbiArrayStream)
